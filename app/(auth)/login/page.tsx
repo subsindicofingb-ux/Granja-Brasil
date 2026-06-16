@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const errorMessage =
     error === "config"
-      ? "Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no .env.local."
+      ? "Supabase não configurado. Na Vercel, adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY em Settings → Environment Variables e faça redeploy."
       : error === "callback"
         ? "Não foi possível concluir a autenticação. Tente novamente."
         : null;
