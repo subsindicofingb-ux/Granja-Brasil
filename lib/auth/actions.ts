@@ -10,6 +10,13 @@ import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { notifyNewRegistrationRequest } from "@/lib/actions/registration-requests";
+import {
+  createRegistrationRequestAsAdmin,
+  listPublicCondominiums,
+} from "@/lib/services/registration-requests";
+import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
+import type { RegistrationUnitKind, ResidentType } from "@/types";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -92,8 +99,19 @@ export async function signUpAction(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
+  const preQualification = registrationPreQualificationSchema.safeParse({
+    condominium_id: formData.get("condominium_id"),
+    resident_type: formData.get("resident_type"),
+    unit_kind: formData.get("unit_kind"),
+    unit_number: formData.get("unit_number"),
+  });
+
   if (!fullName || !email || !password) {
     return { error: "Preencha todos os campos." };
+  }
+
+  if (!preQualification.success) {
+    return { error: preQualification.error.issues[0]?.message ?? "Dados de pré-qualificação inválidos." };
   }
 
   if (password.length < 6) {
@@ -130,6 +148,42 @@ export async function signUpAction(
 
     if (data.user) {
       await ensureProfile(data.user);
+
+      const condos = await listPublicCondominiums();
+      const selectedCondo = condos.ok
+        ? condos.data?.find((condo) => condo.id === preQualification.data.condominium_id)
+        : undefined;
+
+      const requestResult = await createRegistrationRequestAsAdmin({
+        profileId: data.user.id,
+        condominiumId: preQualification.data.condominium_id,
+        residentType: preQualification.data.resident_type as ResidentType,
+        unitKind: preQualification.data.unit_kind as RegistrationUnitKind,
+        unitNumber: preQualification.data.unit_number,
+        fullName,
+        email,
+      });
+
+      if (!requestResult.ok) {
+        return {
+          error:
+            requestResult.error ??
+            "Conta criada, mas não foi possível enviar a solicitação ao condomínio. Entre em contato com o síndico.",
+        };
+      }
+
+      if (selectedCondo) {
+        await notifyNewRegistrationRequest({
+          requestId: requestResult.data.id,
+          condominiumId: selectedCondo.id,
+          condominiumName: selectedCondo.name,
+          fullName,
+          email,
+          unitKind: preQualification.data.unit_kind,
+          unitNumber: preQualification.data.unit_number,
+          residentType: preQualification.data.resident_type as ResidentType,
+        });
+      }
     }
 
     revalidatePath("/", "layout");
@@ -137,7 +191,7 @@ export async function signUpAction(
     if (!data.session) {
       return {
         success:
-          "Conta criada! Abra o link enviado por e-mail para confirmar. Se o link apontar para localhost, configure NEXT_PUBLIC_SITE_URL na Vercel e a Site URL no Supabase Auth.",
+          "Conta criada! Confirme o e-mail enviado. O síndico do condomínio foi notificado e analisará seu cadastro.",
       };
     }
 

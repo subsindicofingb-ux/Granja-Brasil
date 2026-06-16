@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { SignUpForm } from "@/components/auth/signup-form";
+import { listPublicCondominiums } from "@/lib/services/registration-requests";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  const condosResult = await listPublicCondominiums();
+  const condominiums = condosResult.ok ? (condosResult.data ?? []) : [];
+
   return (
     <div className="flex min-h-screen">
       <div className="hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
@@ -14,8 +18,8 @@ export default function SignUpPage() {
         <div>
           <h2 className="text-3xl font-bold leading-tight">Crie sua conta</h2>
           <p className="mt-4 max-w-md text-sidebar-foreground/70">
-            Após o cadastro, um administrador do condomínio precisa vincular seu usuário em
-            Configurações → Membros.
+            Informe seu condomínio, se mora em apartamento ou casa, e o número da unidade. O
+            síndico receberá sua solicitação e liberará o acesso após aprovação.
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/50">
@@ -27,10 +31,12 @@ export default function SignUpPage() {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Criar conta</CardTitle>
-            <CardDescription>Cadastro com e-mail e senha via Supabase Auth.</CardDescription>
+            <CardDescription>
+              Cadastro com e-mail, senha e pré-qualificação do seu condomínio.
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <SignUpForm />
+            <SignUpForm condominiums={condominiums} />
           </CardContent>
         </Card>
       </div>

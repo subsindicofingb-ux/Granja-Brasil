@@ -60,6 +60,27 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
       <PermissionGate
         access={access}
+        allow={(ctx) => ctx.permissions.canManageRegistrationRequests}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Solicitações de cadastro</CardTitle>
+            <CardDescription>
+              Aprove ou recuse novos moradores que se cadastraram informando condomínio e unidade.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/settings/registration-requests`}>
+                Ver solicitações
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PermissionGate>
+
+      <PermissionGate
+        access={access}
         allow={(ctx) => ctx.permissions.canManageMembers}
       >
         <Card>

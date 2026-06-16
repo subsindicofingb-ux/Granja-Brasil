@@ -6,10 +6,14 @@ import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
+import { REGISTRATION_REQUEST_STATUS } from "@/lib/constants";
+import { REGISTRATION_REQUEST_STATUS_LABELS } from "@/lib/registrations/labels";
+import { listRegistrationRequestsForProfile } from "@/lib/services/registration-requests";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +25,11 @@ export default async function AppHomePage() {
   const session = await requireSession();
   const memberships = await getAccessibleCondominiums();
   const activeSlug = await getActiveCondoSlug();
+  const myRequestsResult = await listRegistrationRequestsForProfile(session.user.id);
+  const myRequests = myRequestsResult.ok ? (myRequestsResult.data ?? []) : [];
+  const pendingRequests = myRequests.filter(
+    (request) => request.status === REGISTRATION_REQUEST_STATUS.PENDING,
+  );
 
   if (memberships.length === 1) {
     redirect(`/app/${memberships[0].condominium.slug}`);
@@ -60,17 +69,40 @@ export default async function AppHomePage() {
         {memberships.length === 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Aguardando vínculo</CardTitle>
+              <CardTitle>Aguardando aprovação</CardTitle>
               <CardDescription>
-                Sua conta foi criada, mas ainda não há membership. Peça a um administrador ou
-                síndico para vincular seu e-mail ({session.user.email}) em Configurações →
-                Membros.
+                Sua conta foi criada. O síndico do condomínio precisa aprovar seu cadastro antes
+                do acesso ao painel.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button variant="outline" asChild>
-                <Link href="/signup">Convidar outra pessoa</Link>
-              </Button>
+            <CardContent className="space-y-4">
+              {pendingRequests.length > 0 ? (
+                <div className="space-y-3">
+                  {pendingRequests.map((request) => (
+                    <div key={request.id} className="rounded-md border bg-muted/20 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">
+                          {request.condominium?.name ?? "Condomínio"}
+                        </span>
+                        <Badge className="border bg-background">
+                          {REGISTRATION_REQUEST_STATUS_LABELS[request.status]}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">
+                        Solicitado em {formatDateTime(request.created_at)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Se você ainda não fez o cadastro com pré-qualificação,{" "}
+                  <Link href="/signup" className="text-primary hover:underline">
+                    crie uma nova conta
+                  </Link>{" "}
+                  informando condomínio e unidade.
+                </p>
+              )}
             </CardContent>
           </Card>
         ) : (

@@ -61,6 +61,23 @@ export const VISITOR_AUTHORIZATION_STATUS = {
 export type VisitorAuthorizationStatus =
   (typeof VISITOR_AUTHORIZATION_STATUS)[keyof typeof VISITOR_AUTHORIZATION_STATUS];
 
+export const REGISTRATION_REQUEST_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+} as const;
+
+export type RegistrationRequestStatus =
+  (typeof REGISTRATION_REQUEST_STATUS)[keyof typeof REGISTRATION_REQUEST_STATUS];
+
+export const REGISTRATION_UNIT_KIND = {
+  APARTMENT: "apartment",
+  HOUSE: "house",
+} as const;
+
+export type RegistrationUnitKind =
+  (typeof REGISTRATION_UNIT_KIND)[keyof typeof REGISTRATION_UNIT_KIND];
+
 export const DEMO_CONDO_SLUG = "residencial-exemplo";
 
 export const NAV_ITEMS = [

@@ -25,6 +25,10 @@ export type GuestType = "visitor" | "service_provider";
 
 export type VisitorAuthorizationStatus = "pending" | "approved" | "rejected" | "cancelled";
 
+export type RegistrationRequestStatus = "pending" | "approved" | "rejected";
+
+export type RegistrationUnitKind = "apartment" | "house";
+
 export interface Database {
   public: {
     Tables: {
@@ -606,6 +610,89 @@ export interface Database {
           },
         ];
       };
+      registration_requests: {
+        Row: {
+          id: string;
+          profile_id: string;
+          condominium_id: string;
+          resident_type: ResidentType;
+          unit_kind: RegistrationUnitKind;
+          unit_number: string;
+          full_name: string;
+          email: string;
+          status: RegistrationRequestStatus;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_notes: string | null;
+          unit_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          condominium_id: string;
+          resident_type?: ResidentType;
+          unit_kind: RegistrationUnitKind;
+          unit_number: string;
+          full_name: string;
+          email: string;
+          status?: RegistrationRequestStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
+          unit_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          condominium_id?: string;
+          resident_type?: ResidentType;
+          unit_kind?: RegistrationUnitKind;
+          unit_number?: string;
+          full_name?: string;
+          email?: string;
+          status?: RegistrationRequestStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
+          unit_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "registration_requests_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "registration_requests_condominium_id_fkey";
+            columns: ["condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "registration_requests_reviewed_by_fkey";
+            columns: ["reviewed_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "registration_requests_unit_id_fkey";
+            columns: ["unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -633,6 +720,8 @@ export interface Database {
       announcement_publication_status: AnnouncementPublicationStatus;
       guest_type: GuestType;
       visitor_authorization_status: VisitorAuthorizationStatus;
+      registration_request_status: RegistrationRequestStatus;
+      registration_unit_kind: RegistrationUnitKind;
     };
   };
 }
@@ -649,3 +738,5 @@ export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"];
 export type VisitorAuthorization =
   Database["public"]["Tables"]["visitor_authorizations"]["Row"];
+export type RegistrationRequest =
+  Database["public"]["Tables"]["registration_requests"]["Row"];

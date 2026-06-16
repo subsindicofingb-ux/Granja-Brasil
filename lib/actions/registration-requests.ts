@@ -1,0 +1,96 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireCondoPermission } from "@/lib/auth/access";
+import type { AuthActionState } from "@/lib/auth/types";
+import { notifyRegistrationRequestEvent } from "@/lib/registrations/notifications";
+import {
+  approveRegistrationRequest,
+  rejectRegistrationRequest,
+} from "@/lib/services/registration-requests";
+import { reviewRegistrationRequestSchema } from "@/lib/validations/registration.schema";
+
+function revalidateRegistrationPaths(condoSlug: string) {
+  revalidatePath(`/app/${condoSlug}`);
+  revalidatePath(`/app/${condoSlug}/settings`);
+  revalidatePath(`/app/${condoSlug}/settings/registration-requests`);
+  revalidatePath("/app");
+}
+
+export async function reviewRegistrationRequestAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageRegistrationRequests,
+    { redirectTo: `/app/${condoSlug}/settings/registration-requests` },
+  );
+
+  const parsed = reviewRegistrationRequestSchema.safeParse({
+    request_id: formData.get("request_id"),
+    action: formData.get("action"),
+    review_notes: formData.get("review_notes") ?? "",
+    unit_id: formData.get("unit_id") || undefined,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const { request_id, action, review_notes, unit_id } = parsed.data;
+
+  const result =
+    action === "approve"
+      ? await approveRegistrationRequest({
+          requestId: request_id,
+          condominiumId: access.condominium.id,
+          reviewerProfileId: access.profile.id,
+          unitId: unit_id,
+          reviewNotes: review_notes,
+        })
+      : await rejectRegistrationRequest({
+          requestId: request_id,
+          condominiumId: access.condominium.id,
+          reviewerProfileId: access.profile.id,
+          reviewNotes: review_notes,
+        });
+
+  if (!result.ok) {
+    return { error: result.error ?? "Não foi possível analisar a solicitação." };
+  }
+
+  revalidateRegistrationPaths(condoSlug);
+
+  return {
+    success:
+      action === "approve"
+        ? "Cadastro aprovado. O morador já pode acessar o condomínio."
+        : "Solicitação recusada.",
+  };
+}
+
+export async function notifyNewRegistrationRequest(input: {
+  requestId: string;
+  condominiumId: string;
+  condominiumName: string;
+  fullName: string;
+  email: string;
+  unitKind: "apartment" | "house";
+  unitNumber: string;
+  residentType: "owner" | "tenant" | "dependent" | "responsible";
+}) {
+  await notifyRegistrationRequestEvent({
+    type: "registration_request_created",
+    requestId: input.requestId,
+    condominiumId: input.condominiumId,
+    condominiumName: input.condominiumName,
+    fullName: input.fullName,
+    email: input.email,
+    unitKind: input.unitKind,
+    unitNumber: input.unitNumber,
+    residentType: input.residentType,
+  });
+}

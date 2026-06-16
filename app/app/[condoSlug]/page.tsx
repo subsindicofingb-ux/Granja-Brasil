@@ -5,6 +5,7 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { getDashboardData } from "@/lib/services/dashboard";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { getReservationStatusLabel } from "@/lib/reservations/labels";
+import { countPendingRegistrationRequests } from "@/lib/services/registration-requests";
 import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
@@ -53,6 +54,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const base = `/app/${condoSlug}`;
   const result = await getDashboardData(access.condominium.id);
+  const pendingRegistrationResult = access.permissions.canManageRegistrationRequests
+    ? await countPendingRegistrationRequests(access.condominium.id)
+    : null;
+  const pendingRegistrationCount =
+    pendingRegistrationResult?.ok ? (pendingRegistrationResult.data ?? 0) : 0;
 
   if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
@@ -241,6 +247,20 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
               <Link href={`${base}/reservations?status=${RESERVATION_STATUS.PENDING}`}>
                 Revisar
               </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {access.permissions.canManageRegistrationRequests && pendingRegistrationCount > 0 && (
+        <Card className="border-sky-200 bg-sky-50/50">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm">
+              <span className="font-medium">{pendingRegistrationCount} cadastro(s)</span>{" "}
+              aguardando aprovação do síndico.
+            </p>
+            <Button size="sm" variant="outline" asChild>
+              <Link href={`${base}/settings/registration-requests`}>Analisar solicitações</Link>
             </Button>
           </CardContent>
         </Card>
