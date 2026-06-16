@@ -36,7 +36,7 @@ async function countUnits(
   }
 
   const supabase = await createClient();
-  let query = supabase
+  const query = supabase
     .from("units")
     .select("id, towers!inner(condominium_id)", { count: "exact", head: true })
     .eq("towers.condominium_id", condominiumId);
@@ -64,7 +64,7 @@ async function countResidents(
   }
 
   const supabase = await createClient();
-  let query = supabase
+  const query = supabase
     .from("residents")
     .select("id, units!inner(towers!inner(condominium_id))", { count: "exact", head: true })
     .eq("units.towers.condominium_id", condominiumId);

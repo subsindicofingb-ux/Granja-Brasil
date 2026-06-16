@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
-import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
+import { requireCondoAccess } from "@/lib/auth/access";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
 import { listReservationsByCondominium } from "@/lib/services/reservations";
