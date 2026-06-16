@@ -38,7 +38,11 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (user) {
-    await ensureProfile(user);
+    try {
+      await ensureProfile(user);
+    } catch {
+      // Sessão já foi criada; profile pode ser garantido depois.
+    }
   }
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));

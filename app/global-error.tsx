@@ -27,6 +27,11 @@ export default function GlobalError({
           {error.digest && (
             <p className="text-xs text-muted-foreground">Digest: {error.digest}</p>
           )}
+          {error.message && (
+            <p className="rounded-md border bg-muted px-3 py-2 text-left text-xs text-muted-foreground">
+              {error.message}
+            </p>
+          )}
           <div className="flex justify-center gap-3">
             <Button onClick={() => reset()}>Tentar novamente</Button>
             <Button variant="outline" asChild>

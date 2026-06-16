@@ -6,6 +6,14 @@ export function getSupabasePublicEnv() {
     return null;
   }
 
+  if (
+    url.includes("your-project") ||
+    anonKey.includes("your-anon-key") ||
+    url.includes("example.supabase.co")
+  ) {
+    return null;
+  }
+
   return { url, anonKey };
 }
 

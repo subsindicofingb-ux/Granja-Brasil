@@ -2,22 +2,45 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
+import { getSupabaseServiceRoleKey, isSupabaseConfigured } from "@/lib/supabase/env";
 import type { Profile } from "@/types";
 import type { SessionUser } from "@/lib/auth/types";
 
-export async function getAuthUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+function buildProfileFromUser(user: User): Profile {
+  const now = new Date().toISOString();
 
-  if (error || !user) {
+  return {
+    id: user.id,
+    full_name:
+      (user.user_metadata?.full_name as string | undefined) ??
+      user.email?.split("@")[0] ??
+      "Usuário",
+    avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export async function getAuthUser() {
+  if (!isSupabaseConfigured()) {
     return null;
   }
 
-  return user;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+
+    if (error || !user) {
+      return null;
+    }
+
+    return user;
+  } catch {
+    return null;
+  }
 }
 
 export async function getAuthUserId(): Promise<string | null> {
@@ -34,78 +57,90 @@ export async function requireAuthUser(): Promise<User> {
 }
 
 export async function ensureProfile(user: User): Promise<Profile> {
-  const supabase = await createClient();
-
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (existing) {
-    return existing;
+  if (!isSupabaseConfigured()) {
+    return buildProfileFromUser(user);
   }
 
-  const fullName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    user.email?.split("@")[0] ??
-    "Usuário";
+  try {
+    const supabase = await createClient();
 
-  const { data: inserted, error: insertError } = await supabase
-    .from("profiles")
-    .insert({
-      id: user.id,
-      full_name: fullName,
-      avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
-    })
-    .select("*")
-    .single();
-
-  if (inserted) {
-    return inserted;
-  }
-
-  const { data: existingAfterInsert } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (existingAfterInsert) {
-    return existingAfterInsert;
-  }
-
-  if (getSupabaseServiceRoleKey()) {
-    const admin = createAdminClient();
-    const { data: upserted, error: upsertError } = await admin
+    const { data: existing } = await supabase
       .from("profiles")
-      .upsert(
-        {
-          id: user.id,
-          full_name: fullName,
-          avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
-        },
-        { onConflict: "id" },
-      )
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      return existing;
+    }
+
+    const fullName =
+      (user.user_metadata?.full_name as string | undefined) ??
+      user.email?.split("@")[0] ??
+      "Usuário";
+
+    const { data: inserted } = await supabase
+      .from("profiles")
+      .insert({
+        id: user.id,
+        full_name: fullName,
+        avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+      })
       .select("*")
       .single();
 
-    if (upserted) {
-      return upserted;
+    if (inserted) {
+      return inserted;
     }
 
-    if (upsertError) {
-      throw new Error(upsertError.message);
+    const { data: existingAfterInsert } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (existingAfterInsert) {
+      return existingAfterInsert;
     }
+
+    if (getSupabaseServiceRoleKey()) {
+      const admin = createAdminClient();
+      const { data: upserted } = await admin
+        .from("profiles")
+        .upsert(
+          {
+            id: user.id,
+            full_name: fullName,
+            avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+          },
+          { onConflict: "id" },
+        )
+        .select("*")
+        .single();
+
+      if (upserted) {
+        return upserted;
+      }
+    }
+  } catch {
+    // Banco indisponível ou migrations pendentes — segue com profile derivado do auth.
   }
 
-  throw new Error(insertError?.message ?? "Falha ao garantir profile do usuário.");
+  return buildProfileFromUser(user);
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-  const supabase = await createClient();
-  const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
-  return data;
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export async function getSession(): Promise<SessionUser | null> {
@@ -131,10 +166,18 @@ export async function requireSession(): Promise<SessionUser> {
 }
 
 export async function isSuperAdmin(): Promise<boolean> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("is_super_admin");
-  if (error) {
+  if (!isSupabaseConfigured()) {
     return false;
   }
-  return Boolean(data);
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("is_super_admin");
+    if (error) {
+      return false;
+    }
+    return Boolean(data);
+  } catch {
+    return false;
+  }
 }

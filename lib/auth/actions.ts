@@ -9,6 +9,7 @@ import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 function getSiteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -26,7 +27,20 @@ export async function signInAction(
     return { error: "Informe e-mail e senha." };
   }
 
-  const supabase = await createClient();
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.",
+    };
+  }
+
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
@@ -57,7 +71,20 @@ export async function signUpAction(
     return { error: "A senha deve ter pelo menos 6 caracteres." };
   }
 
-  const supabase = await createClient();
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.",
+    };
+  }
+
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch {
+    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -80,8 +107,14 @@ export async function signUpAction(
 }
 
 export async function signOutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignora falha de rede/config ao encerrar sessão local.
+    }
+  }
   await clearActiveCondoSlug();
   revalidatePath("/", "layout");
   redirect("/login");

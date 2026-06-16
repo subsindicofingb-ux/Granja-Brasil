@@ -8,6 +8,7 @@ import {
   type MembershipWithCondo,
 } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type MembershipRow = {
   id: string;
@@ -21,17 +22,19 @@ type MembershipRow = {
 
 export async function getUserMemberships(): Promise<MembershipWithCondo[]> {
   const user = await getAuthUser();
-  if (!user) {
+  if (!user || !isSupabaseConfigured()) {
     return [];
   }
 
   await ensureProfile(user);
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("memberships")
-    .select(
-      `
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .select(
+        `
       id,
       role,
       condominium:condominiums (
@@ -40,23 +43,26 @@ export async function getUserMemberships(): Promise<MembershipWithCondo[]> {
         slug
       )
     `,
-    )
-    .eq("profile_id", user.id)
-    .order("created_at", { ascending: true });
+      )
+      .eq("profile_id", user.id)
+      .order("created_at", { ascending: true });
 
-  if (error || !data) {
+    if (error || !data) {
+      return [];
+    }
+
+    return (data as MembershipRow[])
+      .filter((row): row is MembershipRow & { condominium: NonNullable<MembershipRow["condominium"]> } =>
+        Boolean(row.condominium),
+      )
+      .map((row) => ({
+        id: row.id,
+        role: row.role,
+        condominium: row.condominium,
+      }));
+  } catch {
     return [];
   }
-
-  return (data as MembershipRow[])
-    .filter((row): row is MembershipRow & { condominium: NonNullable<MembershipRow["condominium"]> } =>
-      Boolean(row.condominium),
-    )
-    .map((row) => ({
-      id: row.id,
-      role: row.role,
-      condominium: row.condominium,
-    }));
 }
 
 export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]> {
@@ -67,29 +73,33 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
     return memberships;
   }
 
-  const supabase = await createClient();
-  const { data: condominiums } = await supabase
-    .from("condominiums")
-    .select("id, name, slug")
-    .order("name");
+  try {
+    const supabase = await createClient();
+    const { data: condominiums } = await supabase
+      .from("condominiums")
+      .select("id, name, slug")
+      .order("name");
 
-  const bySlug = new Map<string, MembershipWithCondo>();
+    const bySlug = new Map<string, MembershipWithCondo>();
 
-  for (const membership of memberships) {
-    bySlug.set(membership.condominium.slug, membership);
-  }
-
-  for (const condominium of condominiums ?? []) {
-    if (!bySlug.has(condominium.slug)) {
-      bySlug.set(condominium.slug, {
-        id: `super-admin-${condominium.id}`,
-        role: "super_admin",
-        condominium,
-      });
+    for (const membership of memberships) {
+      bySlug.set(membership.condominium.slug, membership);
     }
-  }
 
-  return Array.from(bySlug.values());
+    for (const condominium of condominiums ?? []) {
+      if (!bySlug.has(condominium.slug)) {
+        bySlug.set(condominium.slug, {
+          id: `super-admin-${condominium.id}`,
+          role: "super_admin",
+          condominium,
+        });
+      }
+    }
+
+    return Array.from(bySlug.values());
+  } catch {
+    return memberships;
+  }
 }
 
 export async function getCondoAccess(slug: string): Promise<CondoAccess | null> {
@@ -117,24 +127,28 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
     return null;
   }
 
-  const supabase = await createClient();
-  const { data: condominium } = await supabase
-    .from("condominiums")
-    .select("id, name, slug")
-    .eq("slug", slug)
-    .maybeSingle();
+  try {
+    const supabase = await createClient();
+    const { data: condominium } = await supabase
+      .from("condominiums")
+      .select("id, name, slug")
+      .eq("slug", slug)
+      .maybeSingle();
 
-  if (!condominium) {
+    if (!condominium) {
+      return null;
+    }
+
+    return buildCondoAccess({
+      membershipId: null,
+      role: "super_admin",
+      condominium,
+      profile,
+      email: user.email ?? "",
+    });
+  } catch {
     return null;
   }
-
-  return buildCondoAccess({
-    membershipId: null,
-    role: "super_admin",
-    condominium,
-    profile,
-    email: user.email ?? "",
-  });
 }
 
 export async function requireCondoAccess(slug: string): Promise<CondoAccess> {
