@@ -94,6 +94,7 @@ export type VisitorAuthorizationListOptions = {
   search?: string;
 };
 
+export async function listVisitorAuthorizationsByCondominium(
   condominiumId: string,
   options?: VisitorAuthorizationListOptions,
 ): Promise<ServiceResult<VisitorAuthorizationWithDetails[]>> {
