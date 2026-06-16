@@ -542,6 +542,7 @@ export interface Database {
       vehicles: {
         Row: {
           id: string;
+          condominium_id: string;
           unit_id: string;
           resident_id: string | null;
           brand: string;
@@ -555,6 +556,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          condominium_id: string;
           unit_id: string;
           resident_id?: string | null;
           brand: string;
@@ -568,6 +570,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          condominium_id?: string;
           unit_id?: string;
           resident_id?: string | null;
           brand?: string;
@@ -580,6 +583,13 @@ export interface Database {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "vehicles_condominium_id_fkey";
+            columns: ["condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "vehicles_unit_id_fkey";
             columns: ["unit_id"];

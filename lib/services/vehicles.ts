@@ -22,6 +22,7 @@ export type VehicleWithUnit = Vehicle & {
 
 type VehicleRow = {
   id: string;
+  condominium_id: string;
   unit_id: string;
   resident_id: string | null;
   brand: string;
@@ -52,6 +53,7 @@ type VehicleRow = {
 function mapVehicleRow(row: VehicleRow): VehicleWithUnit {
   return {
     id: row.id,
+    condominium_id: row.condominium_id,
     unit_id: row.unit_id,
     resident_id: row.resident_id,
     brand: row.brand,
@@ -75,6 +77,7 @@ function mapVehicleRow(row: VehicleRow): VehicleWithUnit {
 
 const VEHICLE_SELECT = `
   id,
+  condominium_id,
   unit_id,
   resident_id,
   brand,
@@ -252,6 +255,7 @@ export async function createVehicle(input: {
   const { data, error } = await supabase
     .from("vehicles")
     .insert({
+      condominium_id: input.condominiumId,
       unit_id: input.unitId,
       resident_id: input.residentId,
       brand: input.brand,
@@ -302,6 +306,7 @@ export async function updateVehicle(input: {
   const { data, error } = await supabase
     .from("vehicles")
     .update({
+      condominium_id: input.condominiumId,
       unit_id: input.unitId,
       resident_id: input.residentId,
       brand: input.brand,
