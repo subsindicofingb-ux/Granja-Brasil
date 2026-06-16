@@ -1,0 +1,523 @@
+import { createClient } from "@/lib/supabase/server";
+import type { ReservationStatus } from "@/lib/constants";
+import { getCommonAreaById } from "@/lib/services/common-areas";
+import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { notifyReservationEvent } from "@/lib/reservations/notifications";
+import type {
+  ReservationRecord,
+  ReservationWithDetails,
+} from "@/lib/reservations/types";
+import {
+  canApproveReservation,
+  canCancelReservation,
+  canRejectReservation,
+  resolveInitialReservationStatus,
+  validateBooking,
+} from "@/lib/reservations/validate-booking";
+
+type ReservationRow = ReservationRecord;
+
+type ReservationDetailRow = ReservationRow & {
+  common_areas: {
+    id: string;
+    name: string;
+    requires_approval: boolean;
+    condominium_id: string;
+  };
+  units: {
+    id: string;
+    number: string;
+    block: string | null;
+    towers: {
+      id: string;
+      name: string;
+      condominium_id: string;
+    };
+  };
+  profiles: {
+    id: string;
+    full_name: string;
+  } | null;
+};
+
+const RESERVATION_SELECT = `
+  id,
+  common_area_id,
+  unit_id,
+  requested_by,
+  start_at,
+  end_at,
+  status,
+  notes,
+  created_at,
+  updated_at
+`;
+
+const RESERVATION_DETAIL_SELECT = `
+  ${RESERVATION_SELECT},
+  common_areas!inner (
+    id,
+    name,
+    requires_approval,
+    condominium_id
+  ),
+  units!inner (
+    id,
+    number,
+    block,
+    towers!inner (
+      id,
+      name,
+      condominium_id
+    )
+  ),
+  profiles (
+    id,
+    full_name
+  )
+`;
+
+function mapReservation(row: ReservationRow): ReservationRecord {
+  return {
+    id: row.id,
+    common_area_id: row.common_area_id,
+    unit_id: row.unit_id,
+    requested_by: row.requested_by,
+    start_at: row.start_at,
+    end_at: row.end_at,
+    status: row.status,
+    notes: row.notes,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails {
+  return {
+    ...mapReservation(row),
+    common_area: {
+      id: row.common_areas.id,
+      name: row.common_areas.name,
+      requires_approval: row.common_areas.requires_approval,
+    },
+    unit: {
+      id: row.units.id,
+      number: row.units.number,
+      block: row.units.block,
+      tower: row.units.towers,
+    },
+    requester: row.profiles
+      ? { id: row.profiles.id, full_name: row.profiles.full_name }
+      : null,
+  };
+}
+
+export type ReservationListOptions = {
+  commonAreaId?: string;
+  unitId?: string;
+  status?: ReservationStatus | "all";
+  from?: string;
+  to?: string;
+};
+
+export async function listReservationsByCondominium(
+  condominiumId: string,
+  options?: ReservationListOptions,
+): Promise<ServiceResult<ReservationWithDetails[]>> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("common_areas.condominium_id", condominiumId)
+    .order("start_at", { ascending: true });
+
+  if (options?.commonAreaId) {
+    query = query.eq("common_area_id", options.commonAreaId);
+  }
+
+  if (options?.unitId) {
+    query = query.eq("unit_id", options.unitId);
+  }
+
+  if (options?.status && options.status !== "all") {
+    query = query.eq("status", options.status);
+  }
+
+  if (options?.from) {
+    query = query.gte("start_at", options.from);
+  }
+
+  if (options?.to) {
+    query = query.lte("start_at", options.to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return {
+    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
+    error: null,
+  };
+}
+
+export async function listUpcomingReservationsByCondominium(
+  condominiumId: string,
+  limit = 5,
+): Promise<ServiceResult<ReservationWithDetails[]>> {
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("common_areas.condominium_id", condominiumId)
+    .gte("start_at", now)
+    .in("status", ["pending", "approved"])
+    .order("start_at", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return {
+    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
+    error: null,
+  };
+}
+
+export async function listRecentReservationsByCondominium(
+  condominiumId: string,
+  limit = 5,
+): Promise<ServiceResult<ReservationWithDetails[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("common_areas.condominium_id", condominiumId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return {
+    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
+    error: null,
+  };
+}
+
+export async function countReservationsByStatusForCondominium(
+  condominiumId: string,
+): Promise<ServiceResult<Record<ReservationStatus, number>>> {
+  const supabase = await createClient();
+  const statuses: ReservationStatus[] = ["pending", "approved", "rejected", "cancelled"];
+  const counts = Object.fromEntries(
+    statuses.map((status) => [status, 0]),
+  ) as Record<ReservationStatus, number>;
+
+  const results = await Promise.all(
+    statuses.map(async (status) => {
+      const { count, error } = await supabase
+        .from("reservations")
+        .select("id, common_areas!inner(condominium_id)", { count: "exact", head: true })
+        .eq("common_areas.condominium_id", condominiumId)
+        .eq("status", status);
+
+      return { status, count, error };
+    }),
+  );
+
+  for (const result of results) {
+    if (result.error) {
+      return serviceError(mapSupabaseError(result.error));
+    }
+    counts[result.status] = result.count ?? 0;
+  }
+
+  return { data: counts, error: null };
+}
+
+export async function listReservationsForArea(
+  commonAreaId: string,
+  condominiumId: string,
+  range: { from: string; to: string },
+): Promise<ServiceResult<ReservationWithDetails[]>> {
+  return listReservationsByCondominium(condominiumId, {
+    commonAreaId,
+    from: range.from,
+    to: range.to,
+    status: "all",
+  });
+}
+
+export async function listBlockingReservationsForArea(
+  commonAreaId: string,
+): Promise<ServiceResult<ReservationRecord[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_SELECT)
+    .eq("common_area_id", commonAreaId)
+    .in("status", ["pending", "approved"]);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return {
+    data: ((data as ReservationRow[] | null) ?? []).map(mapReservation),
+    error: null,
+  };
+}
+
+export async function getReservationById(
+  reservationId: string,
+  condominiumId: string,
+): Promise<ServiceResult<ReservationWithDetails>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("id", reservationId)
+    .eq("common_areas.condominium_id", condominiumId)
+    .maybeSingle();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  if (!data) {
+    return serviceError("Reserva não encontrada neste condomínio.");
+  }
+
+  return { data: mapReservationDetail(data as ReservationDetailRow), error: null };
+}
+
+export async function listUnitIdsForProfile(
+  profileId: string,
+  condominiumId: string,
+): Promise<ServiceResult<string[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("residents")
+    .select(
+      `
+      unit_id,
+      units!inner (
+        towers!inner (
+          condominium_id
+        )
+      )
+    `,
+    )
+    .eq("profile_id", profileId)
+    .eq("units.towers.condominium_id", condominiumId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const unitIds = [...new Set((data ?? []).map((row) => row.unit_id as string))];
+  return { data: unitIds, error: null };
+}
+
+export async function createReservation(input: {
+  condominiumId: string;
+  commonAreaId: string;
+  unitId: string;
+  startAt: string;
+  endAt: string;
+  notes: string | null;
+  requestedBy: string | null;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const areaResult = await getCommonAreaById(input.commonAreaId, input.condominiumId);
+
+  if (areaResult.error) {
+    return serviceError(areaResult.error);
+  }
+
+  const area = areaResult.data;
+  const startAt = new Date(input.startAt);
+  const endAt = new Date(input.endAt);
+
+  const blockingResult = await listBlockingReservationsForArea(input.commonAreaId);
+
+  if (blockingResult.error) {
+    return serviceError(blockingResult.error);
+  }
+
+  const validation = validateBooking({
+    area,
+    unitId: input.unitId,
+    startAt,
+    endAt,
+    existingReservations: blockingResult.data,
+  });
+
+  if (!validation.valid) {
+    return serviceError(validation.error);
+  }
+
+  const status = resolveInitialReservationStatus(area);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .insert({
+      common_area_id: input.commonAreaId,
+      unit_id: input.unitId,
+      requested_by: input.requestedBy,
+      start_at: input.startAt,
+      end_at: input.endAt,
+      notes: input.notes,
+      status,
+    })
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const reservation = mapReservationDetail(data as ReservationDetailRow);
+
+  await notifyReservationEvent({
+    type: "reservation_created",
+    reservationId: reservation.id,
+    condominiumId: input.condominiumId,
+  });
+
+  return { data: reservation, error: null };
+}
+
+async function updateReservationStatus(input: {
+  reservationId: string;
+  condominiumId: string;
+  status: ReservationStatus;
+  notificationType: "reservation_approved" | "reservation_rejected" | "reservation_cancelled";
+  validate?: (reservation: ReservationWithDetails) => string | null;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const current = await getReservationById(input.reservationId, input.condominiumId);
+
+  if (current.error) {
+    return serviceError(current.error);
+  }
+
+  if (input.validate) {
+    const validationError = input.validate(current.data);
+    if (validationError) {
+      return serviceError(validationError);
+    }
+  }
+
+  if (input.status === "approved") {
+    const areaResult = await getCommonAreaById(
+      current.data.common_area_id,
+      input.condominiumId,
+    );
+
+    if (areaResult.error) {
+      return serviceError(areaResult.error);
+    }
+
+    const blockingResult = await listBlockingReservationsForArea(current.data.common_area_id);
+
+    if (blockingResult.error) {
+      return serviceError(blockingResult.error);
+    }
+
+    const validation = validateBooking({
+      area: areaResult.data,
+      unitId: current.data.unit_id,
+      startAt: new Date(current.data.start_at),
+      endAt: new Date(current.data.end_at),
+      existingReservations: blockingResult.data,
+      excludeReservationId: input.reservationId,
+    });
+
+    if (!validation.valid) {
+      return serviceError(validation.error);
+    }
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({ status: input.status })
+    .eq("id", input.reservationId)
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const reservation = mapReservationDetail(data as ReservationDetailRow);
+
+  await notifyReservationEvent({
+    type: input.notificationType,
+    reservationId: reservation.id,
+    condominiumId: input.condominiumId,
+  });
+
+  return { data: reservation, error: null };
+}
+
+export async function approveReservation(
+  reservationId: string,
+  condominiumId: string,
+): Promise<ServiceResult<ReservationWithDetails>> {
+  return updateReservationStatus({
+    reservationId,
+    condominiumId,
+    status: "approved",
+    notificationType: "reservation_approved",
+    validate: (reservation) =>
+      canApproveReservation(reservation.status)
+        ? null
+        : "Somente reservas pendentes podem ser aprovadas.",
+  });
+}
+
+export async function rejectReservation(
+  reservationId: string,
+  condominiumId: string,
+): Promise<ServiceResult<ReservationWithDetails>> {
+  return updateReservationStatus({
+    reservationId,
+    condominiumId,
+    status: "rejected",
+    notificationType: "reservation_rejected",
+    validate: (reservation) =>
+      canRejectReservation(reservation.status)
+        ? null
+        : "Somente reservas pendentes podem ser rejeitadas.",
+  });
+}
+
+export async function cancelReservation(
+  reservationId: string,
+  condominiumId: string,
+): Promise<ServiceResult<ReservationWithDetails>> {
+  return updateReservationStatus({
+    reservationId,
+    condominiumId,
+    status: "cancelled",
+    notificationType: "reservation_cancelled",
+    validate: (reservation) =>
+      canCancelReservation(reservation.status)
+        ? null
+        : "Esta reserva não pode ser cancelada.",
+  });
+}

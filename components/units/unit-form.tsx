@@ -1,0 +1,99 @@
+"use client";
+
+import { useActionState } from "react";
+import Link from "next/link";
+import { createUnitAction, updateUnitAction } from "@/lib/actions/units";
+import { FormAlert } from "@/components/shared/feedback";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import type { Tower } from "@/types";
+
+interface UnitFormProps {
+  condoSlug: string;
+  towers: Pick<Tower, "id" | "name">[];
+  mode: "create" | "edit";
+  defaultValues?: {
+    unitId?: string;
+    towerId?: string;
+    number?: string;
+    block?: string | null;
+  };
+}
+
+export function UnitForm({ condoSlug, towers, mode, defaultValues }: UnitFormProps) {
+  const action = mode === "create" ? createUnitAction : updateUnitAction;
+  const [state, formAction, pending] = useActionState(action, {});
+
+  if (towers.length === 0) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        Cadastre pelo menos uma torre antes de criar unidades.{" "}
+        <Link href={`/app/${condoSlug}/towers/new`} className="font-medium underline">
+          Nova torre
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <input type="hidden" name="condo_slug" value={condoSlug} />
+      {mode === "edit" && defaultValues?.unitId && (
+        <input type="hidden" name="unit_id" value={defaultValues.unitId} />
+      )}
+
+      <FormAlert error={state.error} success={state.success} />
+
+      <div className="space-y-2">
+        <Label htmlFor="tower_id">Torre</Label>
+        <select
+          id="tower_id"
+          name="tower_id"
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          defaultValue={defaultValues?.towerId ?? ""}
+          required
+        >
+          <option value="" disabled>
+            Selecione a torre
+          </option>
+          {towers.map((tower) => (
+            <option key={tower.id} value={tower.id}>
+              {tower.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="number">Número</Label>
+        <Input
+          id="number"
+          name="number"
+          placeholder="Ex: 304"
+          defaultValue={defaultValues?.number}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="block">Bloco (opcional)</Label>
+        <Input
+          id="block"
+          name="block"
+          placeholder="Ex: A"
+          defaultValue={defaultValues?.block ?? ""}
+        />
+      </div>
+
+      <div className="flex gap-2 pt-2">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Salvando..." : mode === "create" ? "Criar unidade" : "Salvar alterações"}
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/units`}>Cancelar</Link>
+        </Button>
+      </div>
+    </form>
+  );
+}

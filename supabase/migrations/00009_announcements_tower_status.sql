@@ -1,0 +1,134 @@
+-- =============================================================================
+-- Avisos — torre opcional, status de publicação, índices, RLS e integridade
+-- =============================================================================
+
+create type public.announcement_publication_status as enum (
+  'draft',
+  'published'
+);
+
+alter table public.announcements
+  add column if not exists tower_id uuid references public.towers (id) on delete set null,
+  add column if not exists publication_status public.announcement_publication_status not null default 'published';
+
+comment on column public.announcements.tower_id is 'Torre alvo (null = condomínio inteiro)';
+comment on column public.announcements.publication_status is 'draft ou published; agendado/expirado derivado de published_at/expires_at';
+
+-- Índices para listagem por condomínio, torre e visibilidade de membros
+create index if not exists announcements_tower_id_idx
+  on public.announcements (tower_id);
+
+create index if not exists announcements_condo_publication_published_idx
+  on public.announcements (condominium_id, publication_status, published_at desc);
+
+create index if not exists announcements_condo_tower_idx
+  on public.announcements (condominium_id, tower_id)
+  where tower_id is not null;
+
+create index if not exists announcements_member_visible_idx
+  on public.announcements (condominium_id, published_at desc)
+  where publication_status = 'published';
+
+-- Torre deve pertencer ao mesmo condomínio do aviso
+create or replace function public.validate_announcement_tower_condo()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.tower_id is not null then
+    if not exists (
+      select 1
+      from public.towers t
+      where t.id = new.tower_id
+        and t.condominium_id = new.condominium_id
+    ) then
+      raise exception 'A torre informada não pertence a este condomínio.';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists announcements_validate_tower_condo on public.announcements;
+
+create trigger announcements_validate_tower_condo
+before insert or update of tower_id, condominium_id on public.announcements
+for each row execute function public.validate_announcement_tower_condo();
+
+-- Critério único de visibilidade para moradores/portaria (espelha app + dashboard)
+create or replace function public.is_announcement_visible_to_members(
+  p_publication_status public.announcement_publication_status,
+  p_published_at timestamptz,
+  p_expires_at timestamptz
+)
+returns boolean
+language sql
+stable
+as $$
+  select
+    p_publication_status = 'published'::public.announcement_publication_status
+    and p_published_at <= timezone('utc', now())
+    and (p_expires_at is null or p_expires_at > timezone('utc', now()));
+$$;
+
+comment on function public.is_announcement_visible_to_members is
+  'Aviso visível publicamente: publicado, data efetiva e não expirado';
+
+grant execute on function public.is_announcement_visible_to_members(
+  public.announcement_publication_status,
+  timestamptz,
+  timestamptz
+) to authenticated;
+
+-- RLS SELECT: staff vê tudo; demais perfis só avisos publicamente visíveis
+drop policy if exists "announcements_select" on public.announcements;
+drop policy if exists "announcements_select_staff" on public.announcements;
+drop policy if exists "announcements_select_members" on public.announcements;
+
+create policy "announcements_select_staff"
+on public.announcements
+for select
+to authenticated
+using (public.is_condo_staff(condominium_id));
+
+create policy "announcements_select_members"
+on public.announcements
+for select
+to authenticated
+using (
+  (
+    public.is_condo_member(condominium_id)
+    or public.is_condo_doorman(condominium_id)
+  )
+  and not public.is_condo_staff(condominium_id)
+  and public.is_announcement_visible_to_members(
+    publication_status,
+    published_at,
+    expires_at
+  )
+);
+
+-- INSERT/UPDATE/DELETE permanecem staff-only (00004); reafirmado aqui por clareza
+drop policy if exists "announcements_insert" on public.announcements;
+drop policy if exists "announcements_update" on public.announcements;
+drop policy if exists "announcements_delete" on public.announcements;
+
+create policy "announcements_insert"
+on public.announcements
+for insert
+to authenticated
+with check (public.is_condo_staff(condominium_id));
+
+create policy "announcements_update"
+on public.announcements
+for update
+to authenticated
+using (public.is_condo_staff(condominium_id))
+with check (public.is_condo_staff(condominium_id));
+
+create policy "announcements_delete"
+on public.announcements
+for delete
+to authenticated
+using (public.is_condo_staff(condominium_id));

@@ -1,0 +1,26 @@
+import { RESIDENT_TYPES, type ResidentType } from "@/lib/constants";
+
+export const RESIDENT_TYPE_LABELS: Record<ResidentType, string> = {
+  [RESIDENT_TYPES.OWNER]: "Proprietário",
+  [RESIDENT_TYPES.TENANT]: "Inquilino",
+  [RESIDENT_TYPES.DEPENDENT]: "Dependente",
+  [RESIDENT_TYPES.RESPONSIBLE]: "Responsável",
+};
+
+export const RESIDENT_TYPE_OPTIONS = Object.values(RESIDENT_TYPES).map((value) => ({
+  value,
+  label: RESIDENT_TYPE_LABELS[value],
+}));
+
+export function getResidentTypeLabel(type: string): string {
+  return RESIDENT_TYPE_LABELS[type as ResidentType] ?? type;
+}
+
+export function formatUnitWithTower(unit: {
+  number: string;
+  block: string | null;
+  tower: { name: string };
+}): string {
+  const blockSuffix = unit.block ? ` · Bloco ${unit.block}` : "";
+  return `${unit.tower.name} · ${unit.number}${blockSuffix}`;
+}

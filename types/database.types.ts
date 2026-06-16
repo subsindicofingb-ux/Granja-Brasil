@@ -1,0 +1,443 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[];
+
+export type MembershipRole =
+  | "super_admin"
+  | "admin"
+  | "syndic"
+  | "resident"
+  | "doorman";
+
+export type ResidentType = "owner" | "tenant" | "dependent" | "responsible";
+
+export type ReservationStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export type AnnouncementPriority = "normal" | "important" | "urgent";
+
+export type AnnouncementPublicationStatus = "draft" | "published";
+
+export type GuestType = "visitor" | "service_provider";
+
+export type VisitorAuthorizationStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          full_name: string;
+          avatar_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          full_name: string;
+          avatar_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          full_name?: string;
+          avatar_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      condominiums: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      memberships: {
+        Row: {
+          id: string;
+          profile_id: string;
+          condominium_id: string;
+          role: MembershipRole;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          condominium_id: string;
+          role: MembershipRole;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          condominium_id?: string;
+          role?: MembershipRole;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      towers: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          name: string;
+          floors: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          name: string;
+          floors?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          name?: string;
+          floors?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      units: {
+        Row: {
+          id: string;
+          tower_id: string;
+          number: string;
+          block: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          tower_id: string;
+          number: string;
+          block?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tower_id?: string;
+          number?: string;
+          block?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      residents: {
+        Row: {
+          id: string;
+          unit_id: string;
+          profile_id: string | null;
+          full_name: string;
+          email: string | null;
+          phone: string | null;
+          type: ResidentType;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          unit_id: string;
+          profile_id?: string | null;
+          full_name: string;
+          email?: string | null;
+          phone?: string | null;
+          type?: ResidentType;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          unit_id?: string;
+          profile_id?: string | null;
+          full_name?: string;
+          email?: string | null;
+          phone?: string | null;
+          type?: ResidentType;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      common_areas: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          name: string;
+          capacity: number;
+          description: string | null;
+          is_active: boolean;
+          requires_approval: boolean;
+          max_duration_minutes: number | null;
+          min_advance_minutes: number;
+          max_advance_days: number | null;
+          max_reservations_per_unit: number | null;
+          reservation_period_days: number;
+          buffer_minutes: number;
+          operating_hours: Json;
+          allowed_days: Json;
+          maintenance_blocks: Json;
+          rules: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          name: string;
+          capacity?: number;
+          description?: string | null;
+          is_active?: boolean;
+          requires_approval?: boolean;
+          max_duration_minutes?: number | null;
+          min_advance_minutes?: number;
+          max_advance_days?: number | null;
+          max_reservations_per_unit?: number | null;
+          reservation_period_days?: number;
+          buffer_minutes?: number;
+          operating_hours?: Json;
+          allowed_days?: Json;
+          maintenance_blocks?: Json;
+          rules?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          name?: string;
+          capacity?: number;
+          description?: string | null;
+          is_active?: boolean;
+          requires_approval?: boolean;
+          max_duration_minutes?: number | null;
+          min_advance_minutes?: number;
+          max_advance_days?: number | null;
+          max_reservations_per_unit?: number | null;
+          reservation_period_days?: number;
+          buffer_minutes?: number;
+          operating_hours?: Json;
+          allowed_days?: Json;
+          maintenance_blocks?: Json;
+          rules?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      reservations: {
+        Row: {
+          id: string;
+          common_area_id: string;
+          unit_id: string;
+          requested_by: string | null;
+          start_at: string;
+          end_at: string;
+          status: ReservationStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          common_area_id: string;
+          unit_id: string;
+          requested_by?: string | null;
+          start_at: string;
+          end_at: string;
+          status?: ReservationStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          common_area_id?: string;
+          unit_id?: string;
+          requested_by?: string | null;
+          start_at?: string;
+          end_at?: string;
+          status?: ReservationStatus;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      announcements: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          tower_id: string | null;
+          title: string;
+          body: string;
+          priority: AnnouncementPriority;
+          publication_status: AnnouncementPublicationStatus;
+          published_at: string;
+          expires_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          tower_id?: string | null;
+          title: string;
+          body: string;
+          priority?: AnnouncementPriority;
+          publication_status?: AnnouncementPublicationStatus;
+          published_at?: string;
+          expires_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          tower_id?: string | null;
+          title?: string;
+          body?: string;
+          priority?: AnnouncementPriority;
+          publication_status?: AnnouncementPublicationStatus;
+          published_at?: string;
+          expires_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      visitor_authorizations: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          unit_id: string;
+          guest_type: GuestType;
+          full_name: string;
+          document_type: string | null;
+          document_number: string | null;
+          company_name: string | null;
+          vehicle_plate: string | null;
+          access_starts_at: string;
+          access_ends_at: string;
+          status: VisitorAuthorizationStatus;
+          notes: string | null;
+          doorman_notes: string | null;
+          requested_by: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          unit_id: string;
+          guest_type?: GuestType;
+          full_name: string;
+          document_type?: string | null;
+          document_number?: string | null;
+          company_name?: string | null;
+          vehicle_plate?: string | null;
+          access_starts_at: string;
+          access_ends_at: string;
+          status?: VisitorAuthorizationStatus;
+          notes?: string | null;
+          doorman_notes?: string | null;
+          requested_by?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          unit_id?: string;
+          guest_type?: GuestType;
+          full_name?: string;
+          document_type?: string | null;
+          document_number?: string | null;
+          company_name?: string | null;
+          vehicle_plate?: string | null;
+          access_starts_at?: string;
+          access_ends_at?: string;
+          status?: VisitorAuthorizationStatus;
+          notes?: string | null;
+          doorman_notes?: string | null;
+          requested_by?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      is_super_admin: { Args: Record<string, never>; Returns: boolean };
+      is_condo_member: { Args: { p_condominium_id: string }; Returns: boolean };
+      is_condo_staff: { Args: { p_condominium_id: string }; Returns: boolean };
+      is_condo_doorman: { Args: { p_condominium_id: string }; Returns: boolean };
+      owns_unit: { Args: { p_unit_id: string }; Returns: boolean };
+      my_condominium_ids: { Args: Record<string, never>; Returns: string[] };
+      my_unit_ids: { Args: Record<string, never>; Returns: string[] };
+      is_visitor_in_doorman_consult_window: {
+        Args: {
+          p_access_starts_at: string;
+          p_access_ends_at: string;
+          p_horizon?: string;
+        };
+        Returns: boolean;
+      };
+    };
+    Enums: {
+      membership_role: MembershipRole;
+      resident_type: ResidentType;
+      reservation_status: ReservationStatus;
+      announcement_priority: AnnouncementPriority;
+      announcement_publication_status: AnnouncementPublicationStatus;
+      guest_type: GuestType;
+      visitor_authorization_status: VisitorAuthorizationStatus;
+    };
+  };
+}
+
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type Condominium = Database["public"]["Tables"]["condominiums"]["Row"];
+export type Membership = Database["public"]["Tables"]["memberships"]["Row"];
+export type Tower = Database["public"]["Tables"]["towers"]["Row"];
+export type Unit = Database["public"]["Tables"]["units"]["Row"];
+export type Resident = Database["public"]["Tables"]["residents"]["Row"];
+export type CommonArea = Database["public"]["Tables"]["common_areas"]["Row"];
+export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
+export type Announcement = Database["public"]["Tables"]["announcements"]["Row"];
+export type VisitorAuthorization =
+  Database["public"]["Tables"]["visitor_authorizations"]["Row"];
