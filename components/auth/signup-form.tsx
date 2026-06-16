@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -8,13 +9,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function SignUpForm() {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(signUpAction, {});
+
+  useEffect(() => {
+    if (state.redirectTo) {
+      router.push(state.redirectTo);
+    }
+  }, [state.redirectTo, router]);
 
   return (
     <form action={formAction} className="space-y-4">
       {state.error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}
+        </div>
+      )}
+
+      {state.success && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {state.success}
         </div>
       )}
 

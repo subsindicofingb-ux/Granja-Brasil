@@ -9,8 +9,14 @@ export function getSupabasePublicEnv() {
   if (
     url.includes("your-project") ||
     anonKey.includes("your-anon-key") ||
-    url.includes("example.supabase.co")
+    url.includes("example.supabase.co") ||
+    url.includes("vercel.app") ||
+    url.includes("supabase.com/dashboard")
   ) {
+    return null;
+  }
+
+  if (!url.startsWith("https://") || !url.includes(".supabase.co")) {
     return null;
   }
 

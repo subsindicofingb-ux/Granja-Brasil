@@ -15,6 +15,16 @@ function getSiteUrl() {
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 }
 
+function formatAuthError(message: unknown): string {
+  const text = message instanceof Error ? message.message : String(message);
+
+  if (text.includes("Unexpected token '<'") || text.includes("is not valid JSON")) {
+    return "URL ou chave do Supabase inválida na Vercel. NEXT_PUBLIC_SUPABASE_URL deve ser https://SEU-REF.supabase.co e NEXT_PUBLIC_SUPABASE_ANON_KEY deve ser a chave anon/public do projeto.";
+  }
+
+  return text;
+}
+
 export async function signInAction(
   _prev: AuthActionState,
   formData: FormData,
@@ -41,18 +51,22 @@ export async function signInAction(
     return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    return { error: "Credenciais inválidas. Verifique e-mail e senha." };
+    if (error) {
+      return { error: "Credenciais inválidas. Verifique e-mail e senha." };
+    }
+
+    if (data.user) {
+      await ensureProfile(data.user);
+    }
+
+    revalidatePath("/", "layout");
+    return { redirectTo: redirectTo.startsWith("/") ? redirectTo : "/app" };
+  } catch (err) {
+    return { error: formatAuthError(err) };
   }
-
-  if (data.user) {
-    await ensureProfile(data.user);
-  }
-
-  revalidatePath("/", "layout");
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/app");
 }
 
 export async function signUpAction(
@@ -85,25 +99,37 @@ export async function signUpAction(
     return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
   }
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName },
-      emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/app`,
-    },
-  });
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/app`,
+      },
+    });
 
-  if (error) {
-    return { error: error.message };
+    if (error) {
+      return { error: formatAuthError(error.message) };
+    }
+
+    if (data.user) {
+      await ensureProfile(data.user);
+    }
+
+    revalidatePath("/", "layout");
+
+    if (!data.session) {
+      return {
+        success:
+          "Conta criada! Se a confirmação por e-mail estiver ativa no Supabase, abra o link recebido antes de entrar.",
+      };
+    }
+
+    return { redirectTo: "/app" };
+  } catch (err) {
+    return { error: formatAuthError(err) };
   }
-
-  if (data.user) {
-    await ensureProfile(data.user);
-  }
-
-  revalidatePath("/", "layout");
-  redirect("/app");
 }
 
 export async function signOutAction() {

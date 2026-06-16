@@ -35,6 +35,7 @@ export type SessionUser = {
 export type AuthActionState = {
   error?: string;
   success?: string;
+  redirectTo?: string;
 };
 
 export function buildCondoAccess(input: {
