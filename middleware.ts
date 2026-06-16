@@ -8,7 +8,12 @@ import {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const isServerAction = request.method === "POST" && request.headers.has("next-action");
   const { response, user, configured } = await updateSession(request);
+
+  if (isServerAction) {
+    return response;
+  }
 
   if (!configured) {
     if (pathname.startsWith("/app")) {
