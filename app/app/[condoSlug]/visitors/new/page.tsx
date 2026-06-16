@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import { serviceOk } from "@/lib/services/types";
 import { DEFAULT_VISITOR_AUTHORIZATION_FORM } from "@/lib/visitor-authorizations/defaults";
 import { PageHeader } from "@/components/shared/page-shell";
 import { VisitorAuthorizationForm } from "@/components/visitors/visitor-authorization-form";
@@ -24,13 +25,13 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
   const [unitsResult, ownedUnitsResult] = await Promise.all([
     listUnitsByCondominium(access.condominium.id),
     isStaff
-      ? Promise.resolve({ data: null as string[] | null, error: null as string | null })
+      ? Promise.resolve(serviceOk([] as string[]))
       : listUnitIdsForProfile(access.profile.id, access.condominium.id),
   ]);
 
-  let units = unitsResult.data ?? [];
+  let units = unitsResult.ok ? unitsResult.data : [];
 
-  if (!isStaff && ownedUnitsResult.data) {
+  if (!isStaff && ownedUnitsResult.ok) {
     const owned = new Set(ownedUnitsResult.data);
     units = units.filter((unit) => owned.has(unit.id));
   }

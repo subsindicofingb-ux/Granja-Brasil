@@ -20,7 +20,7 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
   );
 
   const towersResult = await listTowersByCondominium(access.condominium.id);
-  const towers = towersResult.data ?? [];
+  const towers = towersResult.ok ? towersResult.data : [];
 
   const defaultValues = createDefaultAnnouncementForm(
     toDatetimeLocalValue(new Date().toISOString()),

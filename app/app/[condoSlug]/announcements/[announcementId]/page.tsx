@@ -31,13 +31,13 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     listTowersByCondominium(access.condominium.id),
   ]);
 
-  if (announcementResult.error) {
-    if (announcementResult.error.includes("não encontrado")) {
+  if (!announcementResult.ok) {
+    if (announcementResult.error?.includes("não encontrado")) {
       notFound();
     }
     return (
       <div className="mx-auto max-w-2xl space-y-4">
-        <ErrorAlert message={announcementResult.error} />
+        <ErrorAlert message={announcementResult.error ?? "Aviso não encontrado neste condomínio."} />
         <Button variant="outline" asChild>
           <Link href={`/app/${condoSlug}/announcements`}>Voltar</Link>
         </Button>
@@ -48,7 +48,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   const announcement = announcementResult.data;
   const canEdit = access.permissions.canManageAnnouncements;
   const displayStatus = getAnnouncementDisplayStatus(announcement);
-  const towers = towersResult.data ?? [];
+  const towers = towersResult.ok ? towersResult.data : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

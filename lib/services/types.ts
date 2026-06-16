@@ -1,9 +1,13 @@
 export type ServiceResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: string };
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
-export function serviceError(message: string): { data: null; error: string } {
-  return { data: null, error: message };
+export function serviceError(message: string): { ok: false; error: string } {
+  return { ok: false, error: message };
+}
+
+export function serviceOk<T>(data: T): { ok: true; data: T } {
+  return { ok: true, data };
 }
 
 export function mapSupabaseError(error: { message: string; code?: string }): string {

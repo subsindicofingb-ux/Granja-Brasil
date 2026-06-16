@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Unit } from "@/types";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type UnitWithTower = Unit & {
   tower: {
@@ -72,10 +72,7 @@ export async function listUnitsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as UnitRow[] | null) ?? []).map(mapUnitRow),
-    error: null,
-  };
+  return serviceOk(((data as UnitRow[] | null) ?? []).map(mapUnitRow));
 }
 
 export async function getUnitById(
@@ -113,7 +110,7 @@ export async function getUnitById(
     return serviceError("Unidade não encontrada neste condomínio.");
   }
 
-  return { data: mapUnitRow(data as UnitRow), error: null };
+  return serviceOk(mapUnitRow(data as UnitRow));
 }
 
 export async function createUnit(input: {
@@ -167,7 +164,7 @@ export async function createUnit(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapUnitRow(data as UnitRow), error: null };
+  return serviceOk(mapUnitRow(data as UnitRow));
 }
 
 export async function updateUnit(input: {
@@ -228,5 +225,5 @@ export async function updateUnit(input: {
     return serviceError("Unidade não pertence a este condomínio.");
   }
 
-  return { data: mapUnitRow(unit), error: null };
+  return serviceOk(mapUnitRow(unit));
 }

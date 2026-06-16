@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

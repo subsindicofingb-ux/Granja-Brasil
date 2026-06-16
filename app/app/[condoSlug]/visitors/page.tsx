@@ -98,7 +98,7 @@ async function VisitorsContent({
     search,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return (
       <ErrorAlert message={result.error} title="Erro ao carregar autorizações" />
     );

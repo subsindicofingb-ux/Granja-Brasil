@@ -17,7 +17,7 @@ export default async function TowerDetailPage({ params }: TowerDetailPageProps) 
   const access = await requireCondoAccess(condoSlug);
   const result = await getTowerById(towerId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     if (result.error.includes("não encontrada")) {
       notFound();
     }

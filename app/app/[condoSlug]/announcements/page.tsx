@@ -54,16 +54,16 @@ async function AnnouncementsContent({
     }),
   ]);
 
-  if (towersResult.error) {
+  if (!towersResult.ok) {
     return <ErrorAlert message={towersResult.error} title="Erro ao carregar torres" />;
   }
 
-  if (announcementsResult.error) {
+  if (!announcementsResult.ok) {
     return <ErrorAlert message={announcementsResult.error} title="Erro ao carregar avisos" />;
   }
 
-  const towers = towersResult.data;
-  const announcements = announcementsResult.data;
+  const towers = towersResult.data ?? [];
+  const announcements = announcementsResult.data ?? [];
 
   return (
     <div className="space-y-4">

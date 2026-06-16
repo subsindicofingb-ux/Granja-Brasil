@@ -44,7 +44,7 @@ export async function createResidentAction(
     type: parsed.data.type,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -87,7 +87,7 @@ export async function updateResidentAction(
     type: parsed.data.type,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

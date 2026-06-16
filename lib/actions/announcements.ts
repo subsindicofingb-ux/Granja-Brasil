@@ -42,7 +42,7 @@ export async function createAnnouncementAction(
     data: toAnnouncementPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -75,7 +75,7 @@ export async function updateAnnouncementAction(
     data: toAnnouncementPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

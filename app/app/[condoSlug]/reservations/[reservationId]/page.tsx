@@ -23,7 +23,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   const access = await requireCondoAccess(condoSlug);
   const result = await getReservationById(reservationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     if (result.error.includes("não encontrada")) {
       notFound();
     }
@@ -48,7 +48,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
       access.condominium.id,
     );
     canCancel =
-      !unitsResult.error &&
+      unitsResult.ok &&
       unitsResult.data.includes(reservation.unit_id) &&
       canCancelReservation(reservation.status);
   }

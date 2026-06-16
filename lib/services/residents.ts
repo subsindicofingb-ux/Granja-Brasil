@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Resident, ResidentType } from "@/types";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type ResidentWithUnit = Resident & {
   unit: {
@@ -109,10 +109,7 @@ export async function listResidentsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as ResidentRow[] | null) ?? []).map(mapResidentRow),
-    error: null,
-  };
+  return serviceOk(((data as ResidentRow[] | null) ?? []).map(mapResidentRow));
 }
 
 export async function getResidentById(
@@ -136,7 +133,7 @@ export async function getResidentById(
     return serviceError("Morador não encontrado neste condomínio.");
   }
 
-  return { data: mapResidentRow(data as ResidentRow), error: null };
+  return serviceOk(mapResidentRow(data as ResidentRow));
 }
 
 async function assertUnitInCondominium(
@@ -167,7 +164,7 @@ async function assertUnitInCondominium(
     return serviceError("Unidade inválida para este condomínio.");
   }
 
-  return { data: true, error: null };
+  return serviceOk(true);
 }
 
 export async function createResident(input: {
@@ -179,7 +176,7 @@ export async function createResident(input: {
   type: ResidentType;
 }): Promise<ServiceResult<ResidentWithUnit>> {
   const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
-  if (unitCheck.error || !unitCheck.data) {
+  if (!unitCheck.ok) {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
 
@@ -201,7 +198,7 @@ export async function createResident(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapResidentRow(data as ResidentRow), error: null };
+  return serviceOk(mapResidentRow(data as ResidentRow));
 }
 
 export async function updateResident(input: {
@@ -214,7 +211,7 @@ export async function updateResident(input: {
   type: ResidentType;
 }): Promise<ServiceResult<ResidentWithUnit>> {
   const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
-  if (unitCheck.error || !unitCheck.data) {
+  if (!unitCheck.ok) {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
 
@@ -242,5 +239,5 @@ export async function updateResident(input: {
     return serviceError("Morador não pertence a este condomínio.");
   }
 
-  return { data: mapResidentRow(resident), error: null };
+  return serviceOk(mapResidentRow(resident));
 }

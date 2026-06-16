@@ -8,7 +8,7 @@ import {
   listUpcomingReservationsByCondominium,
 } from "@/lib/services/reservations";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type DashboardMetrics = {
   towers: number;
@@ -36,7 +36,7 @@ async function countTowers(condominiumId: string): Promise<ServiceResult<number>
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: count ?? 0, error: null };
+  return serviceOk(count ?? 0);
 }
 
 async function countUnits(condominiumId: string): Promise<ServiceResult<number>> {
@@ -50,7 +50,7 @@ async function countUnits(condominiumId: string): Promise<ServiceResult<number>>
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: count ?? 0, error: null };
+  return serviceOk(count ?? 0);
 }
 
 async function countResidents(condominiumId: string): Promise<ServiceResult<number>> {
@@ -64,7 +64,7 @@ async function countResidents(condominiumId: string): Promise<ServiceResult<numb
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: count ?? 0, error: null };
+  return serviceOk(count ?? 0);
 }
 
 async function countActiveCommonAreas(condominiumId: string): Promise<ServiceResult<number>> {
@@ -79,7 +79,7 @@ async function countActiveCommonAreas(condominiumId: string): Promise<ServiceRes
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: count ?? 0, error: null };
+  return serviceOk(count ?? 0);
 }
 
 export async function getDashboardData(
@@ -105,33 +105,48 @@ export async function getDashboardData(
     listRecentAnnouncementsByCondominium(condominiumId, 5),
   ]);
 
-  const firstError =
-    towersResult.error ??
-    unitsResult.error ??
-    residentsResult.error ??
-    areasResult.error ??
-    reservationCountsResult.error ??
-    upcomingResult.error ??
-    recentResult.error ??
-    announcementsResult.error;
-
-  if (firstError) {
-    return serviceError(firstError);
+  if (!towersResult.ok) {
+    return serviceError(towersResult.error);
   }
 
-  return {
-    data: {
-      metrics: {
-        towers: towersResult.data!,
-        units: unitsResult.data!,
-        residents: residentsResult.data!,
-        activeCommonAreas: areasResult.data!,
-        reservationsByStatus: reservationCountsResult.data!,
-      },
-      upcomingReservations: upcomingResult.data!,
-      recentReservations: recentResult.data!,
-      recentAnnouncements: announcementsResult.data!,
+  if (!unitsResult.ok) {
+    return serviceError(unitsResult.error);
+  }
+
+  if (!residentsResult.ok) {
+    return serviceError(residentsResult.error);
+  }
+
+  if (!areasResult.ok) {
+    return serviceError(areasResult.error);
+  }
+
+  if (!reservationCountsResult.ok) {
+    return serviceError(reservationCountsResult.error);
+  }
+
+  if (!upcomingResult.ok) {
+    return serviceError(upcomingResult.error);
+  }
+
+  if (!recentResult.ok) {
+    return serviceError(recentResult.error);
+  }
+
+  if (!announcementsResult.ok) {
+    return serviceError(announcementsResult.error);
+  }
+
+  return serviceOk({
+    metrics: {
+      towers: towersResult.data,
+      units: unitsResult.data,
+      residents: residentsResult.data,
+      activeCommonAreas: areasResult.data,
+      reservationsByStatus: reservationCountsResult.data,
     },
-    error: null,
-  };
+    upcomingReservations: upcomingResult.data,
+    recentReservations: recentResult.data,
+    recentAnnouncements: announcementsResult.data,
+  });
 }

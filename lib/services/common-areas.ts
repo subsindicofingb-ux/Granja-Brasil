@@ -6,7 +6,8 @@ import type {
   OperatingHours,
 } from "@/lib/common-areas/types";
 import { ALLOWED_DAYS } from "@/lib/common-areas/types";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import type { Json } from "@/types/database.types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 type CommonAreaRow = {
   id: string;
@@ -139,10 +140,7 @@ export async function listCommonAreasByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as CommonAreaRow[] | null) ?? []).map(mapCommonArea),
-    error: null,
-  };
+  return serviceOk(((data as CommonAreaRow[] | null) ?? []).map(mapCommonArea));
 }
 
 export async function getCommonAreaById(
@@ -166,7 +164,7 @@ export async function getCommonAreaById(
     return serviceError("Espaço comum não encontrado neste condomínio.");
   }
 
-  return { data: mapCommonArea(data as CommonAreaRow), error: null };
+  return serviceOk(mapCommonArea(data as CommonAreaRow));
 }
 
 type CommonAreaWriteInput = Omit<
@@ -190,7 +188,7 @@ function toDbPayload(input: CommonAreaWriteInput) {
     operating_hours: input.operating_hours,
     allowed_days: input.allowed_days,
     maintenance_blocks: input.maintenance_blocks,
-    rules: input.rules ?? {},
+    rules: (input.rules ?? {}) as Json,
   };
 }
 
@@ -213,7 +211,7 @@ export async function createCommonArea(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapCommonArea(data as CommonAreaRow), error: null };
+  return serviceOk(mapCommonArea(data as CommonAreaRow));
 }
 
 export async function updateCommonArea(input: {
@@ -235,5 +233,5 @@ export async function updateCommonArea(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapCommonArea(data as CommonAreaRow), error: null };
+  return serviceOk(mapCommonArea(data as CommonAreaRow));
 }

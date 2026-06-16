@@ -1,8 +1,9 @@
+import type { Database } from "@/types/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { VISITOR_AUTHORIZATION_STATUS } from "@/lib/constants";
 import type { VisitorAuthorizationStatus } from "@/lib/constants";
 import { getUnitById } from "@/lib/services/units";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { isInDoormanConsultWindow } from "@/lib/visitor-authorizations/status";
 import type {
   VisitorAuthorizationRecord,
@@ -145,7 +146,7 @@ export async function listVisitorAuthorizationsByCondominium(
     }
   }
 
-  return { data: rows, error: null };
+  return serviceOk(rows);
 }
 
 export async function listVisitorAuthorizationsByUnit(
@@ -176,7 +177,7 @@ export async function getVisitorAuthorizationById(
     return serviceError("Autorização não encontrada neste condomínio.");
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
 type VisitorWriteInput = {
@@ -212,10 +213,10 @@ async function validateUnitForCondominium(
   condominiumId: string,
 ): Promise<ServiceResult<null>> {
   const unitResult = await getUnitById(unitId, condominiumId);
-  if (unitResult.error) {
+  if (!unitResult.ok) {
     return serviceError("Unidade inválida para este condomínio.");
   }
-  return { data: null, error: null };
+  return serviceOk(null);
 }
 
 export async function createVisitorAuthorization(input: {
@@ -225,7 +226,7 @@ export async function createVisitorAuthorization(input: {
   data: VisitorWriteInput;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const unitCheck = await validateUnitForCondominium(input.data.unit_id, input.condominiumId);
-  if (unitCheck.error) {
+  if (!unitCheck.ok) {
     return serviceError(unitCheck.error);
   }
 
@@ -235,7 +236,7 @@ export async function createVisitorAuthorization(input: {
 
   const supabase = await createClient();
 
-  const insertPayload: Record<string, unknown> = {
+  const insertPayload: Database["public"]["Tables"]["visitor_authorizations"]["Insert"] = {
     condominium_id: input.condominiumId,
     requested_by: input.requestedBy,
     status,
@@ -257,7 +258,7 @@ export async function createVisitorAuthorization(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
 export async function updateVisitorAuthorization(input: {
@@ -266,7 +267,7 @@ export async function updateVisitorAuthorization(input: {
   data: VisitorWriteInput;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const unitCheck = await validateUnitForCondominium(input.data.unit_id, input.condominiumId);
-  if (unitCheck.error) {
+  if (!unitCheck.ok) {
     return serviceError(unitCheck.error);
   }
 
@@ -284,7 +285,7 @@ export async function updateVisitorAuthorization(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
 async function updateVisitorStatus(input: {
@@ -295,7 +296,7 @@ async function updateVisitorStatus(input: {
   validate?: (record: VisitorAuthorizationWithDetails) => string | null;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const current = await getVisitorAuthorizationById(input.authorizationId, input.condominiumId);
-  if (current.error) {
+  if (!current.ok) {
     return serviceError(current.error);
   }
 
@@ -324,7 +325,7 @@ async function updateVisitorStatus(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
 export async function approveVisitorAuthorization(
@@ -366,7 +367,7 @@ export async function cancelVisitorAuthorization(
   condominiumId: string,
 ): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const current = await getVisitorAuthorizationById(authorizationId, condominiumId);
-  if (current.error) {
+  if (!current.ok) {
     return serviceError(current.error);
   }
 
@@ -391,7 +392,7 @@ export async function cancelVisitorAuthorization(
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
 export async function updateVisitorDoormanNotes(input: {
@@ -400,7 +401,7 @@ export async function updateVisitorDoormanNotes(input: {
   doormanNotes: string | null;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const current = await getVisitorAuthorizationById(input.authorizationId, input.condominiumId);
-  if (current.error) {
+  if (!current.ok) {
     return serviceError(current.error);
   }
 
@@ -425,5 +426,5 @@ export async function updateVisitorDoormanNotes(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapVisitorDetail(data as VisitorAuthorizationDetailRow), error: null };
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }

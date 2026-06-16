@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Tower } from "@/types";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export async function listTowersByCondominium(
   condominiumId: string,
@@ -17,7 +17,7 @@ export async function listTowersByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: data ?? [], error: null };
+  return serviceOk(data ?? []);
 }
 
 export async function getTowerById(
@@ -41,7 +41,7 @@ export async function getTowerById(
     return serviceError("Torre não encontrada neste condomínio.");
   }
 
-  return { data, error: null };
+  return serviceOk(data);
 }
 
 export async function createTower(input: {
@@ -65,7 +65,7 @@ export async function createTower(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data, error: null };
+  return serviceOk(data);
 }
 
 export async function updateTower(input: {
@@ -91,7 +91,7 @@ export async function updateTower(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data, error: null };
+  return serviceOk(data);
 }
 
 export async function countTowersByCondominium(condominiumId: string): Promise<number> {

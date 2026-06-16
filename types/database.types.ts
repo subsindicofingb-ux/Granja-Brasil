@@ -50,6 +50,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       condominiums: {
         Row: {
@@ -73,6 +74,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       memberships: {
         Row: {
@@ -99,6 +101,22 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "memberships_profile_id_fkey",
+            columns: ["profile_id"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "memberships_condominium_id_fkey",
+            columns: ["condominium_id"],
+            isOneToOne: false,
+            referencedRelation: "condominiums",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       towers: {
         Row: {
@@ -125,6 +143,15 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "towers_condominium_id_fkey",
+            columns: ["condominium_id"],
+            isOneToOne: false,
+            referencedRelation: "condominiums",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       units: {
         Row: {
@@ -151,6 +178,15 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "units_tower_id_fkey",
+            columns: ["tower_id"],
+            isOneToOne: false,
+            referencedRelation: "towers",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       residents: {
         Row: {
@@ -186,6 +222,22 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "residents_unit_id_fkey",
+            columns: ["unit_id"],
+            isOneToOne: false,
+            referencedRelation: "units",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "residents_profile_id_fkey",
+            columns: ["profile_id"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       common_areas: {
         Row: {
@@ -251,6 +303,15 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "common_areas_condominium_id_fkey",
+            columns: ["condominium_id"],
+            isOneToOne: false,
+            referencedRelation: "condominiums",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       reservations: {
         Row: {
@@ -289,6 +350,29 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "reservations_common_area_id_fkey",
+            columns: ["common_area_id"],
+            isOneToOne: false,
+            referencedRelation: "common_areas",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "reservations_unit_id_fkey",
+            columns: ["unit_id"],
+            isOneToOne: false,
+            referencedRelation: "units",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "reservations_requested_by_fkey",
+            columns: ["requested_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       announcements: {
         Row: {
@@ -333,6 +417,29 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "announcements_condominium_id_fkey",
+            columns: ["condominium_id"],
+            isOneToOne: false,
+            referencedRelation: "condominiums",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "announcements_tower_id_fkey",
+            columns: ["tower_id"],
+            isOneToOne: false,
+            referencedRelation: "towers",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "announcements_created_by_fkey",
+            columns: ["created_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+        ];
       };
       visitor_authorizations: {
         Row: {
@@ -398,6 +505,36 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: "visitor_authorizations_condominium_id_fkey",
+            columns: ["condominium_id"],
+            isOneToOne: false,
+            referencedRelation: "condominiums",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "visitor_authorizations_unit_id_fkey",
+            columns: ["unit_id"],
+            isOneToOne: false,
+            referencedRelation: "units",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "visitor_authorizations_requested_by_fkey",
+            columns: ["requested_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "visitor_authorizations_reviewed_by_fkey",
+            columns: ["reviewed_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+        ];
       };
     };
     Views: Record<string, never>;

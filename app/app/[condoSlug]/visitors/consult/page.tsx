@@ -66,7 +66,7 @@ async function ConsultContent({
     consultWindowOnly,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro na consulta" />;
   }
 

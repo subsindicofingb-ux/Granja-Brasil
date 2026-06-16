@@ -37,7 +37,7 @@ export async function createCommonAreaAction(
     data: toCommonAreaPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -70,7 +70,7 @@ export async function updateCommonAreaAction(
     data: toCommonAreaPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

@@ -19,7 +19,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   const access = await requireCondoAccess(condoSlug);
   const result = await getCommonAreaById(areaId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     if (result.error.includes("não encontrado")) {
       notFound();
     }

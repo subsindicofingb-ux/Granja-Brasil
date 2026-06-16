@@ -54,7 +54,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const base = `/app/${condoSlug}`;
   const result = await getDashboardData(access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
   }
 

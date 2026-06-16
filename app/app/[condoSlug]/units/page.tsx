@@ -51,11 +51,11 @@ async function UnitsContent({
     listUnitsByCondominium(access.condominium.id, { towerId }),
   ]);
 
-  if (towersResult.error) {
+  if (!towersResult.ok) {
     return <ErrorAlert message={towersResult.error} title="Erro ao carregar torres" />;
   }
 
-  if (unitsResult.error) {
+  if (!unitsResult.ok) {
     return <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />;
   }
 

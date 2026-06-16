@@ -39,7 +39,7 @@ async function assertCanRegisterForUnit(
 
   const unitsResult = await listUnitIdsForProfile(profileId, condominiumId);
 
-  if (unitsResult.error) {
+  if (!unitsResult.ok) {
     return { error: unitsResult.error };
   }
 
@@ -87,7 +87,7 @@ export async function createVisitorAuthorizationAction(
     data: toVisitorAuthorizationPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -120,7 +120,7 @@ export async function updateVisitorAuthorizationAction(
     data: toVisitorAuthorizationPayload(parsed.data),
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -147,7 +147,7 @@ export async function approveVisitorAuthorizationAction(
     access.profile.id,
   );
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -174,7 +174,7 @@ export async function rejectVisitorAuthorizationAction(
     access.profile.id,
   );
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -200,7 +200,7 @@ export async function cancelVisitorAuthorizationAction(
 
   const result = await cancelVisitorAuthorization(authorizationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -233,7 +233,7 @@ export async function updateDoormanNotesAction(
     doormanNotes: parsed.data.doorman_notes,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

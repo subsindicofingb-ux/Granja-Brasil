@@ -32,7 +32,7 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
 
   const result = await getVisitorAuthorizationById(authorizationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     if (result.error.includes("não encontrada")) {
       notFound();
     }
@@ -59,7 +59,7 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
       access.condominium.id,
     );
     canCancel =
-      !unitsResult.error &&
+      unitsResult.ok &&
       unitsResult.data.includes(authorization.unit_id) &&
       (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
         authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED);
@@ -171,7 +171,7 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
             <VisitorAuthorizationForm
               condoSlug={condoSlug}
               mode="edit"
-              units={unitsResult.data ?? []}
+              units={unitsResult.ok ? unitsResult.data : []}
               defaultValues={{
                 ...toVisitorAuthorizationFormInput(authorization),
                 authorizationId: authorization.id,

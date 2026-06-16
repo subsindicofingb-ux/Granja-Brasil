@@ -26,7 +26,7 @@ export default async function NewResidentPage({ params, searchParams }: NewResid
 
   const unitsResult = await listUnitsByCondominium(access.condominium.id);
 
-  if (unitsResult.error) {
+  if (!unitsResult.ok) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <ErrorAlert message={unitsResult.error} />

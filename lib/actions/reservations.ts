@@ -33,7 +33,7 @@ async function assertCanBookForUnit(
 
   const unitsResult = await listUnitIdsForProfile(profileId, condominiumId);
 
-  if (unitsResult.error) {
+  if (!unitsResult.ok) {
     return { error: unitsResult.error };
   }
 
@@ -85,7 +85,7 @@ export async function createReservationAction(
     requestedBy: access.profile.id,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -108,7 +108,7 @@ export async function approveReservationAction(
 
   const result = await approveReservation(reservationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -131,7 +131,7 @@ export async function rejectReservationAction(
 
   const result = await rejectReservation(reservationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -157,7 +157,7 @@ export async function cancelReservationAction(
     const { getReservationById } = await import("@/lib/services/reservations");
     const current = await getReservationById(reservationId, access.condominium.id);
 
-    if (current.error) {
+    if (!current.ok) {
       return { error: current.error };
     }
 
@@ -166,7 +166,7 @@ export async function cancelReservationAction(
       access.condominium.id,
     );
 
-    if (unitsResult.error) {
+    if (!unitsResult.ok) {
       return { error: unitsResult.error };
     }
 
@@ -177,7 +177,7 @@ export async function cancelReservationAction(
 
   const result = await cancelReservation(reservationId, access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

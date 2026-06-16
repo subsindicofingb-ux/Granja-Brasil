@@ -57,15 +57,15 @@ async function ResidentsContent({
     listResidentsByCondominium(access.condominium.id, { towerId, unitId }),
   ]);
 
-  if (towersResult.error) {
+  if (!towersResult.ok) {
     return <ErrorAlert message={towersResult.error} title="Erro ao carregar torres" />;
   }
 
-  if (allUnitsResult.error) {
+  if (!allUnitsResult.ok) {
     return <ErrorAlert message={allUnitsResult.error} title="Erro ao carregar unidades" />;
   }
 
-  if (residentsResult.error) {
+  if (!residentsResult.ok) {
     return <ErrorAlert message={residentsResult.error} title="Erro ao carregar moradores" />;
   }
 

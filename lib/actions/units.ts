@@ -40,7 +40,7 @@ export async function createUnitAction(
     block: parsed.data.block,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -79,7 +79,7 @@ export async function updateUnitAction(
     block: parsed.data.block,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

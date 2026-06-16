@@ -3,6 +3,7 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import { serviceOk } from "@/lib/services/types";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ReservationForm } from "@/components/reservations/reservation-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,14 +26,14 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     listCommonAreasByCondominium(access.condominium.id, { isActive: true }),
     listUnitsByCondominium(access.condominium.id),
     isStaff
-      ? Promise.resolve({ data: null as string[] | null, error: null as string | null })
+      ? Promise.resolve(serviceOk([] as string[]))
       : listUnitIdsForProfile(access.profile.id, access.condominium.id),
   ]);
 
-  const areas = areasResult.data ?? [];
-  let units = unitsResult.data ?? [];
+  const areas = areasResult.ok ? areasResult.data : [];
+  let units = unitsResult.ok ? unitsResult.data : [];
 
-  if (!isStaff && ownedUnitsResult.data) {
+  if (!isStaff && ownedUnitsResult.ok) {
     const owned = new Set(ownedUnitsResult.data);
     units = units.filter((unit) => owned.has(unit.id));
   }

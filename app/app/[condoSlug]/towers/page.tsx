@@ -16,7 +16,7 @@ async function TowersContent({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const result = await listTowersByCondominium(access.condominium.id);
 
-  if (result.error) {
+  if (!result.ok) {
     return <ErrorAlert message={result.error} />;
   }
 

@@ -39,7 +39,7 @@ export async function createTowerAction(
     floors: parsed.data.floors,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 
@@ -76,7 +76,7 @@ export async function updateTowerAction(
     floors: parsed.data.floors,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return { error: result.error };
   }
 

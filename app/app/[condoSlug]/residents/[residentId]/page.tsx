@@ -24,7 +24,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     listUnitsByCondominium(access.condominium.id),
   ]);
 
-  if (residentResult.error) {
+  if (!residentResult.ok) {
     if (residentResult.error.includes("não encontrado")) {
       notFound();
     }
@@ -38,7 +38,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     );
   }
 
-  if (unitsResult.error) {
+  if (!unitsResult.ok) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getTowerById } from "@/lib/services/towers";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import type {
   AnnouncementRecord,
   AnnouncementWithDetails,
@@ -79,16 +79,16 @@ async function validateTowerForCondominium(
   condominiumId: string,
 ): Promise<ServiceResult<null>> {
   if (!towerId) {
-    return { data: null, error: null };
+    return serviceOk(null);
   }
 
   const towerResult = await getTowerById(towerId, condominiumId);
 
-  if (towerResult.error) {
+  if (!towerResult.ok) {
     return serviceError("Torre inválida para este condomínio.");
   }
 
-  return { data: null, error: null };
+  return serviceOk(null);
 }
 
 export async function listAnnouncementsByCondominium(
@@ -117,10 +117,7 @@ export async function listAnnouncementsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
-    error: null,
-  };
+  return serviceOk(((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail));
 }
 
 export async function listRecentAnnouncementsByCondominium(
@@ -148,10 +145,7 @@ export async function listRecentAnnouncementsByCondominium(
     mapAnnouncementDetail,
   );
 
-  return {
-    data: filterAnnouncementsVisibleToMembers(announcements),
-    error: null,
-  };
+  return serviceOk(filterAnnouncementsVisibleToMembers(announcements));
 }
 
 export async function getAnnouncementById(
@@ -175,7 +169,7 @@ export async function getAnnouncementById(
     return serviceError("Aviso não encontrado neste condomínio.");
   }
 
-  return { data: mapAnnouncementDetail(data as AnnouncementDetailRow), error: null };
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
 }
 
 type AnnouncementWriteInput = {
@@ -207,7 +201,7 @@ export async function createAnnouncement(input: {
 }): Promise<ServiceResult<AnnouncementWithDetails>> {
   const towerCheck = await validateTowerForCondominium(input.data.tower_id, input.condominiumId);
 
-  if (towerCheck.error) {
+  if (!towerCheck.ok) {
     return serviceError(towerCheck.error);
   }
 
@@ -227,7 +221,7 @@ export async function createAnnouncement(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapAnnouncementDetail(data as AnnouncementDetailRow), error: null };
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
 }
 
 export async function updateAnnouncement(input: {
@@ -237,7 +231,7 @@ export async function updateAnnouncement(input: {
 }): Promise<ServiceResult<AnnouncementWithDetails>> {
   const towerCheck = await validateTowerForCondominium(input.data.tower_id, input.condominiumId);
 
-  if (towerCheck.error) {
+  if (!towerCheck.ok) {
     return serviceError(towerCheck.error);
   }
 
@@ -255,5 +249,5 @@ export async function updateAnnouncement(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return { data: mapAnnouncementDetail(data as AnnouncementDetailRow), error: null };
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
 }

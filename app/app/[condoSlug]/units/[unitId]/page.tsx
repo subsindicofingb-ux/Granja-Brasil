@@ -22,7 +22,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
     listTowersByCondominium(access.condominium.id),
   ]);
 
-  if (unitResult.error) {
+  if (!unitResult.ok) {
     if (unitResult.error.includes("não encontrada")) {
       notFound();
     }
@@ -36,7 +36,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
     );
   }
 
-  if (towersResult.error) {
+  if (!towersResult.ok) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <ErrorAlert message={towersResult.error} title="Erro ao carregar torres" />

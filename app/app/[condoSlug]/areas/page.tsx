@@ -55,7 +55,7 @@ async function AreasContent({
     isActive: statusFilter,
   });
 
-  if (result.error) {
+  if (!result.ok) {
     return <ErrorAlert message={result.error} />;
   }
 

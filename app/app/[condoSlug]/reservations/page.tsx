@@ -79,11 +79,11 @@ async function ReservationsContent({
     }),
   ]);
 
-  if (areasResult.error) {
+  if (!areasResult.ok) {
     return <ErrorAlert message={areasResult.error} title="Erro ao carregar espaços" />;
   }
 
-  if (reservationsResult.error) {
+  if (!reservationsResult.ok) {
     return <ErrorAlert message={reservationsResult.error} title="Erro ao carregar reservas" />;
   }
 

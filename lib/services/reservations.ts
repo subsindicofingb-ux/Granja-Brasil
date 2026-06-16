@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
 import { getCommonAreaById } from "@/lib/services/common-areas";
-import { mapSupabaseError, serviceError, type ServiceResult } from "@/lib/services/types";
+import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { notifyReservationEvent } from "@/lib/reservations/notifications";
 import type {
   ReservationRecord,
@@ -158,10 +158,7 @@ export async function listReservationsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
-    error: null,
-  };
+  return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
 }
 
 export async function listUpcomingReservationsByCondominium(
@@ -184,10 +181,7 @@ export async function listUpcomingReservationsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
-    error: null,
-  };
+  return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
 }
 
 export async function listRecentReservationsByCondominium(
@@ -207,10 +201,7 @@ export async function listRecentReservationsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail),
-    error: null,
-  };
+  return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
 }
 
 export async function countReservationsByStatusForCondominium(
@@ -241,7 +232,7 @@ export async function countReservationsByStatusForCondominium(
     counts[result.status] = result.count ?? 0;
   }
 
-  return { data: counts, error: null };
+  return serviceOk(counts);
 }
 
 export async function listReservationsForArea(
@@ -272,10 +263,7 @@ export async function listBlockingReservationsForArea(
     return serviceError(mapSupabaseError(error));
   }
 
-  return {
-    data: ((data as ReservationRow[] | null) ?? []).map(mapReservation),
-    error: null,
-  };
+  return serviceOk(((data as ReservationRow[] | null) ?? []).map(mapReservation));
 }
 
 export async function getReservationById(
@@ -299,7 +287,7 @@ export async function getReservationById(
     return serviceError("Reserva não encontrada neste condomínio.");
   }
 
-  return { data: mapReservationDetail(data as ReservationDetailRow), error: null };
+  return serviceOk(mapReservationDetail(data as ReservationDetailRow));
 }
 
 export async function listUnitIdsForProfile(
@@ -328,7 +316,7 @@ export async function listUnitIdsForProfile(
   }
 
   const unitIds = [...new Set((data ?? []).map((row) => row.unit_id as string))];
-  return { data: unitIds, error: null };
+  return serviceOk(unitIds);
 }
 
 export async function createReservation(input: {
@@ -342,7 +330,7 @@ export async function createReservation(input: {
 }): Promise<ServiceResult<ReservationWithDetails>> {
   const areaResult = await getCommonAreaById(input.commonAreaId, input.condominiumId);
 
-  if (areaResult.error) {
+  if (!areaResult.ok) {
     return serviceError(areaResult.error);
   }
 
@@ -352,7 +340,7 @@ export async function createReservation(input: {
 
   const blockingResult = await listBlockingReservationsForArea(input.commonAreaId);
 
-  if (blockingResult.error) {
+  if (!blockingResult.ok) {
     return serviceError(blockingResult.error);
   }
 
@@ -397,7 +385,7 @@ export async function createReservation(input: {
     condominiumId: input.condominiumId,
   });
 
-  return { data: reservation, error: null };
+  return serviceOk(reservation);
 }
 
 async function updateReservationStatus(input: {
@@ -409,7 +397,7 @@ async function updateReservationStatus(input: {
 }): Promise<ServiceResult<ReservationWithDetails>> {
   const current = await getReservationById(input.reservationId, input.condominiumId);
 
-  if (current.error) {
+  if (!current.ok) {
     return serviceError(current.error);
   }
 
@@ -426,13 +414,13 @@ async function updateReservationStatus(input: {
       input.condominiumId,
     );
 
-    if (areaResult.error) {
+    if (!areaResult.ok) {
       return serviceError(areaResult.error);
     }
 
     const blockingResult = await listBlockingReservationsForArea(current.data.common_area_id);
 
-    if (blockingResult.error) {
+    if (!blockingResult.ok) {
       return serviceError(blockingResult.error);
     }
 
@@ -471,7 +459,7 @@ async function updateReservationStatus(input: {
     condominiumId: input.condominiumId,
   });
 
-  return { data: reservation, error: null };
+  return serviceOk(reservation);
 }
 
 export async function approveReservation(

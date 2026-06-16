@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { AllowedDay, CommonAreaFormInput, MaintenanceBlock } from "@/lib/common-areas/types";
 import { ALLOWED_DAY_OPTIONS } from "@/lib/common-areas/labels";
 import { Label } from "@/components/ui/label";
