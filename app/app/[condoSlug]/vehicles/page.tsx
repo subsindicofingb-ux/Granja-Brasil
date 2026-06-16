@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
-import { requireCondoAccess } from "@/lib/auth/access";
+import { requireCondoPermission } from "@/lib/auth/access";
+import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { formatLicensePlate } from "@/lib/vehicles/labels";
@@ -16,7 +17,10 @@ interface VehiclesPageProps {
 }
 
 async function VehiclesHeader({ condoSlug }: { condoSlug: string }) {
-  const access = await requireCondoAccess(condoSlug);
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+  );
 
   return (
     <PageHeader
@@ -37,8 +41,22 @@ async function VehiclesHeader({ condoSlug }: { condoSlug: string }) {
 }
 
 async function VehiclesContent({ condoSlug }: { condoSlug: string }) {
-  const access = await requireCondoAccess(condoSlug);
-  const vehiclesResult = await listVehiclesByCondominium(access.condominium.id);
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+  );
+  const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
+
+  if (unitQuery === "none") {
+    return (
+      <EmptyState
+        title="Unidade não vinculada"
+        description="Seu cadastro ainda não está vinculado a uma unidade neste condomínio."
+      />
+    );
+  }
+
+  const vehiclesResult = await listVehiclesByCondominium(access.condominium.id, unitQuery);
 
   if (!vehiclesResult.ok) {
     return <ErrorAlert message={vehiclesResult.error} title="Erro ao carregar veículos" />;
@@ -50,7 +68,7 @@ async function VehiclesContent({ condoSlug }: { condoSlug: string }) {
     return (
       <EmptyState
         title="Nenhum veículo cadastrado"
-        description="Registre veículos com placa, número da TAG e foto para controle de acesso."
+        description="Registre veículos da sua unidade com placa, número da TAG e foto para controle de acesso."
         action={
           access.permissions.canManageVehicles ? (
             <Button asChild>

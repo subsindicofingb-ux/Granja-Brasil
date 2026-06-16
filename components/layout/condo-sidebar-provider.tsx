@@ -2,11 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import type { MembershipWithCondo } from "@/lib/auth/types";
+import type { CondoAccess, MembershipWithCondo } from "@/lib/auth/types";
 
 interface CondoSidebarProviderProps {
   condoSlug: string;
   condoName: string;
+  access: CondoAccess;
   memberships: MembershipWithCondo[];
   children: React.ReactNode;
 }
@@ -14,6 +15,7 @@ interface CondoSidebarProviderProps {
 export function CondoSidebarProvider({
   condoSlug,
   condoName,
+  access,
   memberships,
   children,
 }: CondoSidebarProviderProps) {
@@ -25,6 +27,7 @@ export function CondoSidebarProvider({
         condoSlug={condoSlug}
         condoName={condoName}
         currentPath={pathname}
+        access={access}
         memberships={memberships}
       />
       {children}

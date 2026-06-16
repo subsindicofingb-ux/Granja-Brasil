@@ -6,13 +6,7 @@ export const registrationPreQualificationSchema = z.object({
   resident_type: z.enum([RESIDENT_TYPES.OWNER, RESIDENT_TYPES.TENANT], {
     message: "Informe se você é proprietário ou inquilino.",
   }),
-  unit_kind: z.enum(["apartment", "house"], {
-    message: "Informe se mora em apartamento ou casa.",
-  }),
-  unit_number: z
-    .string()
-    .trim()
-    .min(1, "Informe o número do apartamento ou da casa."),
+  unit_id: z.string().uuid("Selecione sua unidade ou casa."),
 });
 
 export const reviewRegistrationRequestSchema = z.object({

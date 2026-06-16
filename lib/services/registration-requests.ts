@@ -2,12 +2,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
+import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 export type PublicCondominiumOption = {
   id: string;
   name: string;
   slug: string;
+};
+
+export type PublicUnitOption = {
+  id: string;
+  label: string;
 };
 
 const REQUEST_SELECT = `
@@ -17,6 +23,7 @@ const REQUEST_SELECT = `
   resident_type,
   unit_kind,
   unit_number,
+  requested_unit_id,
   full_name,
   email,
   status,
@@ -63,15 +70,99 @@ export async function listPublicCondominiums(): Promise<ServiceResult<PublicCond
   }
 }
 
+export async function listPublicUnitsByCondominium(
+  condominiumId: string,
+): Promise<ServiceResult<PublicUnitOption[]>> {
+  try {
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from("units")
+      .select(
+        `
+        id,
+        number,
+        block,
+        towers!inner (
+          name,
+          condominium_id
+        )
+      `,
+      )
+      .eq("towers.condominium_id", condominiumId)
+      .order("number", { ascending: true });
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    return serviceOk(
+      (data ?? []).map((row) => ({
+        id: row.id,
+        label: formatUnitWithTower({
+          number: row.number,
+          block: row.block,
+          tower: { name: row.towers.name },
+        }),
+      })),
+    );
+  } catch {
+    return serviceError("Não foi possível carregar as unidades do condomínio.");
+  }
+}
+
+async function getUnitRegistrationMeta(
+  unitId: string,
+  condominiumId: string,
+): Promise<ServiceResult<{ unitKind: RegistrationUnitKind; unitNumber: string }>> {
+  try {
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+      .from("units")
+      .select(
+        `
+        number,
+        towers!inner (
+          name,
+          condominium_id
+        )
+      `,
+      )
+      .eq("id", unitId)
+      .eq("towers.condominium_id", condominiumId)
+      .maybeSingle();
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    if (!data) {
+      return serviceError("Unidade inválida para este condomínio.");
+    }
+
+    return serviceOk({
+      unitKind: isHouseTower(data.towers.name) ? "house" : "apartment",
+      unitNumber: data.number,
+    });
+  } catch {
+    return serviceError("Não foi possível validar a unidade selecionada.");
+  }
+}
+
 export async function createRegistrationRequest(input: {
   profileId: string;
   condominiumId: string;
   residentType: ResidentType;
-  unitKind: RegistrationUnitKind;
-  unitNumber: string;
+  unitId: string;
   fullName: string;
   email: string;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
+  const unitMeta = await getUnitRegistrationMeta(input.unitId, input.condominiumId);
+  if (!unitMeta.ok) {
+    return serviceError(unitMeta.error ?? "Unidade inválida.");
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -80,8 +171,9 @@ export async function createRegistrationRequest(input: {
       profile_id: input.profileId,
       condominium_id: input.condominiumId,
       resident_type: input.residentType,
-      unit_kind: input.unitKind,
-      unit_number: input.unitNumber.trim(),
+      requested_unit_id: input.unitId,
+      unit_kind: unitMeta.data.unitKind,
+      unit_number: unitMeta.data.unitNumber,
       full_name: input.fullName.trim(),
       email: input.email.trim().toLowerCase(),
       status: "pending",
@@ -100,11 +192,15 @@ export async function createRegistrationRequestAsAdmin(input: {
   profileId: string;
   condominiumId: string;
   residentType: ResidentType;
-  unitKind: RegistrationUnitKind;
-  unitNumber: string;
+  unitId: string;
   fullName: string;
   email: string;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
+  const unitMeta = await getUnitRegistrationMeta(input.unitId, input.condominiumId);
+  if (!unitMeta.ok) {
+    return serviceError(unitMeta.error ?? "Unidade inválida.");
+  }
+
   try {
     const admin = createAdminClient();
 
@@ -114,8 +210,9 @@ export async function createRegistrationRequestAsAdmin(input: {
         profile_id: input.profileId,
         condominium_id: input.condominiumId,
         resident_type: input.residentType,
-        unit_kind: input.unitKind,
-        unit_number: input.unitNumber.trim(),
+        requested_unit_id: input.unitId,
+        unit_kind: unitMeta.data.unitKind,
+        unit_number: unitMeta.data.unitNumber,
         full_name: input.fullName.trim(),
         email: input.email.trim().toLowerCase(),
         status: "pending",
@@ -344,15 +441,29 @@ export async function approveRegistrationRequest(input: {
     return serviceError("Esta solicitação já foi analisada.");
   }
 
-  const unitResult = await findOrCreateUnitForRequest({
-    condominiumId: input.condominiumId,
-    unitKind: request.unit_kind,
-    unitNumber: request.unit_number,
-    unitId: input.unitId,
-  });
+  let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? null;
 
-  if (!unitResult.ok) {
-    return serviceError(unitResult.error ?? "Não foi possível vincular a unidade.");
+  if (!resolvedUnitId && request.unit_kind && request.unit_number) {
+    const unitResult = await findOrCreateUnitForRequest({
+      condominiumId: input.condominiumId,
+      unitKind: request.unit_kind,
+      unitNumber: request.unit_number,
+    });
+
+    if (!unitResult.ok) {
+      return serviceError(unitResult.error ?? "Não foi possível vincular a unidade.");
+    }
+
+    resolvedUnitId = unitResult.data;
+  }
+
+  if (!resolvedUnitId) {
+    return serviceError("Unidade da solicitação não encontrada.");
+  }
+
+  const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
+  if (!unitCheck.ok) {
+    return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
 
   const supabase = await createClient();
@@ -360,7 +471,7 @@ export async function approveRegistrationRequest(input: {
   const { data: resident, error: residentError } = await supabase
     .from("residents")
     .insert({
-      unit_id: unitResult.data,
+      unit_id: resolvedUnitId,
       profile_id: request.profile_id,
       full_name: request.full_name,
       email: request.email,
@@ -399,7 +510,7 @@ export async function approveRegistrationRequest(input: {
       reviewed_by: input.reviewerProfileId,
       reviewed_at: new Date().toISOString(),
       review_notes: input.reviewNotes?.trim() || null,
-      unit_id: unitResult.data,
+      unit_id: resolvedUnitId,
     })
     .eq("id", input.requestId)
     .eq("condominium_id", input.condominiumId)

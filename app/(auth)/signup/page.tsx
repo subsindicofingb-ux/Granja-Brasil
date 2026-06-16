@@ -18,8 +18,8 @@ export default async function SignUpPage() {
         <div>
           <h2 className="text-3xl font-bold leading-tight">Crie sua conta</h2>
           <p className="mt-4 max-w-md text-sidebar-foreground/70">
-            Informe seu condomínio, se mora em apartamento ou casa, e o número da unidade. O
-            síndico receberá sua solicitação e liberará o acesso após aprovação.
+            Escolha o condomínio e a unidade ou casa cadastrada. O síndico receberá sua solicitação
+            e liberará o acesso após aprovação.
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/50">

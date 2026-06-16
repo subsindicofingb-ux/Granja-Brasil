@@ -7,8 +7,7 @@ export type RegistrationRequestNotificationEvent = {
   condominiumName: string;
   fullName: string;
   email: string;
-  unitKind: RegistrationUnitKind;
-  unitNumber: string;
+  unitLabel: string;
   residentType: ResidentType;
 };
 
@@ -17,8 +16,9 @@ export type RegistrationRequestRecord = {
   profile_id: string;
   condominium_id: string;
   resident_type: ResidentType;
-  unit_kind: RegistrationUnitKind;
-  unit_number: string;
+  unit_kind: RegistrationUnitKind | null;
+  unit_number: string | null;
+  requested_unit_id: string | null;
   full_name: string;
   email: string;
   status: RegistrationRequestStatus;

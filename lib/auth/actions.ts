@@ -16,7 +16,7 @@ import {
   listPublicCondominiums,
 } from "@/lib/services/registration-requests";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
-import type { RegistrationUnitKind, ResidentType } from "@/types";
+import type { ResidentType } from "@/types";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -158,8 +158,7 @@ export async function signUpAction(
         profileId: data.user.id,
         condominiumId: preQualification.data.condominium_id,
         residentType: preQualification.data.resident_type as ResidentType,
-        unitKind: preQualification.data.unit_kind as RegistrationUnitKind,
-        unitNumber: preQualification.data.unit_number,
+        unitId: preQualification.data.unit_id,
         fullName,
         email,
       });
@@ -172,15 +171,21 @@ export async function signUpAction(
         };
       }
 
-      if (selectedCondo) {
+      if (selectedCondo && requestResult.data) {
+        const unitLabel =
+          requestResult.data.unit_number && requestResult.data.unit_kind
+            ? requestResult.data.unit_kind === "house"
+              ? `Casa ${requestResult.data.unit_number}`
+              : `Apto ${requestResult.data.unit_number}`
+            : "Unidade selecionada";
+
         await notifyNewRegistrationRequest({
           requestId: requestResult.data.id,
           condominiumId: selectedCondo.id,
           condominiumName: selectedCondo.name,
           fullName,
           email,
-          unitKind: preQualification.data.unit_kind,
-          unitNumber: preQualification.data.unit_number,
+          unitLabel,
           residentType: preQualification.data.resident_type as ResidentType,
         });
       }

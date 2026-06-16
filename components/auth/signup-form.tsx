@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { listSignupUnitsAction } from "@/lib/actions/signup-units";
 import { signUpAction } from "@/lib/auth/actions";
-import { REGISTRATION_UNIT_KIND, RESIDENT_TYPES } from "@/lib/constants";
+import { RESIDENT_TYPES } from "@/lib/constants";
 import { RESIDENT_TYPE_OPTIONS } from "@/lib/residents/labels";
 import type { PublicCondominiumOption } from "@/lib/services/registration-requests";
+import type { PublicUnitOption } from "@/lib/services/registration-requests";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,12 +20,27 @@ interface SignUpFormProps {
 export function SignUpForm({ condominiums }: SignUpFormProps) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(signUpAction, {});
+  const [selectedCondoId, setSelectedCondoId] = useState("");
+  const [units, setUnits] = useState<PublicUnitOption[]>([]);
+  const [unitsLoading, startUnitsTransition] = useTransition();
 
   useEffect(() => {
     if (state.redirectTo) {
       router.push(state.redirectTo);
     }
   }, [state.redirectTo, router]);
+
+  useEffect(() => {
+    if (!selectedCondoId) {
+      setUnits([]);
+      return;
+    }
+
+    startUnitsTransition(async () => {
+      const result = await listSignupUnitsAction(selectedCondoId);
+      setUnits(result.ok ? (result.data ?? []) : []);
+    });
+  }, [selectedCondoId]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -61,11 +78,11 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
         />
       </div>
 
-      <div className="rounded-md border bg-muted/30 p-4 space-y-4">
+      <div className="space-y-4 rounded-md border bg-muted/30 p-4">
         <div>
           <p className="text-sm font-medium">Pré-qualificação</p>
           <p className="text-xs text-muted-foreground">
-            Informe seu condomínio e unidade. O síndico receberá sua solicitação para aprovação.
+            Escolha o condomínio e a unidade ou casa cadastrada. O síndico analisará sua solicitação.
           </p>
         </div>
 
@@ -75,7 +92,8 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
             id="condominium_id"
             name="condominium_id"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue=""
+            value={selectedCondoId}
+            onChange={(event) => setSelectedCondoId(event.target.value)}
             required
           >
             <option value="" disabled>
@@ -84,6 +102,33 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
             {condominiums.map((condo) => (
               <option key={condo.id} value={condo.id}>
                 {condo.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="unit_id">Unidade ou casa</Label>
+          <select
+            id="unit_id"
+            name="unit_id"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            defaultValue=""
+            disabled={!selectedCondoId || unitsLoading}
+            required
+          >
+            <option value="" disabled>
+              {unitsLoading
+                ? "Carregando unidades..."
+                : selectedCondoId
+                  ? units.length > 0
+                    ? "Selecione sua unidade ou casa"
+                    : "Nenhuma unidade cadastrada neste condomínio"
+                  : "Selecione o condomínio primeiro"}
+            </option>
+            {units.map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {unit.label}
               </option>
             ))}
           </select>
@@ -108,33 +153,13 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
             ))}
           </select>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="unit_kind">Tipo de moradia</Label>
-          <select
-            id="unit_kind"
-            name="unit_kind"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue={REGISTRATION_UNIT_KIND.APARTMENT}
-            required
-          >
-            <option value={REGISTRATION_UNIT_KIND.APARTMENT}>Apartamento</option>
-            <option value={REGISTRATION_UNIT_KIND.HOUSE}>Casa</option>
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="unit_number">Número do apartamento ou casa</Label>
-          <Input
-            id="unit_number"
-            name="unit_number"
-            placeholder="Ex: 101 ou Casa 12"
-            required
-          />
-        </div>
       </div>
 
-      <Button className="w-full" type="submit" disabled={pending || condominiums.length === 0}>
+      <Button
+        className="w-full"
+        type="submit"
+        disabled={pending || condominiums.length === 0 || !selectedCondoId || units.length === 0}
+      >
         {pending ? "Criando conta..." : "Criar conta e solicitar acesso"}
       </Button>
 

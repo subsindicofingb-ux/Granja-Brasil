@@ -16,11 +16,19 @@ export function getResidentTypeLabel(type: string): string {
   return RESIDENT_TYPE_LABELS[type as ResidentType] ?? type;
 }
 
+export function isHouseTower(name: string): boolean {
+  return name.trim().toLowerCase() === "casa";
+}
+
 export function formatUnitWithTower(unit: {
   number: string;
   block: string | null;
   tower: { name: string };
 }): string {
+  if (isHouseTower(unit.tower.name)) {
+    return `Casa ${unit.number}`;
+  }
+
   const blockSuffix = unit.block ? ` · Bloco ${unit.block}` : "";
-  return `${unit.tower.name} · ${unit.number}${blockSuffix}`;
+  return `${unit.tower.name} · Apto ${unit.number}${blockSuffix}`;
 }

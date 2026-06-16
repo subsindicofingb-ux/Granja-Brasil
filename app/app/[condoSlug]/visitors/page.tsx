@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import {
   GUEST_TYPE,
   VISITOR_AUTHORIZATION_STATUS,
@@ -92,10 +93,22 @@ async function VisitorsContent({
     return <ErrorAlert message="Sem permissão para visualizar autorizações." />;
   }
 
+  const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
+
+  if (unitQuery === "none") {
+    return (
+      <EmptyState
+        title="Unidade não vinculada"
+        description="Seu cadastro ainda não está vinculado a uma unidade neste condomínio."
+      />
+    );
+  }
+
   const result = await listVisitorAuthorizationsByCondominium(access.condominium.id, {
     status,
     guestType,
     search,
+    ...unitQuery,
   });
 
   if (!result.ok) {

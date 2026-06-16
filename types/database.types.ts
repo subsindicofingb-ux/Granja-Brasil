@@ -616,8 +616,9 @@ export interface Database {
           profile_id: string;
           condominium_id: string;
           resident_type: ResidentType;
-          unit_kind: RegistrationUnitKind;
-          unit_number: string;
+          unit_kind: RegistrationUnitKind | null;
+          unit_number: string | null;
+          requested_unit_id: string | null;
           full_name: string;
           email: string;
           status: RegistrationRequestStatus;
@@ -633,8 +634,9 @@ export interface Database {
           profile_id: string;
           condominium_id: string;
           resident_type?: ResidentType;
-          unit_kind: RegistrationUnitKind;
-          unit_number: string;
+          unit_kind?: RegistrationUnitKind | null;
+          unit_number?: string | null;
+          requested_unit_id?: string | null;
           full_name: string;
           email: string;
           status?: RegistrationRequestStatus;
@@ -650,8 +652,9 @@ export interface Database {
           profile_id?: string;
           condominium_id?: string;
           resident_type?: ResidentType;
-          unit_kind?: RegistrationUnitKind;
-          unit_number?: string;
+          unit_kind?: RegistrationUnitKind | null;
+          unit_number?: string | null;
+          requested_unit_id?: string | null;
           full_name?: string;
           email?: string;
           status?: RegistrationRequestStatus;

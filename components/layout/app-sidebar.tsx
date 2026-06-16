@@ -14,8 +14,8 @@ import {
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CondoSwitcher } from "@/components/layout/condo-switcher";
-import { NAV_ITEMS } from "@/lib/constants";
-import type { MembershipWithCondo } from "@/lib/auth/types";
+import type { CondoAccess } from "@/lib/auth/types";
+import { getVisibleNavItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -35,16 +35,19 @@ interface AppSidebarProps {
   condoSlug: string;
   condoName: string;
   currentPath: string;
-  memberships: MembershipWithCondo[];
+  access: CondoAccess;
+  memberships: import("@/lib/auth/types").MembershipWithCondo[];
 }
 
 export function AppSidebar({
   condoSlug,
   condoName,
   currentPath,
+  access,
   memberships,
 }: AppSidebarProps) {
   const basePath = `/app/${condoSlug}`;
+  const navItems = getVisibleNavItems(access);
 
   return (
     <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
@@ -61,7 +64,7 @@ export function AppSidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const href = item.href ? `${basePath}/${item.href}` : basePath;
           const isActive =
             item.href === ""

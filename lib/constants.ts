@@ -80,15 +80,63 @@ export type RegistrationUnitKind =
 
 export const DEMO_CONDO_SLUG = "residencial-exemplo";
 
-export const NAV_ITEMS = [
+export type NavIcon =
+  | "LayoutDashboard"
+  | "Building2"
+  | "Home"
+  | "Users"
+  | "Car"
+  | "Trees"
+  | "CalendarDays"
+  | "Megaphone"
+  | "UserCheck"
+  | "Settings";
+
+export type NavItem = {
+  label: string;
+  href: string;
+  icon: NavIcon;
+  visible?: (permissions: ReturnType<typeof import("@/lib/auth/roles").getRolePermissions>) => boolean;
+};
+
+export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "", icon: "LayoutDashboard" },
-  { label: "Torres", href: "towers", icon: "Building2" },
-  { label: "Unidades", href: "units", icon: "Home" },
-  { label: "Moradores", href: "residents", icon: "Users" },
-  { label: "Veículos", href: "vehicles", icon: "Car" },
-  { label: "Espaços comuns", href: "areas", icon: "Trees" },
-  { label: "Reservas", href: "reservations", icon: "CalendarDays" },
+  {
+    label: "Unidades",
+    href: "units",
+    icon: "Home",
+    visible: (permissions) => permissions.canManageStructure,
+  },
+  {
+    label: "Moradores",
+    href: "residents",
+    icon: "Users",
+    visible: (permissions) => permissions.canManageResidents,
+  },
+  {
+    label: "Veículos",
+    href: "vehicles",
+    icon: "Car",
+    visible: (permissions) => permissions.canManageVehicles || permissions.canViewUnitVehicles,
+  },
+  {
+    label: "Espaços comuns",
+    href: "areas",
+    icon: "Trees",
+    visible: (permissions) => permissions.canManageAreas,
+  },
+  {
+    label: "Reservas",
+    href: "reservations",
+    icon: "CalendarDays",
+    visible: (permissions) => permissions.canManageReservations,
+  },
   { label: "Avisos", href: "announcements", icon: "Megaphone" },
-  { label: "Visitantes", href: "visitors", icon: "UserCheck" },
+  {
+    label: "Visitantes",
+    href: "visitors",
+    icon: "UserCheck",
+    visible: (permissions) => permissions.canViewVisitorAuthorizations,
+  },
   { label: "Configurações", href: "settings", icon: "Settings" },
-] as const;
+];

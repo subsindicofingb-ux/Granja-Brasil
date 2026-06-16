@@ -5,11 +5,9 @@ import { reviewRegistrationRequestAction } from "@/lib/actions/registration-requ
 import {
   getRegistrationRequestStatusBadgeClass,
   REGISTRATION_REQUEST_STATUS_LABELS,
-  REGISTRATION_UNIT_KIND_LABELS,
 } from "@/lib/registrations/labels";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
-import { getResidentTypeLabel, formatUnitWithTower } from "@/lib/residents/labels";
-import type { UnitWithTower } from "@/lib/services/units";
+import { getResidentTypeLabel } from "@/lib/residents/labels";
 import { FormAlert } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,18 +18,21 @@ import { formatDateTime } from "@/lib/utils";
 interface RegistrationRequestListProps {
   condoSlug: string;
   requests: RegistrationRequestRecord[];
-  units: UnitWithTower[];
 }
 
-function ReviewForm({
-  condoSlug,
-  request,
-  units,
-}: {
-  condoSlug: string;
-  request: RegistrationRequestRecord;
-  units: UnitWithTower[];
-}) {
+function formatRequestedUnit(request: RegistrationRequestRecord): string {
+  if (request.unit_number) {
+    if (request.unit_kind === "house") {
+      return `Casa ${request.unit_number}`;
+    }
+
+    return `Apto ${request.unit_number}`;
+  }
+
+  return "Unidade selecionada";
+}
+
+function ReviewForm({ condoSlug, request }: { condoSlug: string; request: RegistrationRequestRecord }) {
   const [state, formAction, pending] = useActionState(reviewRegistrationRequestAction, {});
 
   return (
@@ -40,25 +41,6 @@ function ReviewForm({
       <input type="hidden" name="request_id" value={request.id} />
 
       <FormAlert error={state.error} success={state.success} />
-
-      {request.unit_kind === "apartment" && units.length > 0 && (
-        <div className="space-y-2">
-          <Label htmlFor={`unit_id_${request.id}`}>Vincular à unidade existente (opcional)</Label>
-          <select
-            id={`unit_id_${request.id}`}
-            name="unit_id"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue=""
-          >
-            <option value="">Criar ou localizar automaticamente</option>
-            {units.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {formatUnitWithTower(unit)}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       <div className="space-y-2">
         <Label htmlFor={`review_notes_${request.id}`}>Observações (opcional)</Label>
@@ -81,7 +63,7 @@ function ReviewForm({
   );
 }
 
-export function RegistrationRequestList({ condoSlug, requests, units }: RegistrationRequestListProps) {
+export function RegistrationRequestList({ condoSlug, requests }: RegistrationRequestListProps) {
   if (requests.length === 0) {
     return (
       <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -110,10 +92,8 @@ export function RegistrationRequestList({ condoSlug, requests, units }: Registra
               <dd>{getResidentTypeLabel(request.resident_type)}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Moradia</dt>
-              <dd>
-                {REGISTRATION_UNIT_KIND_LABELS[request.unit_kind]} · {request.unit_number}
-              </dd>
+              <dt className="text-muted-foreground">Unidade</dt>
+              <dd>{formatRequestedUnit(request)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Solicitado em</dt>
@@ -134,7 +114,7 @@ export function RegistrationRequestList({ condoSlug, requests, units }: Registra
           )}
 
           {request.status === "pending" && (
-            <ReviewForm condoSlug={condoSlug} request={request} units={units} />
+            <ReviewForm condoSlug={condoSlug} request={request} />
           )}
         </div>
       ))}

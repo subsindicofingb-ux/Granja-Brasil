@@ -21,6 +21,7 @@ export default async function CondoLayout({ children, params }: CondoLayoutProps
         <CondoSidebarProvider
           condoSlug={condoSlug}
           condoName={access.condominium.name}
+          access={access}
           memberships={memberships}
         >
           <div className="flex flex-1 flex-col overflow-hidden">

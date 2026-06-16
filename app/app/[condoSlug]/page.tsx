@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
 import { getDashboardData } from "@/lib/services/dashboard";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { getReservationStatusLabel } from "@/lib/reservations/labels";
@@ -35,7 +36,11 @@ async function DashboardHeader({ condoSlug }: { condoSlug: string }) {
   return (
     <PageHeader
       title="Dashboard"
-      description={`Visão geral do condomínio · ${access.permissions.label}`}
+      description={
+        access.permissions.canManageStructure
+          ? `Visão geral do condomínio · ${access.permissions.label}`
+          : `Visão da sua unidade · ${access.permissions.label}`
+      }
       action={
         access.permissions.canManageReservations ? (
           <Button asChild>
@@ -53,7 +58,9 @@ async function DashboardHeader({ condoSlug }: { condoSlug: string }) {
 async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const base = `/app/${condoSlug}`;
-  const result = await getDashboardData(access.condominium.id);
+  const unitFilter = await getUnitListFilterForAccess(access);
+  const scope = access.permissions.canManageStructure ? null : unitFilter;
+  const result = await getDashboardData(access.condominium.id, scope);
   const pendingRegistrationResult = access.permissions.canManageRegistrationRequests
     ? await countPendingRegistrationRequests(access.condominium.id)
     : null;
@@ -64,15 +71,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
   }
 
-  const { metrics, upcomingReservations, recentReservations, recentAnnouncements } = result.data;
+  const { metrics, upcomingReservations, recentReservations, recentAnnouncements, isUnitScoped } =
+    result.data;
   const pendingCount = metrics.reservationsByStatus[RESERVATION_STATUS.PENDING];
 
   const quickActions = [
-    {
-      label: "Cadastrar torre",
-      href: `${base}/towers/new`,
-      allowed: access.permissions.canManageStructure,
-    },
     {
       label: "Cadastrar unidade",
       href: `${base}/units/new`,
@@ -93,13 +96,23 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Torres" value={metrics.towers} />
-        <StatCard label="Unidades" value={metrics.units} />
-        <StatCard label="Moradores" value={metrics.residents} hint="Cadastrados no condomínio" />
+        <StatCard
+          label={isUnitScoped ? "Minhas unidades" : "Unidades"}
+          value={metrics.units}
+        />
+        <StatCard
+          label={isUnitScoped ? "Moradores da unidade" : "Moradores"}
+          value={metrics.residents}
+          hint={isUnitScoped ? "Na sua unidade" : "Cadastrados no condomínio"}
+        />
         <StatCard
           label="Espaços comuns"
           value={metrics.activeCommonAreas}
           hint="Ativos para reserva"
+        />
+        <StatCard
+          label="Reservas pendentes"
+          value={metrics.reservationsByStatus[RESERVATION_STATUS.PENDING]}
         />
       </div>
 

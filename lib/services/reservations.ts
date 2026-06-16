@@ -115,6 +115,7 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
 export type ReservationListOptions = {
   commonAreaId?: string;
   unitId?: string;
+  unitIds?: string[];
   status?: ReservationStatus | "all";
   from?: string;
   to?: string;
@@ -138,6 +139,8 @@ export async function listReservationsByCondominium(
 
   if (options?.unitId) {
     query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
   }
 
   if (options?.status && options.status !== "all") {
@@ -164,11 +167,12 @@ export async function listReservationsByCondominium(
 export async function listUpcomingReservationsByCondominium(
   condominiumId: string,
   limit = 5,
+  options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<ReservationWithDetails[]>> {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("reservations")
     .select(RESERVATION_DETAIL_SELECT)
     .eq("common_areas.condominium_id", condominiumId)
@@ -176,6 +180,14 @@ export async function listUpcomingReservationsByCondominium(
     .in("status", ["pending", "approved"])
     .order("start_at", { ascending: true })
     .limit(limit);
+
+  if (options?.unitId) {
+    query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -187,15 +199,24 @@ export async function listUpcomingReservationsByCondominium(
 export async function listRecentReservationsByCondominium(
   condominiumId: string,
   limit = 5,
+  options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<ReservationWithDetails[]>> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("reservations")
     .select(RESERVATION_DETAIL_SELECT)
     .eq("common_areas.condominium_id", condominiumId)
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (options?.unitId) {
+    query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -206,6 +227,7 @@ export async function listRecentReservationsByCondominium(
 
 export async function countReservationsByStatusForCondominium(
   condominiumId: string,
+  options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<Record<ReservationStatus, number>>> {
   const supabase = await createClient();
   const statuses: ReservationStatus[] = ["pending", "approved", "rejected", "cancelled"];
@@ -215,11 +237,19 @@ export async function countReservationsByStatusForCondominium(
 
   const results = await Promise.all(
     statuses.map(async (status) => {
-      const { count, error } = await supabase
+      let query = supabase
         .from("reservations")
         .select("id, common_areas!inner(condominium_id)", { count: "exact", head: true })
         .eq("common_areas.condominium_id", condominiumId)
         .eq("status", status);
+
+      if (options?.unitId) {
+        query = query.eq("unit_id", options.unitId);
+      } else if (options?.unitIds) {
+        query = query.in("unit_id", options.unitIds);
+      }
+
+      const { count, error } = await query;
 
       return { status, count, error };
     }),

@@ -89,6 +89,7 @@ function mapVisitorDetail(row: VisitorAuthorizationDetailRow): VisitorAuthorizat
 
 export type VisitorAuthorizationListOptions = {
   unitId?: string;
+  unitIds?: string[];
   status?: VisitorAuthorizationStatus | "all";
   guestType?: VisitorAuthorizationRecord["guest_type"] | "all";
   consultWindowOnly?: boolean;
@@ -109,6 +110,8 @@ export async function listVisitorAuthorizationsByCondominium(
 
   if (options?.unitId) {
     query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
   }
 
   if (options?.status && options.status !== "all") {

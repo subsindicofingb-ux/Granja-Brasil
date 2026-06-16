@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
-import { requireCondoAccess } from "@/lib/auth/access";
+import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
+import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
 import { listReservationsByCondominium } from "@/lib/services/reservations";
 import { formatUnitWithTower } from "@/lib/residents/labels";
@@ -69,6 +70,16 @@ async function ReservationsContent({
   view: "list" | "agenda";
 }) {
   const access = await requireCondoAccess(condoSlug);
+  const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
+
+  if (unitQuery === "none") {
+    return (
+      <EmptyState
+        title="Unidade não vinculada"
+        description="Seu cadastro ainda não está vinculado a uma unidade neste condomínio."
+      />
+    );
+  }
 
   const [areasResult, reservationsResult] = await Promise.all([
     listCommonAreasByCondominium(access.condominium.id, { isActive: true }),
@@ -76,6 +87,7 @@ async function ReservationsContent({
       commonAreaId: areaId,
       status,
       ...(view === "agenda" ? getAgendaRange() : {}),
+      ...unitQuery,
     }),
   ]);
 

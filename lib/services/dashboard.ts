@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
+import type { UnitListFilter } from "@/lib/auth/unit-scope";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import { listRecentAnnouncementsByCondominium } from "@/lib/services/announcements";
 import {
@@ -8,10 +9,10 @@ import {
   listUpcomingReservationsByCondominium,
 } from "@/lib/services/reservations";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
+import { applyUnitListFilter } from "@/lib/services/unit-filter";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type DashboardMetrics = {
-  towers: number;
   units: number;
   residents: number;
   activeCommonAreas: number;
@@ -23,29 +24,30 @@ export type DashboardData = {
   upcomingReservations: ReservationWithDetails[];
   recentReservations: ReservationWithDetails[];
   recentAnnouncements: AnnouncementWithDetails[];
+  isUnitScoped: boolean;
 };
 
-async function countTowers(condominiumId: string): Promise<ServiceResult<number>> {
-  const supabase = await createClient();
-  const { count, error } = await supabase
-    .from("towers")
-    .select("id", { count: "exact", head: true })
-    .eq("condominium_id", condominiumId);
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
+async function countUnits(
+  condominiumId: string,
+  unitFilter: UnitListFilter | "none",
+): Promise<ServiceResult<number>> {
+  if (unitFilter === "none") {
+    return serviceOk(0);
   }
 
-  return serviceOk(count ?? 0);
-}
-
-async function countUnits(condominiumId: string): Promise<ServiceResult<number>> {
   const supabase = await createClient();
-  const { count, error } = await supabase
+  let query = supabase
     .from("units")
     .select("id, towers!inner(condominium_id)", { count: "exact", head: true })
     .eq("towers.condominium_id", condominiumId);
 
+  const filtered = applyUnitListFilter(query, unitFilter, "id");
+  if (!filtered) {
+    return serviceOk(0);
+  }
+
+  const { count, error } = await filtered;
+
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
@@ -53,12 +55,26 @@ async function countUnits(condominiumId: string): Promise<ServiceResult<number>>
   return serviceOk(count ?? 0);
 }
 
-async function countResidents(condominiumId: string): Promise<ServiceResult<number>> {
+async function countResidents(
+  condominiumId: string,
+  unitFilter: UnitListFilter | "none",
+): Promise<ServiceResult<number>> {
+  if (unitFilter === "none") {
+    return serviceOk(0);
+  }
+
   const supabase = await createClient();
-  const { count, error } = await supabase
+  let query = supabase
     .from("residents")
     .select("id, units!inner(towers!inner(condominium_id))", { count: "exact", head: true })
     .eq("units.towers.condominium_id", condominiumId);
+
+  const filtered = applyUnitListFilter(query, unitFilter);
+  if (!filtered) {
+    return serviceOk(0);
+  }
+
+  const { count, error } = await filtered;
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -84,9 +100,21 @@ async function countActiveCommonAreas(condominiumId: string): Promise<ServiceRes
 
 export async function getDashboardData(
   condominiumId: string,
+  scope: UnitListFilter | "none" | null = null,
 ): Promise<ServiceResult<DashboardData>> {
+  const unitFilter = scope ?? {};
+  const isUnitScoped = scope !== null && scope !== "none";
+
+  const reservationOptions =
+    unitFilter === "none"
+      ? undefined
+      : unitFilter.unitId
+        ? { unitId: unitFilter.unitId }
+        : unitFilter.unitIds
+          ? { unitIds: unitFilter.unitIds }
+          : undefined;
+
   const [
-    towersResult,
     unitsResult,
     residentsResult,
     areasResult,
@@ -95,19 +123,14 @@ export async function getDashboardData(
     recentResult,
     announcementsResult,
   ] = await Promise.all([
-    countTowers(condominiumId),
-    countUnits(condominiumId),
-    countResidents(condominiumId),
+    countUnits(condominiumId, unitFilter),
+    countResidents(condominiumId, unitFilter),
     countActiveCommonAreas(condominiumId),
-    countReservationsByStatusForCondominium(condominiumId),
-    listUpcomingReservationsByCondominium(condominiumId, 5),
-    listRecentReservationsByCondominium(condominiumId, 5),
+    countReservationsByStatusForCondominium(condominiumId, reservationOptions),
+    listUpcomingReservationsByCondominium(condominiumId, 5, reservationOptions),
+    listRecentReservationsByCondominium(condominiumId, 5, reservationOptions),
     listRecentAnnouncementsByCondominium(condominiumId, 5),
   ]);
-
-  if (!towersResult.ok) {
-    return serviceError(towersResult.error);
-  }
 
   if (!unitsResult.ok) {
     return serviceError(unitsResult.error);
@@ -139,7 +162,6 @@ export async function getDashboardData(
 
   return serviceOk({
     metrics: {
-      towers: towersResult.data,
       units: unitsResult.data,
       residents: residentsResult.data,
       activeCommonAreas: areasResult.data,
@@ -148,5 +170,6 @@ export async function getDashboardData(
     upcomingReservations: upcomingResult.data,
     recentReservations: recentResult.data,
     recentAnnouncements: announcementsResult.data,
+    isUnitScoped,
   });
 }

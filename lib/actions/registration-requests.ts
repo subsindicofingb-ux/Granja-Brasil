@@ -78,8 +78,7 @@ export async function notifyNewRegistrationRequest(input: {
   condominiumName: string;
   fullName: string;
   email: string;
-  unitKind: "apartment" | "house";
-  unitNumber: string;
+  unitLabel: string;
   residentType: "owner" | "tenant" | "dependent" | "responsible";
 }) {
   await notifyRegistrationRequestEvent({
@@ -89,8 +88,7 @@ export async function notifyNewRegistrationRequest(input: {
     condominiumName: input.condominiumName,
     fullName: input.fullName,
     email: input.email,
-    unitKind: input.unitKind,
-    unitNumber: input.unitNumber,
+    unitLabel: input.unitLabel,
     residentType: input.residentType,
   });
 }

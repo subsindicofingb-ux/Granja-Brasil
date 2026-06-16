@@ -177,7 +177,7 @@ async function assertResidentInUnit(
 
 export async function listVehiclesByCondominium(
   condominiumId: string,
-  options?: { unitId?: string },
+  options?: { unitId?: string; unitIds?: string[] },
 ): Promise<ServiceResult<VehicleWithUnit[]>> {
   const supabase = await createClient();
 
@@ -190,6 +190,8 @@ export async function listVehiclesByCondominium(
 
   if (options?.unitId) {
     query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
   }
 
   const { data, error } = await query;

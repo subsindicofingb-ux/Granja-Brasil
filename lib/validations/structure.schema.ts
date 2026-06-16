@@ -1,17 +1,51 @@
 import { z } from "zod";
+import { isHouseTower } from "@/lib/residents/labels";
 
-export const towerFormSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "Informe o nome da torre.")
-    .max(100, "Nome muito longo."),
-  floors: z.coerce
-    .number({ invalid_type_error: "Informe um número válido de andares." })
-    .int("Andares deve ser um número inteiro.")
-    .min(1, "Mínimo de 1 andar.")
-    .max(200, "Máximo de 200 andares."),
-});
+export const towerFormSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome.")
+      .max(100, "Nome muito longo."),
+    floors: z
+      .union([z.coerce.number(), z.literal(""), z.null(), z.undefined()])
+      .transform((value) => {
+        if (value === "" || value == null || value === undefined) {
+          return undefined;
+        }
+        return Number(value);
+      })
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    const isHouse = isHouseTower(data.name);
+
+    if (isHouse) {
+      return;
+    }
+
+    if (data.floors == null || Number.isNaN(data.floors)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe um número válido de andares.",
+        path: ["floors"],
+      });
+      return;
+    }
+
+    if (!Number.isInteger(data.floors) || data.floors < 1 || data.floors > 200) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Andares deve ser um número inteiro entre 1 e 200.",
+        path: ["floors"],
+      });
+    }
+  })
+  .transform((data) => ({
+    name: data.name,
+    floors: isHouseTower(data.name) ? 1 : (data.floors ?? 1),
+  }));
 
 export type TowerFormValues = z.infer<typeof towerFormSchema>;
 

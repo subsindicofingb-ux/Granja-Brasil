@@ -1,7 +1,5 @@
-import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { listRegistrationRequestsByCondominium } from "@/lib/services/registration-requests";
-import { listUnitsByCondominium } from "@/lib/services/units";
 import { RegistrationRequestList } from "@/components/registrations/registration-request-list";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -19,10 +17,7 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
     { redirectTo: `/app/${condoSlug}/settings` },
   );
 
-  const [requestsResult, unitsResult] = await Promise.all([
-    listRegistrationRequestsByCondominium(access.condominium.id),
-    listUnitsByCondominium(access.condominium.id),
-  ]);
+  const requestsResult = await listRegistrationRequestsByCondominium(access.condominium.id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -39,7 +34,6 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
         <RegistrationRequestList
           condoSlug={condoSlug}
           requests={requestsResult.data ?? []}
-          units={unitsResult.ok ? (unitsResult.data ?? []) : []}
         />
       )}
     </div>
