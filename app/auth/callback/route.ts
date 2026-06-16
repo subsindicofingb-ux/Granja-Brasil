@@ -5,30 +5,41 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
+function resolveNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/app";
+  }
+
+  return value;
+}
+
 export async function GET(request: Request) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL("/login?error=config", request.url));
   }
 
-  const { searchParams, origin } = new URL(request.url);  const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/app";
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+  const next = resolveNextPath(requestUrl.searchParams.get("next"));
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        await ensureProfile(user);
-      }
-
-      return NextResponse.redirect(`${origin}${next}`);
-    }
+  if (!code) {
+    return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
   }
 
-  return NextResponse.redirect(`${origin}/login?error=callback`);
+  const supabase = await createClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    await ensureProfile(user);
+  }
+
+  return NextResponse.redirect(new URL(next, requestUrl.origin));
 }
