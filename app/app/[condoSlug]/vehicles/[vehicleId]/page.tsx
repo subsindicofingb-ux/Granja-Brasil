@@ -1,0 +1,129 @@
+import Link from "next/link";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { requireCondoAccess } from "@/lib/auth/access";
+import { getVehicleById } from "@/lib/services/vehicles";
+import { listResidentsByCondominium } from "@/lib/services/residents";
+import { listUnitsByCondominium } from "@/lib/services/units";
+import { formatUnitWithTower } from "@/lib/residents/labels";
+import { formatLicensePlate } from "@/lib/vehicles/labels";
+import { ErrorAlert } from "@/components/shared/feedback";
+import { PageHeader } from "@/components/shared/page-shell";
+import { VehicleForm } from "@/components/vehicles/vehicle-form";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+interface VehicleDetailPageProps {
+  params: Promise<{ condoSlug: string; vehicleId: string }>;
+}
+
+export default async function VehicleDetailPage({ params }: VehicleDetailPageProps) {
+  const { condoSlug, vehicleId } = await params;
+  const access = await requireCondoAccess(condoSlug);
+
+  const [vehicleResult, unitsResult, residentsResult] = await Promise.all([
+    getVehicleById(vehicleId, access.condominium.id),
+    listUnitsByCondominium(access.condominium.id),
+    listResidentsByCondominium(access.condominium.id),
+  ]);
+
+  if (!vehicleResult.ok) {
+    if (vehicleResult.error.includes("não encontrado")) {
+      notFound();
+    }
+    return (
+      <div className="mx-auto max-w-lg space-y-4">
+        <ErrorAlert message={vehicleResult.error} />
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (!unitsResult.ok || !residentsResult.ok) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4">
+        <ErrorAlert message="Erro ao carregar dados auxiliares." />
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const vehicle = vehicleResult.data;
+  const canEdit = access.permissions.canManageVehicles;
+
+  return (
+    <div className="mx-auto max-w-lg space-y-6">
+      <PageHeader
+        title={`${vehicle.brand} ${vehicle.model}`}
+        description={canEdit ? "Edite os dados do veículo." : "Detalhes do veículo."}
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {canEdit ? "Editar veículo" : "Informações"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {canEdit ? (
+            <VehicleForm
+              condoSlug={condoSlug}
+              units={unitsResult.data}
+              residents={residentsResult.data}
+              mode="edit"
+              defaultValues={{
+                vehicleId: vehicle.id,
+                unitId: vehicle.unit_id,
+                residentId: vehicle.resident_id,
+                brand: vehicle.brand,
+                model: vehicle.model,
+                color: vehicle.color,
+                licensePlate: vehicle.license_plate,
+                tagNumber: vehicle.tag_number,
+                photoUrl: vehicle.photo_url,
+              }}
+            />
+          ) : (
+            <div className="space-y-4 text-sm">
+              {vehicle.photo_url ? (
+                <div className="relative h-40 w-full overflow-hidden rounded-lg border bg-muted">
+                  <Image
+                    src={vehicle.photo_url}
+                    alt={`${vehicle.brand} ${vehicle.model}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Placa</span>
+                <span className="font-medium">{formatLicensePlate(vehicle.license_plate)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">TAG</span>
+                <span className="font-medium">{vehicle.tag_number ?? "—"}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Unidade</span>
+                <span className="text-right font-medium">{formatUnitWithTower(vehicle.unit)}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Morador</span>
+                <span className="font-medium">{vehicle.resident?.full_name ?? "—"}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Button variant="outline" asChild>
+        <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+      </Button>
+    </div>
+  );
+}

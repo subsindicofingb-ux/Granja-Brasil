@@ -4,16 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
-import { createResident, updateResident } from "@/lib/services/residents";
+import { createVehicle, updateVehicle } from "@/lib/services/vehicles";
 import {
   formDataHasRemovePhoto,
   resolvePhotoUrl,
   uploadCondoImage,
 } from "@/lib/storage/upload-image";
-import { residentFormSchema } from "@/lib/validations/structure.schema";
+import { vehicleFormSchema } from "@/lib/validations/vehicle.schema";
 
-function revalidateResidentPaths(condoSlug: string) {
-  revalidatePath(`/app/${condoSlug}/residents`);
+function revalidateVehiclePaths(condoSlug: string) {
+  revalidatePath(`/app/${condoSlug}/vehicles`);
 }
 
 function getPhotoFile(formData: FormData): File | null {
@@ -21,7 +21,7 @@ function getPhotoFile(formData: FormData): File | null {
   return value instanceof File ? value : null;
 }
 
-export async function createResidentAction(
+export async function createVehicleAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
@@ -29,16 +29,18 @@ export async function createResidentAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageResidents,
-    { redirectTo: `/app/${condoSlug}/residents` },
+    (ctx) => ctx.permissions.canManageVehicles,
+    { redirectTo: `/app/${condoSlug}/vehicles` },
   );
 
-  const parsed = residentFormSchema.safeParse({
+  const parsed = vehicleFormSchema.safeParse({
     unit_id: formData.get("unit_id"),
-    full_name: formData.get("full_name"),
-    email: formData.get("email") ?? "",
-    phone: formData.get("phone") ?? "",
-    type: formData.get("type"),
+    resident_id: formData.get("resident_id") ?? "",
+    brand: formData.get("brand"),
+    model: formData.get("model"),
+    color: formData.get("color") ?? "",
+    license_plate: formData.get("license_plate"),
+    tag_number: formData.get("tag_number") ?? "",
   });
 
   if (!parsed.success) {
@@ -47,7 +49,7 @@ export async function createResidentAction(
 
   const uploadResult = await uploadCondoImage({
     condominiumId: access.condominium.id,
-    folder: "residents",
+    folder: "vehicles",
     file: getPhotoFile(formData),
   });
 
@@ -55,44 +57,48 @@ export async function createResidentAction(
     return { error: uploadResult.error };
   }
 
-  const result = await createResident({
+  const result = await createVehicle({
     condominiumId: access.condominium.id,
     unitId: parsed.data.unit_id,
-    fullName: parsed.data.full_name,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
+    residentId: parsed.data.resident_id,
+    brand: parsed.data.brand,
+    model: parsed.data.model,
+    color: parsed.data.color,
+    licensePlate: parsed.data.license_plate,
+    tagNumber: parsed.data.tag_number,
     photoUrl: uploadResult.data,
-    type: parsed.data.type,
   });
 
   if (!result.ok) {
     return { error: result.error };
   }
 
-  revalidateResidentPaths(condoSlug);
-  redirect(`/app/${condoSlug}/residents/${result.data.id}`);
+  revalidateVehiclePaths(condoSlug);
+  redirect(`/app/${condoSlug}/vehicles/${result.data.id}`);
 }
 
-export async function updateResidentAction(
+export async function updateVehicleAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
   const condoSlug = String(formData.get("condo_slug") ?? "");
-  const residentId = String(formData.get("resident_id") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
   const existingPhotoUrl = String(formData.get("existing_photo_url") ?? "") || null;
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageResidents,
-    { redirectTo: `/app/${condoSlug}/residents/${residentId}` },
+    (ctx) => ctx.permissions.canManageVehicles,
+    { redirectTo: `/app/${condoSlug}/vehicles/${vehicleId}` },
   );
 
-  const parsed = residentFormSchema.safeParse({
+  const parsed = vehicleFormSchema.safeParse({
     unit_id: formData.get("unit_id"),
-    full_name: formData.get("full_name"),
-    email: formData.get("email") ?? "",
-    phone: formData.get("phone") ?? "",
-    type: formData.get("type"),
+    resident_id: formData.get("resident_id") ?? "",
+    brand: formData.get("brand"),
+    model: formData.get("model"),
+    color: formData.get("color") ?? "",
+    license_plate: formData.get("license_plate"),
+    tag_number: formData.get("tag_number") ?? "",
   });
 
   if (!parsed.success) {
@@ -101,7 +107,7 @@ export async function updateResidentAction(
 
   const uploadResult = await uploadCondoImage({
     condominiumId: access.condominium.id,
-    folder: "residents",
+    folder: "vehicles",
     file: getPhotoFile(formData),
   });
 
@@ -109,26 +115,28 @@ export async function updateResidentAction(
     return { error: uploadResult.error };
   }
 
-  const result = await updateResident({
-    residentId,
+  const result = await updateVehicle({
+    vehicleId,
     condominiumId: access.condominium.id,
     unitId: parsed.data.unit_id,
-    fullName: parsed.data.full_name,
-    email: parsed.data.email,
-    phone: parsed.data.phone,
+    residentId: parsed.data.resident_id,
+    brand: parsed.data.brand,
+    model: parsed.data.model,
+    color: parsed.data.color,
+    licensePlate: parsed.data.license_plate,
+    tagNumber: parsed.data.tag_number,
     photoUrl: resolvePhotoUrl(
       uploadResult.data,
       existingPhotoUrl,
       formDataHasRemovePhoto(formData),
     ),
-    type: parsed.data.type,
   });
 
   if (!result.ok) {
     return { error: result.error };
   }
 
-  revalidateResidentPaths(condoSlug);
-  revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
-  return { success: "Morador atualizado com sucesso." };
+  revalidateVehiclePaths(condoSlug);
+  revalidatePath(`/app/${condoSlug}/vehicles/${vehicleId}`);
+  return { success: "Veículo atualizado com sucesso." };
 }

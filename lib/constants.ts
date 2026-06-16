@@ -68,6 +68,7 @@ export const NAV_ITEMS = [
   { label: "Torres", href: "towers", icon: "Building2" },
   { label: "Unidades", href: "units", icon: "Home" },
   { label: "Moradores", href: "residents", icon: "Users" },
+  { label: "Veículos", href: "vehicles", icon: "Car" },
   { label: "Espaços comuns", href: "areas", icon: "Trees" },
   { label: "Reservas", href: "reservations", icon: "CalendarDays" },
   { label: "Avisos", href: "announcements", icon: "Megaphone" },

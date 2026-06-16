@@ -77,6 +77,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                 fullName: resident.full_name,
                 email: resident.email,
                 phone: resident.phone,
+                photoUrl: resident.photo_url,
                 type: resident.type,
               }}
             />

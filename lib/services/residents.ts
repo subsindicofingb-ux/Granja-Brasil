@@ -23,6 +23,7 @@ type ResidentRow = {
   full_name: string;
   email: string | null;
   phone: string | null;
+  photo_url: string | null;
   type: ResidentType;
   created_at: string;
   updated_at: string;
@@ -47,6 +48,7 @@ function mapResidentRow(row: ResidentRow): ResidentWithUnit {
     full_name: row.full_name,
     email: row.email,
     phone: row.phone,
+    photo_url: row.photo_url,
     type: row.type,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -67,6 +69,7 @@ const RESIDENT_SELECT = `
   full_name,
   email,
   phone,
+  photo_url,
   type,
   created_at,
   updated_at,
@@ -173,6 +176,7 @@ export async function createResident(input: {
   fullName: string;
   email: string | null;
   phone: string | null;
+  photoUrl: string | null;
   type: ResidentType;
 }): Promise<ServiceResult<ResidentWithUnit>> {
   const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
@@ -189,6 +193,7 @@ export async function createResident(input: {
       full_name: input.fullName,
       email: input.email,
       phone: input.phone,
+      photo_url: input.photoUrl,
       type: input.type,
     })
     .select(RESIDENT_SELECT)
@@ -208,6 +213,7 @@ export async function updateResident(input: {
   fullName: string;
   email: string | null;
   phone: string | null;
+  photoUrl: string | null;
   type: ResidentType;
 }): Promise<ServiceResult<ResidentWithUnit>> {
   const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
@@ -224,6 +230,7 @@ export async function updateResident(input: {
       full_name: input.fullName,
       email: input.email,
       phone: input.phone,
+      photo_url: input.photoUrl,
       type: input.type,
     })
     .eq("id", input.residentId)

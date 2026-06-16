@@ -196,6 +196,7 @@ export interface Database {
           full_name: string;
           email: string | null;
           phone: string | null;
+          photo_url: string | null;
           type: ResidentType;
           created_at: string;
           updated_at: string;
@@ -207,6 +208,7 @@ export interface Database {
           full_name: string;
           email?: string | null;
           phone?: string | null;
+          photo_url?: string | null;
           type?: ResidentType;
           created_at?: string;
           updated_at?: string;
@@ -218,6 +220,7 @@ export interface Database {
           full_name?: string;
           email?: string | null;
           phone?: string | null;
+          photo_url?: string | null;
           type?: ResidentType;
           created_at?: string;
           updated_at?: string;
@@ -536,6 +539,63 @@ export interface Database {
           },
         ];
       };
+      vehicles: {
+        Row: {
+          id: string;
+          unit_id: string;
+          resident_id: string | null;
+          brand: string;
+          model: string;
+          color: string | null;
+          license_plate: string;
+          tag_number: string | null;
+          photo_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          unit_id: string;
+          resident_id?: string | null;
+          brand: string;
+          model: string;
+          color?: string | null;
+          license_plate: string;
+          tag_number?: string | null;
+          photo_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          unit_id?: string;
+          resident_id?: string | null;
+          brand?: string;
+          model?: string;
+          color?: string | null;
+          license_plate?: string;
+          tag_number?: string | null;
+          photo_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_unit_id_fkey";
+            columns: ["unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "vehicles_resident_id_fkey";
+            columns: ["resident_id"];
+            isOneToOne: false;
+            referencedRelation: "residents";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -573,6 +633,7 @@ export type Membership = Database["public"]["Tables"]["memberships"]["Row"];
 export type Tower = Database["public"]["Tables"]["towers"]["Row"];
 export type Unit = Database["public"]["Tables"]["units"]["Row"];
 export type Resident = Database["public"]["Tables"]["residents"]["Row"];
+export type Vehicle = Database["public"]["Tables"]["vehicles"]["Row"];
 export type CommonArea = Database["public"]["Tables"]["common_areas"]["Row"];
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
 export type Announcement = Database["public"]["Tables"]["announcements"]["Row"];

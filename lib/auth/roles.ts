@@ -11,6 +11,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: true,
     canManageStructure: true,
     canManageResidents: true,
+    canManageVehicles: true,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -27,6 +28,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: true,
     canManageStructure: true,
     canManageResidents: true,
+    canManageVehicles: true,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -43,6 +45,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: true,
     canManageStructure: true,
     canManageResidents: true,
+    canManageVehicles: true,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -59,6 +62,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: false,
     canManageStructure: false,
     canManageResidents: false,
+    canManageVehicles: false,
     canManageAreas: false,
     canManageReservations: true,
     canManageAnnouncements: false,
@@ -75,6 +79,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: false,
     canManageStructure: false,
     canManageResidents: false,
+    canManageVehicles: false,
     canManageAreas: false,
     canManageReservations: false,
     canManageAnnouncements: false,
@@ -93,6 +98,7 @@ export const ROLE_PERMISSIONS = {
     canManageMembers: boolean;
     canManageStructure: boolean;
     canManageResidents: boolean;
+    canManageVehicles: boolean;
     canManageAreas: boolean;
     canManageReservations: boolean;
     canManageAnnouncements: boolean;

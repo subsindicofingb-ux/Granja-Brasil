@@ -10,6 +10,7 @@ import {
 import type { ResidentType } from "@/types";
 import type { UnitWithTower } from "@/lib/services/units";
 import { FormAlert } from "@/components/shared/feedback";
+import { PhotoField } from "@/components/shared/photo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +25,7 @@ interface ResidentFormProps {
     fullName?: string;
     email?: string | null;
     phone?: string | null;
+    photoUrl?: string | null;
     type?: ResidentType;
   };
 }
@@ -44,13 +46,18 @@ export function ResidentForm({ condoSlug, units, mode, defaultValues }: Resident
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       {mode === "edit" && defaultValues?.residentId && (
-        <input type="hidden" name="resident_id" value={defaultValues.residentId} />
+        <>
+          <input type="hidden" name="resident_id" value={defaultValues.residentId} />
+          <input type="hidden" name="existing_photo_url" value={defaultValues.photoUrl ?? ""} />
+        </>
       )}
 
       <FormAlert error={state.error} success={state.success} />
+
+      <PhotoField label="Foto do morador" currentPhotoUrl={defaultValues?.photoUrl} />
 
       <div className="space-y-2">
         <Label htmlFor="full_name">Nome completo</Label>

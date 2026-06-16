@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Building2,
   CalendarDays,
+  Car,
   ChevronRight,
   Home,
   LayoutDashboard,
@@ -22,6 +23,7 @@ const iconMap = {
   Building2,
   Home,
   Users,
+  Car,
   Trees,
   CalendarDays,
   Megaphone,
