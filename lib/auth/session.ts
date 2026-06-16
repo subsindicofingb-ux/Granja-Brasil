@@ -2,6 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import type { Profile } from "@/types";
 import type { SessionUser } from "@/lib/auth/types";
 
@@ -64,26 +65,41 @@ export async function ensureProfile(user: User): Promise<Profile> {
     return inserted;
   }
 
-  // Fallback via service role se RLS/trigger falhar
-  const admin = createAdminClient();
-  const { data: upserted, error: upsertError } = await admin
+  const { data: existingAfterInsert } = await supabase
     .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        full_name: fullName,
-        avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
-      },
-      { onConflict: "id" },
-    )
     .select("*")
-    .single();
+    .eq("id", user.id)
+    .maybeSingle();
 
-  if (upsertError || !upserted) {
-    throw new Error(insertError?.message ?? upsertError?.message ?? "Falha ao garantir profile");
+  if (existingAfterInsert) {
+    return existingAfterInsert;
   }
 
-  return upserted;
+  if (getSupabaseServiceRoleKey()) {
+    const admin = createAdminClient();
+    const { data: upserted, error: upsertError } = await admin
+      .from("profiles")
+      .upsert(
+        {
+          id: user.id,
+          full_name: fullName,
+          avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+        },
+        { onConflict: "id" },
+      )
+      .select("*")
+      .single();
+
+    if (upserted) {
+      return upserted;
+    }
+
+    if (upsertError) {
+      throw new Error(upsertError.message);
+    }
+  }
+
+  throw new Error(insertError?.message ?? "Falha ao garantir profile do usuário.");
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {

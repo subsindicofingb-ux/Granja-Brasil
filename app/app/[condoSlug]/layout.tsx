@@ -3,6 +3,8 @@ import { CondoAccessProvider } from "@/components/auth/condo-access-provider";
 import { AppHeader } from "@/components/layout/app-header";
 import { CondoSidebarProvider } from "@/components/layout/condo-sidebar-provider";
 
+export const dynamic = "force-dynamic";
+
 interface CondoLayoutProps {
   children: React.ReactNode;
   params: Promise<{ condoSlug: string }>;

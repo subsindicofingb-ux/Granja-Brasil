@@ -6,11 +6,18 @@ import { getActiveCondoSlug, setActiveCondoSlug } from "@/lib/auth/active-condo"
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+export const dynamic = "force-dynamic";
+
 export default async function AppHomePage() {
+  if (!isSupabaseConfigured()) {
+    redirect("/login?error=config");
+  }
+
   const session = await requireSession();
   const memberships = await getAccessibleCondominiums();
   const activeSlug = await getActiveCondoSlug();
