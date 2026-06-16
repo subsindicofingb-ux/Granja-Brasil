@@ -12,7 +12,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 function getSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (explicit) {
+    return explicit;
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim().replace(/\/+$/, "");
+  if (vercelUrl) {
+    return `https://${vercelUrl}`;
+  }
+
+  return "http://localhost:3000";
 }
 
 function formatAuthError(message: unknown): string {
@@ -127,7 +137,7 @@ export async function signUpAction(
     if (!data.session) {
       return {
         success:
-          "Conta criada! Se a confirmação por e-mail estiver ativa no Supabase, abra o link recebido antes de entrar.",
+          "Conta criada! Abra o link enviado por e-mail para confirmar. Se o link apontar para localhost, configure NEXT_PUBLIC_SITE_URL na Vercel e a Site URL no Supabase Auth.",
       };
     }
 
