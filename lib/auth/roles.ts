@@ -106,5 +106,5 @@ export const ROLE_PERMISSIONS = {
 >;
 
 export function getRolePermissions(role: Role) {
-  return ROLE_PERMISSIONS[role];
+  return ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.admin;
 }

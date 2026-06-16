@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Building2, ChevronRight } from "lucide-react";
 import { getAccessibleCondominiums } from "@/lib/auth/access";
-import { getActiveCondoSlug, setActiveCondoSlug } from "@/lib/auth/active-condo";
+import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
@@ -23,7 +23,6 @@ export default async function AppHomePage() {
   const activeSlug = await getActiveCondoSlug();
 
   if (memberships.length === 1) {
-    await setActiveCondoSlug(memberships[0].condominium.slug);
     redirect(`/app/${memberships[0].condominium.slug}`);
   }
 

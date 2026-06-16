@@ -7,17 +7,25 @@ export async function getActiveCondoSlug(): Promise<string | null> {
 }
 
 export async function setActiveCondoSlug(slug: string): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.set(ACTIVE_CONDO_COOKIE, slug, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(ACTIVE_CONDO_COOKIE, slug, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  } catch {
+    // Cookies só podem ser alterados em Server Actions/Route Handlers.
+  }
 }
 
 export async function clearActiveCondoSlug(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(ACTIVE_CONDO_COOKIE);
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete(ACTIVE_CONDO_COOKIE);
+  } catch {
+    // Ignora em contextos onde cookies não podem ser alterados.
+  }
 }
