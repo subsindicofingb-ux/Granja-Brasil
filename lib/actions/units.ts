@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
-import { createUnit, updateUnit } from "@/lib/services/units";
+import { createUnit, deleteUnit, updateUnit } from "@/lib/services/units";
 import { unitFormSchema } from "@/lib/validations/structure.schema";
 
 function revalidateUnitPaths(condoSlug: string) {
@@ -86,4 +86,34 @@ export async function updateUnitAction(
   revalidateUnitPaths(condoSlug);
   revalidatePath(`/app/${condoSlug}/units/${unitId}`);
   return { success: "Unidade atualizada com sucesso." };
+}
+
+export async function deleteUnitAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const unitId = String(formData.get("unit_id") ?? "");
+
+  if (!unitId) {
+    return { error: "Unidade inválida." };
+  }
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageStructure,
+    { redirectTo: `/app/${condoSlug}/units` },
+  );
+
+  const result = await deleteUnit({
+    unitId,
+    condominiumId: access.condominium.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateUnitPaths(condoSlug);
+  redirect(`/app/${condoSlug}/units`);
 }

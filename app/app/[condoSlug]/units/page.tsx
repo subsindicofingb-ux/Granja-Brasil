@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -61,14 +62,17 @@ async function UnitsContent({
 
   const towers = towersResult.data;
   const units = unitsResult.data;
+  const showTowerFilter = isGeneralCondominium(condoSlug);
 
   return (
     <div className="space-y-4">
-      <TowerFilter
-        condoSlug={condoSlug}
-        towers={towers.map((tower) => ({ id: tower.id, name: tower.name }))}
-        selectedTowerId={towerId}
-      />
+      {showTowerFilter && (
+        <TowerFilter
+          condoSlug={condoSlug}
+          towers={towers.map((tower) => ({ id: tower.id, name: tower.name }))}
+          selectedTowerId={towerId}
+        />
+      )}
 
       {towers.length === 0 ? (
         <EmptyState

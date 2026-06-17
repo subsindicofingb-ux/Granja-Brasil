@@ -4,6 +4,7 @@ export {
   getUnitById,
   createUnit,
   updateUnit,
+  deleteUnit,
   type UnitWithTower,
 } from "./units";
 export {

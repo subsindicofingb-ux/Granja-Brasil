@@ -174,6 +174,11 @@ export async function updateUnit(input: {
   number: string;
   block: string | null;
 }): Promise<ServiceResult<UnitWithTower>> {
+  const existing = await getUnitById(input.unitId, input.condominiumId);
+  if (!existing.ok) {
+    return serviceError(existing.error);
+  }
+
   const supabase = await createClient();
 
   const { data: tower, error: towerError } = await supabase
@@ -226,4 +231,30 @@ export async function updateUnit(input: {
   }
 
   return serviceOk(mapUnitRow(unit));
+}
+
+export async function deleteUnit(input: {
+  unitId: string;
+  condominiumId: string;
+}): Promise<ServiceResult<void>> {
+  const existing = await getUnitById(input.unitId, input.condominiumId);
+  if (!existing.ok) {
+    return serviceError(existing.error);
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("units").delete().eq("id", input.unitId);
+
+  if (error) {
+    if (error.code === "23503") {
+      return serviceError(
+        "Não é possível excluir: existem moradores, reservas ou outros vínculos nesta unidade.",
+      );
+    }
+
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(undefined);
 }

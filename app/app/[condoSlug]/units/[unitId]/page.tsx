@@ -68,6 +68,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
           {canEdit ? (
             <UnitForm
               condoSlug={condoSlug}
+              condoName={access.condominium.name}
               towers={towers}
               mode="edit"
               defaultValues={{

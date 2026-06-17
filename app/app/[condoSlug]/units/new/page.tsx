@@ -43,7 +43,7 @@ export default async function NewUnitPage({ params, searchParams }: NewUnitPageP
     <div className="mx-auto max-w-lg space-y-6">
       <PageHeader
         title="Nova unidade"
-        description="Cadastre um apartamento ou sala."
+        description={`Cadastre um apartamento ou sala no condomínio ${access.condominium.name}.`}
       />
 
       <Card>
@@ -53,6 +53,7 @@ export default async function NewUnitPage({ params, searchParams }: NewUnitPageP
         <CardContent>
           <UnitForm
             condoSlug={condoSlug}
+            condoName={access.condominium.name}
             towers={towers}
             mode="create"
             defaultValues={{
