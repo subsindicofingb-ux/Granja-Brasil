@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
+import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { setActiveCondoSlug } from "@/lib/auth/active-condo";
 import { ensureProfile, getAuthUser, requireSession, isSuperAdmin } from "@/lib/auth/session";
 import {
@@ -58,7 +59,10 @@ export async function getUserMemberships(): Promise<MembershipWithCondo[]> {
       .map((row) => ({
         id: row.id,
         role: row.role,
-        condominium: row.condominium,
+        condominium: {
+          ...row.condominium,
+          name: formatCondominiumDisplayName(row.condominium.name, row.condominium.slug),
+        },
       }));
   } catch {
     return [];
@@ -91,7 +95,10 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
         bySlug.set(condominium.slug, {
           id: `super-admin-${condominium.id}`,
           role: "super_admin",
-          condominium,
+          condominium: {
+            ...condominium,
+            name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+          },
         });
       }
     }
@@ -142,7 +149,10 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
     return buildCondoAccess({
       membershipId: null,
       role: "super_admin",
-      condominium,
+      condominium: {
+        ...condominium,
+        name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+      },
       profile,
       email: user.email ?? "",
     });

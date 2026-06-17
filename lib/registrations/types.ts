@@ -1,4 +1,5 @@
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
+import type { RegistrationProfileType } from "@/lib/constants";
 
 export type RegistrationRequestNotificationEvent = {
   type: "registration_request_created";
@@ -8,6 +9,7 @@ export type RegistrationRequestNotificationEvent = {
   fullName: string;
   email: string;
   unitLabel: string;
+  profileType: RegistrationProfileType;
   residentType: ResidentType;
 };
 
@@ -16,6 +18,7 @@ export type RegistrationRequestRecord = {
   profile_id: string;
   condominium_id: string;
   resident_type: ResidentType;
+  profile_type: RegistrationProfileType;
   unit_kind: RegistrationUnitKind | null;
   unit_number: string | null;
   requested_unit_id: string | null;

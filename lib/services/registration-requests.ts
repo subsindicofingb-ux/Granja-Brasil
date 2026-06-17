@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
+import {
+  REGISTRATION_UNIT_KIND,
+  RESIDENT_TYPES,
+  type RegistrationProfileType,
+} from "@/lib/constants";
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
 import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
@@ -21,6 +27,7 @@ const REQUEST_SELECT = `
   profile_id,
   condominium_id,
   resident_type,
+  profile_type,
   unit_kind,
   unit_number,
   requested_unit_id,
@@ -40,7 +47,8 @@ const REQUEST_SELECT = `
   )
 `;
 
-type RequestRow = Omit<RegistrationRequestRecord, "condominium"> & {
+type RequestRow = Omit<RegistrationRequestRecord, "condominium" | "profile_type"> & {
+  profile_type?: RegistrationProfileType;
   condominium: RegistrationRequestRecord["condominium"] | RegistrationRequestRecord["condominium"][];
 };
 
@@ -48,8 +56,28 @@ function mapRequestRow(row: RequestRow): RegistrationRequestRecord {
   const condominium = Array.isArray(row.condominium) ? row.condominium[0] : row.condominium;
   return {
     ...row,
-    condominium: condominium ?? undefined,
+    profile_type: row.profile_type ?? "resident",
+    condominium: condominium
+      ? {
+          ...condominium,
+          name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+        }
+      : undefined,
   };
+}
+
+function mapProfileTypeToResidentType(profileType: RegistrationProfileType): ResidentType {
+  switch (profileType) {
+    case "syndic":
+    case "staff":
+      return RESIDENT_TYPES.RESPONSIBLE;
+    case "visitor":
+      return RESIDENT_TYPES.DEPENDENT;
+    case "service_provider":
+      return RESIDENT_TYPES.TENANT;
+    default:
+      return RESIDENT_TYPES.OWNER;
+  }
 }
 
 export async function listPublicCondominiums(): Promise<ServiceResult<PublicCondominiumOption[]>> {
@@ -64,7 +92,12 @@ export async function listPublicCondominiums(): Promise<ServiceResult<PublicCond
       return serviceError(mapSupabaseError(error));
     }
 
-    return serviceOk(data ?? []);
+    return serviceOk(
+      (data ?? []).map((condo) => ({
+        ...condo,
+        name: formatCondominiumDisplayName(condo.name, condo.slug),
+      })),
+    );
   } catch {
     return serviceError("Não foi possível carregar a lista de condomínios.");
   }
@@ -191,15 +224,34 @@ export async function createRegistrationRequest(input: {
 export async function createRegistrationRequestAsAdmin(input: {
   profileId: string;
   condominiumId: string;
-  residentType: ResidentType;
-  unitId: string;
+  profileType: RegistrationProfileType;
   fullName: string;
   email: string;
+  unitId?: string;
+  unitNumber?: string;
+  unitKind?: RegistrationUnitKind;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
-  const unitMeta = await getUnitRegistrationMeta(input.unitId, input.condominiumId);
-  if (!unitMeta.ok) {
-    return serviceError(unitMeta.error ?? "Unidade inválida.");
+  let unitKind: RegistrationUnitKind;
+  let unitNumber: string;
+  let requestedUnitId: string | null = null;
+
+  if (input.unitId) {
+    const unitMeta = await getUnitRegistrationMeta(input.unitId, input.condominiumId);
+    if (!unitMeta.ok) {
+      return serviceError(unitMeta.error ?? "Unidade inválida.");
+    }
+
+    unitKind = unitMeta.data.unitKind;
+    unitNumber = unitMeta.data.unitNumber;
+    requestedUnitId = input.unitId;
+  } else if (input.unitNumber?.trim()) {
+    unitKind = input.unitKind ?? REGISTRATION_UNIT_KIND.APARTMENT;
+    unitNumber = input.unitNumber.trim();
+  } else {
+    return serviceError("Informe a unidade.");
   }
+
+  const residentType = mapProfileTypeToResidentType(input.profileType);
 
   try {
     const admin = createAdminClient();
@@ -209,10 +261,11 @@ export async function createRegistrationRequestAsAdmin(input: {
       .insert({
         profile_id: input.profileId,
         condominium_id: input.condominiumId,
-        resident_type: input.residentType,
-        requested_unit_id: input.unitId,
-        unit_kind: unitMeta.data.unitKind,
-        unit_number: unitMeta.data.unitNumber,
+        resident_type: residentType,
+        profile_type: input.profileType,
+        requested_unit_id: requestedUnitId,
+        unit_kind: unitKind,
+        unit_number: unitNumber,
         full_name: input.fullName.trim(),
         email: input.email.trim().toLowerCase(),
         status: "pending",

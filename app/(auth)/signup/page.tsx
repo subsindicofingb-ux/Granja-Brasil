@@ -15,8 +15,8 @@ export default async function SignUpPage() {
         <div>
           <h2 className="text-3xl font-bold leading-tight">Crie sua conta</h2>
           <p className="mt-4 max-w-md text-sidebar-foreground/70">
-            Escolha o condomínio e a unidade ou casa cadastrada. O síndico receberá sua solicitação
-            e liberará o acesso após aprovação.
+            Escolha o condomínio e informe sua unidade. O responsável receberá sua solicitação e
+            liberará o acesso após aprovação.
           </p>
         </div>
         <p className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} Granja Brasil</p>

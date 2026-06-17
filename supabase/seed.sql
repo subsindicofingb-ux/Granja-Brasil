@@ -1,5 +1,5 @@
 -- =============================================================================
--- Seed demo — alinhado ao mock do app (Residencial Exemplo)
+-- Seed demo — condomínio geral Granja Brasil
 -- Executado após migrations via: supabase db reset
 -- RLS é ignorado no seed (role postgres).
 -- =============================================================================
@@ -15,7 +15,7 @@
 insert into public.condominiums (id, name, slug, created_at)
 values (
   'a0000000-0000-4000-8000-000000000001',
-  'Residencial Exemplo',
+  'Granja Brasil',
   'residencial-exemplo',
   '2025-01-01 00:00:00+00'
 );

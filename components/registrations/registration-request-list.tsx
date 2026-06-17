@@ -3,11 +3,12 @@
 import { useActionState } from "react";
 import { reviewRegistrationRequestAction } from "@/lib/actions/registration-requests";
 import {
+  getRegistrationProfileTypeLabel,
   getRegistrationRequestStatusBadgeClass,
   REGISTRATION_REQUEST_STATUS_LABELS,
 } from "@/lib/registrations/labels";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
-import { getResidentTypeLabel } from "@/lib/residents/labels";
+import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
 import { FormAlert } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,10 @@ interface RegistrationRequestListProps {
 
 function formatRequestedUnit(request: RegistrationRequestRecord): string {
   if (request.unit_number) {
+    if (request.condominium && isGeneralCondominium(request.condominium.slug)) {
+      return request.unit_number;
+    }
+
     if (request.unit_kind === "house") {
       return `Casa ${request.unit_number}`;
     }
@@ -30,7 +35,7 @@ function formatRequestedUnit(request: RegistrationRequestRecord): string {
     return `Apto ${request.unit_number}`;
   }
 
-  return "Unidade selecionada";
+  return "Unidade informada";
 }
 
 function ReviewForm({ condoSlug, request }: { condoSlug: string; request: RegistrationRequestRecord }) {
@@ -95,12 +100,17 @@ export function RegistrationRequestList({
             {showCondominium && request.condominium?.name && (
               <div className="sm:col-span-2">
                 <dt className="text-muted-foreground">Condomínio</dt>
-                <dd>{request.condominium.name}</dd>
+                <dd>
+                  {formatCondominiumDisplayName(
+                    request.condominium.name,
+                    request.condominium.slug,
+                  )}
+                </dd>
               </div>
             )}
             <div>
-              <dt className="text-muted-foreground">Tipo</dt>
-              <dd>{getResidentTypeLabel(request.resident_type)}</dd>
+              <dt className="text-muted-foreground">Você é</dt>
+              <dd>{getRegistrationProfileTypeLabel(request.profile_type)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Unidade</dt>

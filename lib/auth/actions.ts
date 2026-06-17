@@ -16,7 +16,8 @@ import {
   listPublicCondominiums,
 } from "@/lib/services/registration-requests";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
-import type { ResidentType } from "@/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import type { RegistrationProfileType } from "@/lib/constants";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -101,9 +102,10 @@ export async function signUpAction(
 
   const preQualification = registrationPreQualificationSchema.safeParse({
     condominium_id: formData.get("condominium_id"),
-    resident_type: formData.get("resident_type"),
-    unit_kind: formData.get("unit_kind"),
-    unit_number: formData.get("unit_number"),
+    condominium_slug: formData.get("condominium_slug"),
+    profile_type: formData.get("profile_type"),
+    unit_id: String(formData.get("unit_id") ?? ""),
+    unit_number: String(formData.get("unit_number") ?? ""),
   });
 
   if (!fullName || !email || !password) {
@@ -157,10 +159,11 @@ export async function signUpAction(
       const requestResult = await createRegistrationRequestAsAdmin({
         profileId: data.user.id,
         condominiumId: preQualification.data.condominium_id,
-        residentType: preQualification.data.resident_type as ResidentType,
-        unitId: preQualification.data.unit_id,
+        profileType: preQualification.data.profile_type as RegistrationProfileType,
         fullName,
         email,
+        unitId: preQualification.data.unit_id || undefined,
+        unitNumber: preQualification.data.unit_number || undefined,
       });
 
       if (!requestResult.ok) {
@@ -172,12 +175,13 @@ export async function signUpAction(
       }
 
       if (selectedCondo && requestResult.data) {
-        const unitLabel =
-          requestResult.data.unit_number && requestResult.data.unit_kind
-            ? requestResult.data.unit_kind === "house"
+        const unitLabel = requestResult.data.unit_number
+          ? isGeneralCondominium(selectedCondo.slug)
+            ? requestResult.data.unit_number
+            : requestResult.data.unit_kind === "house"
               ? `Casa ${requestResult.data.unit_number}`
               : `Apto ${requestResult.data.unit_number}`
-            : "Unidade selecionada";
+          : "Unidade informada";
 
         await notifyNewRegistrationRequest({
           requestId: requestResult.data.id,
@@ -186,7 +190,8 @@ export async function signUpAction(
           fullName,
           email,
           unitLabel,
-          residentType: preQualification.data.resident_type as ResidentType,
+          profileType: preQualification.data.profile_type as RegistrationProfileType,
+          residentType: requestResult.data.resident_type,
         });
       }
     }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listSignupUnitsAction } from "@/lib/actions/signup-units";
 import { signUpAction } from "@/lib/auth/actions";
-import { RESIDENT_TYPES } from "@/lib/constants";
-import { RESIDENT_TYPE_OPTIONS } from "@/lib/residents/labels";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
+import { REGISTRATION_PROFILE_TYPE_OPTIONS } from "@/lib/registrations/labels";
 import type { PublicCondominiumOption } from "@/lib/services/registration-requests";
 import type { PublicUnitOption } from "@/lib/services/registration-requests";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,12 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   const [units, setUnits] = useState<PublicUnitOption[]>([]);
   const [unitsLoading, startUnitsTransition] = useTransition();
 
+  const selectedCondo = useMemo(
+    () => condominiums.find((condo) => condo.id === selectedCondoId),
+    [condominiums, selectedCondoId],
+  );
+  const isGeneralCondo = selectedCondo ? isGeneralCondominium(selectedCondo.slug) : false;
+
   useEffect(() => {
     if (state.redirectTo) {
       router.push(state.redirectTo);
@@ -31,7 +38,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   }, [state.redirectTo, router]);
 
   useEffect(() => {
-    if (!selectedCondoId) {
+    if (!selectedCondoId || isGeneralCondo) {
       setUnits([]);
       return;
     }
@@ -40,7 +47,12 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
       const result = await listSignupUnitsAction(selectedCondoId);
       setUnits(result.ok ? (result.data ?? []) : []);
     });
-  }, [selectedCondoId]);
+  }, [selectedCondoId, isGeneralCondo]);
+
+  const canSubmit =
+    condominiums.length > 0 &&
+    selectedCondoId &&
+    (isGeneralCondo || (!unitsLoading && units.length > 0));
 
   return (
     <form action={formAction} className="space-y-4">
@@ -82,7 +94,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
         <div>
           <p className="text-sm font-medium">Pré-qualificação</p>
           <p className="text-xs text-muted-foreground">
-            Escolha o condomínio e a unidade ou casa cadastrada. O síndico analisará sua solicitação.
+            Escolha o condomínio e informe sua unidade. O responsável analisará sua solicitação.
           </p>
         </div>
 
@@ -105,48 +117,65 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
               </option>
             ))}
           </select>
+          <input
+            type="hidden"
+            name="condominium_slug"
+            value={selectedCondo?.slug ?? ""}
+          />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="unit_id">Unidade ou casa</Label>
-          <select
-            id="unit_id"
-            name="unit_id"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue=""
-            disabled={!selectedCondoId || unitsLoading}
-            required
-          >
-            <option value="" disabled>
-              {unitsLoading
-                ? "Carregando unidades..."
-                : selectedCondoId
-                  ? units.length > 0
-                    ? "Selecione sua unidade ou casa"
-                    : "Nenhuma unidade cadastrada neste condomínio"
-                  : "Selecione o condomínio primeiro"}
-            </option>
-            {units.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.label}
+        {isGeneralCondo ? (
+          <div className="space-y-2">
+            <Label htmlFor="unit_number">Unidade</Label>
+            <Input
+              id="unit_number"
+              name="unit_number"
+              placeholder="Ex: Bloco A · Apto 101 ou Casa 12"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              No condomínio geral Granja Brasil, digite livremente sua unidade ou casa.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="unit_id">Unidade ou casa</Label>
+            <select
+              id="unit_id"
+              name="unit_id"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              defaultValue=""
+              disabled={!selectedCondoId || unitsLoading}
+              required
+            >
+              <option value="" disabled>
+                {unitsLoading
+                  ? "Carregando unidades..."
+                  : selectedCondoId
+                    ? units.length > 0
+                      ? "Selecione sua unidade ou casa"
+                      : "Nenhuma unidade cadastrada neste condomínio"
+                    : "Selecione o condomínio primeiro"}
               </option>
-            ))}
-          </select>
-        </div>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2">
-          <Label htmlFor="resident_type">Você é</Label>
+          <Label htmlFor="profile_type">Você é</Label>
           <select
-            id="resident_type"
-            name="resident_type"
+            id="profile_type"
+            name="profile_type"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue={RESIDENT_TYPES.OWNER}
+            defaultValue={REGISTRATION_PROFILE_TYPES.RESIDENT}
             required
           >
-            {RESIDENT_TYPE_OPTIONS.filter(
-              (option) =>
-                option.value === RESIDENT_TYPES.OWNER || option.value === RESIDENT_TYPES.TENANT,
-            ).map((option) => (
+            {REGISTRATION_PROFILE_TYPE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -155,11 +184,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
         </div>
       </div>
 
-      <Button
-        className="w-full"
-        type="submit"
-        disabled={pending || condominiums.length === 0 || !selectedCondoId || units.length === 0}
-      >
+      <Button className="w-full" type="submit" disabled={pending || !canSubmit}>
         {pending ? "Criando conta..." : "Criar conta e solicitar acesso"}
       </Button>
 

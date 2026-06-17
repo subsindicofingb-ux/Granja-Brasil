@@ -29,6 +29,13 @@ export type RegistrationRequestStatus = "pending" | "approved" | "rejected";
 
 export type RegistrationUnitKind = "apartment" | "house";
 
+export type RegistrationProfileType =
+  | "resident"
+  | "syndic"
+  | "staff"
+  | "visitor"
+  | "service_provider";
+
 export interface Database {
   public: {
     Tables: {
@@ -616,6 +623,7 @@ export interface Database {
           profile_id: string;
           condominium_id: string;
           resident_type: ResidentType;
+          profile_type: RegistrationProfileType;
           unit_kind: RegistrationUnitKind | null;
           unit_number: string | null;
           requested_unit_id: string | null;
@@ -634,6 +642,7 @@ export interface Database {
           profile_id: string;
           condominium_id: string;
           resident_type?: ResidentType;
+          profile_type?: RegistrationProfileType;
           unit_kind?: RegistrationUnitKind | null;
           unit_number?: string | null;
           requested_unit_id?: string | null;
@@ -652,6 +661,7 @@ export interface Database {
           profile_id?: string;
           condominium_id?: string;
           resident_type?: ResidentType;
+          profile_type?: RegistrationProfileType;
           unit_kind?: RegistrationUnitKind | null;
           unit_number?: string | null;
           requested_unit_id?: string | null;
@@ -725,6 +735,7 @@ export interface Database {
       visitor_authorization_status: VisitorAuthorizationStatus;
       registration_request_status: RegistrationRequestStatus;
       registration_unit_kind: RegistrationUnitKind;
+      registration_profile_type: RegistrationProfileType;
     };
   };
 }

@@ -80,6 +80,17 @@ export type RegistrationUnitKind =
 
 export const DEMO_CONDO_SLUG = "residencial-exemplo";
 
+export const REGISTRATION_PROFILE_TYPES = {
+  RESIDENT: "resident",
+  SYNDIC: "syndic",
+  STAFF: "staff",
+  VISITOR: "visitor",
+  SERVICE_PROVIDER: "service_provider",
+} as const;
+
+export type RegistrationProfileType =
+  (typeof REGISTRATION_PROFILE_TYPES)[keyof typeof REGISTRATION_PROFILE_TYPES];
+
 export type NavIcon =
   | "LayoutDashboard"
   | "Building2"

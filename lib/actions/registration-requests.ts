@@ -79,6 +79,7 @@ export async function notifyNewRegistrationRequest(input: {
   fullName: string;
   email: string;
   unitLabel: string;
+  profileType: import("@/lib/constants").RegistrationProfileType;
   residentType: "owner" | "tenant" | "dependent" | "responsible";
 }) {
   await notifyRegistrationRequestEvent({
@@ -89,6 +90,7 @@ export async function notifyNewRegistrationRequest(input: {
     fullName: input.fullName,
     email: input.email,
     unitLabel: input.unitLabel,
+    profileType: input.profileType,
     residentType: input.residentType,
   });
 }
