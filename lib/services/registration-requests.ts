@@ -9,6 +9,11 @@ import {
 } from "@/lib/constants";
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
 import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
+import {
+  encodeProfileTypeInReviewNotes,
+  isMissingProfileTypeColumnError,
+  resolveRegistrationProfileType,
+} from "@/lib/registrations/profile-type";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 export type PublicCondominiumOption = {
@@ -23,23 +28,7 @@ export type PublicUnitOption = {
 };
 
 const REQUEST_SELECT = `
-  id,
-  profile_id,
-  condominium_id,
-  resident_type,
-  profile_type,
-  unit_kind,
-  unit_number,
-  requested_unit_id,
-  full_name,
-  email,
-  status,
-  reviewed_by,
-  reviewed_at,
-  review_notes,
-  unit_id,
-  created_at,
-  updated_at,
+  *,
   condominium:condominiums (
     id,
     name,
@@ -56,7 +45,11 @@ function mapRequestRow(row: RequestRow): RegistrationRequestRecord {
   const condominium = Array.isArray(row.condominium) ? row.condominium[0] : row.condominium;
   return {
     ...row,
-    profile_type: row.profile_type ?? "resident",
+    profile_type: resolveRegistrationProfileType({
+      profile_type: row.profile_type,
+      review_notes: row.review_notes,
+      resident_type: row.resident_type,
+    }),
     condominium: condominium
       ? {
           ...condominium,
@@ -256,28 +249,43 @@ export async function createRegistrationRequestAsAdmin(input: {
   try {
     const admin = createAdminClient();
 
-    const { data, error } = await admin
+    const basePayload = {
+      profile_id: input.profileId,
+      condominium_id: input.condominiumId,
+      resident_type: residentType,
+      requested_unit_id: requestedUnitId,
+      unit_kind: unitKind,
+      unit_number: unitNumber,
+      full_name: input.fullName.trim(),
+      email: input.email.trim().toLowerCase(),
+      status: "pending" as const,
+    };
+
+    let result = await admin
       .from("registration_requests")
       .insert({
-        profile_id: input.profileId,
-        condominium_id: input.condominiumId,
-        resident_type: residentType,
+        ...basePayload,
         profile_type: input.profileType,
-        requested_unit_id: requestedUnitId,
-        unit_kind: unitKind,
-        unit_number: unitNumber,
-        full_name: input.fullName.trim(),
-        email: input.email.trim().toLowerCase(),
-        status: "pending",
       })
       .select(REQUEST_SELECT)
       .single();
 
-    if (error) {
-      return serviceError(mapSupabaseError(error));
+    if (result.error && isMissingProfileTypeColumnError(result.error.message)) {
+      result = await admin
+        .from("registration_requests")
+        .insert({
+          ...basePayload,
+          review_notes: encodeProfileTypeInReviewNotes(input.profileType),
+        })
+        .select(REQUEST_SELECT)
+        .single();
     }
 
-    return serviceOk(mapRequestRow(data as RequestRow));
+    if (result.error) {
+      return serviceError(mapSupabaseError(result.error));
+    }
+
+    return serviceOk(mapRequestRow(result.data as RequestRow));
   } catch {
     return serviceError("Não foi possível registrar a solicitação de cadastro.");
   }
