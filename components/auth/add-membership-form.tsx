@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { addMembershipAction } from "@/lib/auth/actions";
+import type { Role } from "@/lib/constants";
 import { ROLES } from "@/lib/constants";
 import { getRolePermissions } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,18 @@ import { Label } from "@/components/ui/label";
 
 interface AddMembershipFormProps {
   condoSlug: string;
+  defaultRole?: Role;
 }
 
-export function AddMembershipForm({ condoSlug }: AddMembershipFormProps) {
+const STAFF_ROLE_OPTIONS = [ROLES.SYNDIC, ROLES.DOORMAN, ROLES.ADMIN, ROLES.RESIDENT] as const;
+
+function isStaffRole(role: string | undefined): role is Role {
+  return STAFF_ROLE_OPTIONS.includes(role as (typeof STAFF_ROLE_OPTIONS)[number]);
+}
+
+export function AddMembershipForm({ condoSlug, defaultRole }: AddMembershipFormProps) {
   const [state, formAction, pending] = useActionState(addMembershipAction, {});
+  const selectedRole = isStaffRole(defaultRole) ? defaultRole : ROLES.RESIDENT;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -50,16 +59,14 @@ export function AddMembershipForm({ condoSlug }: AddMembershipFormProps) {
           id="role"
           name="role"
           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          defaultValue={ROLES.RESIDENT}
+          defaultValue={selectedRole}
           required
         >
-          {Object.values(ROLES)
-            .filter((role) => role !== ROLES.SUPER_ADMIN)
-            .map((role) => (
-              <option key={role} value={role}>
-                {getRolePermissions(role).label}
-              </option>
-            ))}
+          {STAFF_ROLE_OPTIONS.map((role) => (
+            <option key={role} value={role}>
+              {getRolePermissions(role).label}
+            </option>
+          ))}
         </select>
       </div>
 

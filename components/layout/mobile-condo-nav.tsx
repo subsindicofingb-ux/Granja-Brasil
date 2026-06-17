@@ -17,8 +17,10 @@ import {
   Settings,
   Trees,
   UserCheck,
+  Inbox,
   Users,
 } from "lucide-react";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -31,6 +33,7 @@ const iconMap = {
   CalendarDays,
   Megaphone,
   UserCheck,
+  Inbox,
   Settings,
 } as const;
 
@@ -95,6 +98,9 @@ export function MobileCondoNav({ condoSlug, access }: MobileCondoNavProps) {
           >
             Todos os condomínios
           </Link>
+          <div className="border-t pt-2">
+            <SignOutButton variant="menu" />
+          </div>
         </nav>
       )}
     </header>

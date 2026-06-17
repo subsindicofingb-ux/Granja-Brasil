@@ -4,15 +4,21 @@ import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
 import { getDashboardData } from "@/lib/services/dashboard";
-import { RESERVATION_STATUS } from "@/lib/constants";
+import { ROLES, RESERVATION_STATUS } from "@/lib/constants";
 import { getReservationStatusLabel } from "@/lib/reservations/labels";
-import { countPendingRegistrationRequests } from "@/lib/services/registration-requests";
+import {
+  countAllPendingRegistrationRequests,
+  countPendingRegistrationRequests,
+  listAllPendingRegistrationRequests,
+  listRegistrationRequestsByCondominium,
+} from "@/lib/services/registration-requests";
 import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
 } from "@/lib/announcements/labels";
 import { PermissionGate } from "@/components/auth/permission-gate";
 import { DashboardReservationItem } from "@/components/dashboard/dashboard-reservation-item";
+import { DashboardRegistrationRequests } from "@/components/dashboard/dashboard-registration-requests";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader, StatCard } from "@/components/shared/page-shell";
@@ -61,11 +67,22 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const unitFilter = await getUnitListFilterForAccess(access);
   const scope = access.permissions.canManageStructure ? null : unitFilter;
   const result = await getDashboardData(access.condominium.id, scope);
+  const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
   const pendingRegistrationResult = access.permissions.canManageRegistrationRequests
-    ? await countPendingRegistrationRequests(access.condominium.id)
+    ? isGlobalRegistrationView
+      ? await countAllPendingRegistrationRequests()
+      : await countPendingRegistrationRequests(access.condominium.id)
     : null;
   const pendingRegistrationCount =
     pendingRegistrationResult?.ok ? (pendingRegistrationResult.data ?? 0) : 0;
+  const pendingRegistrationListResult = access.permissions.canManageRegistrationRequests
+    ? isGlobalRegistrationView
+      ? await listAllPendingRegistrationRequests()
+      : await listRegistrationRequestsByCondominium(access.condominium.id, "pending")
+    : null;
+  const pendingRegistrationRequests = pendingRegistrationListResult?.ok
+    ? (pendingRegistrationListResult.data ?? [])
+    : [];
 
   if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
@@ -90,6 +107,21 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       label: "Cadastrar espaço comum",
       href: `${base}/areas/new`,
       allowed: access.permissions.canManageAreas,
+    },
+    {
+      label: "Cadastrar síndico",
+      href: `${base}/settings/members?role=${ROLES.SYNDIC}`,
+      allowed: access.permissions.canManageMembers,
+    },
+    {
+      label: "Cadastrar portaria",
+      href: `${base}/settings/members?role=${ROLES.DOORMAN}`,
+      allowed: access.permissions.canManageMembers,
+    },
+    {
+      label: "Cadastrar administrador",
+      href: `${base}/settings/members?role=${ROLES.ADMIN}`,
+      allowed: access.permissions.canManageMembers,
     },
   ].filter((action) => action.allowed);
 
@@ -266,17 +298,12 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       )}
 
       {access.permissions.canManageRegistrationRequests && pendingRegistrationCount > 0 && (
-        <Card className="border-sky-200 bg-sky-50/50">
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm">
-              <span className="font-medium">{pendingRegistrationCount} cadastro(s)</span>{" "}
-              aguardando aprovação do síndico.
-            </p>
-            <Button size="sm" variant="outline" asChild>
-              <Link href={`${base}/settings/registration-requests`}>Analisar solicitações</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <DashboardRegistrationRequests
+          condoSlug={condoSlug}
+          requests={pendingRegistrationRequests}
+          showCondominium={isGlobalRegistrationView}
+          viewAllHref={`${base}/settings/registration-requests`}
+        />
       )}
     </>
   );

@@ -2,15 +2,20 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { RegistrationRequestList } from "@/components/registrations/registration-request-list";
 import { getAccessibleCondominiums } from "@/lib/auth/access";
 import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
+import { isSuperAdmin } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
 import { BRAND_TAGLINE } from "@/lib/brand";
-import { REGISTRATION_REQUEST_STATUS } from "@/lib/constants";
+import { REGISTRATION_REQUEST_STATUS, ROLES } from "@/lib/constants";
 import { REGISTRATION_REQUEST_STATUS_LABELS } from "@/lib/registrations/labels";
-import { listRegistrationRequestsForProfile } from "@/lib/services/registration-requests";
+import {
+  listAllPendingRegistrationRequests,
+  listRegistrationRequestsForProfile,
+} from "@/lib/services/registration-requests";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,11 +32,15 @@ export default async function AppHomePage() {
   const session = await requireSession();
   const memberships = await getAccessibleCondominiums();
   const activeSlug = await getActiveCondoSlug();
+  const superAdmin = await isSuperAdmin();
   const myRequestsResult = await listRegistrationRequestsForProfile(session.user.id);
   const myRequests = myRequestsResult.ok ? (myRequestsResult.data ?? []) : [];
   const pendingRequests = myRequests.filter(
     (request) => request.status === REGISTRATION_REQUEST_STATUS.PENDING,
   );
+  const globalPendingResult = superAdmin ? await listAllPendingRegistrationRequests() : null;
+  const globalPendingRequests = globalPendingResult?.ok ? (globalPendingResult.data ?? []) : [];
+  const adminCondoSlug = memberships[0]?.condominium.slug ?? activeSlug ?? "residencial-exemplo";
   const firstName = session.profile.full_name.split(/\s+/)[0] ?? session.profile.full_name;
 
   if (memberships.length === 1) {
@@ -45,7 +54,7 @@ export default async function AppHomePage() {
           <BrandLogo href="/app" size="sm" />
           <form action={signOutAction}>
             <Button variant="outline" size="sm" type="submit">
-              Sair
+              Sair do app
             </Button>
           </form>
         </div>
@@ -64,6 +73,69 @@ export default async function AppHomePage() {
           </p>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{session.user.email}</p>
         </section>
+
+        {superAdmin && (
+          <section className="mb-8 space-y-4">
+            <Card className="border-primary/30 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Administração geral</CardTitle>
+                <CardDescription>
+                  Cadastro de condomínios, liberação de novos usuários e equipe do sistema.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-2">
+                <Button variant="outline" className="justify-start" asChild>
+                  <Link href={`/app/${adminCondoSlug}/admin/condominiums`}>
+                    Cadastrar condomínio
+                  </Link>
+                </Button>
+                <Button variant="outline" className="justify-start" asChild>
+                  <Link href={`/app/${adminCondoSlug}/settings/registration-requests`}>
+                    Solicitações de cadastro
+                    {globalPendingRequests.length > 0 && (
+                      <Badge className="ml-auto border bg-background">
+                        {globalPendingRequests.length}
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+                <Button variant="outline" className="justify-start" asChild>
+                  <Link href={`/app/${adminCondoSlug}/settings/members?role=${ROLES.SYNDIC}`}>
+                    Cadastrar síndico
+                  </Link>
+                </Button>
+                <Button variant="outline" className="justify-start" asChild>
+                  <Link href={`/app/${adminCondoSlug}/settings/members?role=${ROLES.DOORMAN}`}>
+                    Cadastrar portaria
+                  </Link>
+                </Button>
+                <Button variant="outline" className="justify-start sm:col-span-2" asChild>
+                  <Link href={`/app/${adminCondoSlug}/settings/members?role=${ROLES.ADMIN}`}>
+                    Cadastrar administrador
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            {globalPendingRequests.length > 0 && (
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Novos usuários aguardando liberação</CardTitle>
+                  <CardDescription>
+                    Solicitações pendentes em todos os condomínios.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RegistrationRequestList
+                    condoSlug={adminCondoSlug}
+                    requests={globalPendingRequests}
+                    showCondominium
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        )}
 
         {memberships.length === 0 ? (
           <Card className="border-amber-200/80 shadow-sm">

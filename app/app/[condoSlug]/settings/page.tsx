@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { ROLES } from "@/lib/constants";
 import { PageHeader } from "@/components/shared/page-shell";
 import { PermissionGate, RoleBadge } from "@/components/auth/permission-gate";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,20 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
           </div>
         </CardContent>
       </Card>
+
+      <PermissionGate access={access} allow={(ctx) => ctx.role === ROLES.SUPER_ADMIN}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Administração geral</CardTitle>
+            <CardDescription>Cadastro de condomínios na plataforma.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/admin/condominiums`}>Gerenciar condomínios</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PermissionGate>
 
       <PermissionGate
         access={access}

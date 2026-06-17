@@ -18,6 +18,7 @@ import { formatDateTime } from "@/lib/utils";
 interface RegistrationRequestListProps {
   condoSlug: string;
   requests: RegistrationRequestRecord[];
+  showCondominium?: boolean;
 }
 
 function formatRequestedUnit(request: RegistrationRequestRecord): string {
@@ -63,7 +64,11 @@ function ReviewForm({ condoSlug, request }: { condoSlug: string; request: Regist
   );
 }
 
-export function RegistrationRequestList({ condoSlug, requests }: RegistrationRequestListProps) {
+export function RegistrationRequestList({
+  condoSlug,
+  requests,
+  showCondominium = false,
+}: RegistrationRequestListProps) {
   if (requests.length === 0) {
     return (
       <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -87,6 +92,12 @@ export function RegistrationRequestList({ condoSlug, requests }: RegistrationReq
           </div>
 
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+            {showCondominium && request.condominium?.name && (
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Condomínio</dt>
+                <dd>{request.condominium.name}</dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Tipo</dt>
               <dd>{getResidentTypeLabel(request.resident_type)}</dd>

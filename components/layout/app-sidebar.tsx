@@ -10,6 +10,7 @@ import {
   Settings,
   Trees,
   UserCheck,
+  Inbox,
   Users,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
@@ -29,6 +30,7 @@ const iconMap = {
   CalendarDays,
   Megaphone,
   UserCheck,
+  Inbox,
   Settings,
 } as const;
 
