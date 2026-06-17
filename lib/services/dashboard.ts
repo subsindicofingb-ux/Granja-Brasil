@@ -10,7 +10,14 @@ import {
 } from "@/lib/services/reservations";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
 import { applyUnitListFilter } from "@/lib/services/unit-filter";
+import { isHouseTower } from "@/lib/residents/labels";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
+
+export type GeneralCondominiumOverviewMetrics = {
+  condominiums: number;
+  houses: number;
+  units: number;
+};
 
 export type DashboardMetrics = {
   units: number;
@@ -96,6 +103,37 @@ async function countActiveCommonAreas(condominiumId: string): Promise<ServiceRes
   }
 
   return serviceOk(count ?? 0);
+}
+
+export async function getGeneralCondominiumOverviewMetrics(): Promise<
+  ServiceResult<GeneralCondominiumOverviewMetrics>
+> {
+  const supabase = await createClient();
+
+  const [condominiumsResult, unitsResult] = await Promise.all([
+    supabase.from("condominiums").select("id", { count: "exact", head: true }),
+    supabase.from("units").select("id, block, towers!inner(name)"),
+  ]);
+
+  if (condominiumsResult.error) {
+    return serviceError(mapSupabaseError(condominiumsResult.error));
+  }
+
+  if (unitsResult.error) {
+    return serviceError(mapSupabaseError(unitsResult.error));
+  }
+
+  const units = unitsResult.data ?? [];
+  const houses = units.filter(
+    (unit) =>
+      isHouseTower(unit.towers.name) || unit.block?.trim().toLowerCase() === "casa",
+  ).length;
+
+  return serviceOk({
+    condominiums: condominiumsResult.count ?? 0,
+    houses,
+    units: units.length,
+  });
 }
 
 export async function getDashboardData(

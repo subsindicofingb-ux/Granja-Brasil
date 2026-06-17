@@ -3,7 +3,8 @@ import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
-import { getDashboardData } from "@/lib/services/dashboard";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
 import { ROLES, RESERVATION_STATUS } from "@/lib/constants";
 import { getReservationStatusLabel } from "@/lib/reservations/labels";
 import {
@@ -66,7 +67,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const base = `/app/${condoSlug}`;
   const unitFilter = await getUnitListFilterForAccess(access);
   const scope = access.permissions.canManageStructure ? null : unitFilter;
-  const result = await getDashboardData(access.condominium.id, scope);
+  const isGeneralCondoDashboard = isGeneralCondominium(condoSlug);
+  const [result, generalOverviewResult] = await Promise.all([
+    getDashboardData(access.condominium.id, scope),
+    isGeneralCondoDashboard ? getGeneralCondominiumOverviewMetrics() : Promise.resolve(null),
+  ]);
   const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
   const pendingRegistrationResult = access.permissions.canManageRegistrationRequests
     ? isGlobalRegistrationView
@@ -87,6 +92,17 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
   }
+
+  if (isGeneralCondoDashboard && generalOverviewResult && !generalOverviewResult.ok) {
+    return (
+      <ErrorAlert
+        message={generalOverviewResult.error}
+        title="Erro ao carregar visão geral"
+      />
+    );
+  }
+
+  const generalOverview = generalOverviewResult?.ok ? generalOverviewResult.data : null;
 
   const { metrics, upcomingReservations, recentReservations, recentAnnouncements, isUnitScoped } =
     result.data;
@@ -127,11 +143,33 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   return (
     <>
+      {isGeneralCondoDashboard && generalOverview && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard
+            label="Condomínios"
+            value={generalOverview.condominiums}
+            hint="Cadastrados no sistema"
+          />
+          <StatCard
+            label="Casas"
+            value={generalOverview.houses}
+            hint="Unidades tipo casa"
+          />
+          <StatCard
+            label="Unidades"
+            value={generalOverview.units}
+            hint="Total no sistema"
+          />
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label={isUnitScoped ? "Minhas unidades" : "Unidades"}
-          value={metrics.units}
-        />
+        {!isGeneralCondoDashboard && (
+          <StatCard
+            label={isUnitScoped ? "Minhas unidades" : "Unidades"}
+            value={metrics.units}
+          />
+        )}
         <StatCard
           label={isUnitScoped ? "Moradores da unidade" : "Moradores"}
           value={metrics.residents}
