@@ -14,6 +14,7 @@ interface UnitFormProps {
   condoName?: string;
   towers: Pick<Tower, "id" | "name">[];
   mode: "create" | "edit";
+  requiresTower?: boolean;
   linkedCounts?: {
     residents: number;
     reservations: number;
@@ -31,6 +32,7 @@ export function UnitForm({
   condoName,
   towers,
   mode,
+  requiresTower = true,
   linkedCounts,
   defaultValues,
 }: UnitFormProps) {
@@ -77,7 +79,7 @@ export function UnitForm({
     }
   }
 
-  if (towers.length === 0) {
+  if (requiresTower && towers.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
         Cadastre pelo menos uma torre antes de criar unidades.{" "}
@@ -104,25 +106,27 @@ export function UnitForm({
           </p>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="tower_id">Torre</Label>
-          <select
-            id="tower_id"
-            name="tower_id"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue={defaultValues?.towerId ?? ""}
-            required
-          >
-            <option value="" disabled>
-              Selecione a torre
-            </option>
-            {towers.map((tower) => (
-              <option key={tower.id} value={tower.id}>
-                {tower.name}
+        {requiresTower && (
+          <div className="space-y-2">
+            <Label htmlFor="tower_id">Torre</Label>
+            <select
+              id="tower_id"
+              name="tower_id"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              defaultValue={defaultValues?.towerId ?? ""}
+              required
+            >
+              <option value="" disabled>
+                Selecione a torre
               </option>
-            ))}
-          </select>
-        </div>
+              {towers.map((tower) => (
+                <option key={tower.id} value={tower.id}>
+                  {tower.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2">
           <Label htmlFor="number">Número</Label>

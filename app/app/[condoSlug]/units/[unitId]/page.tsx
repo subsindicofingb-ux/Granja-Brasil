@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { getUnitById, getUnitLinkedCounts } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -75,6 +76,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
               condoName={access.condominium.name}
               towers={towers}
               mode="edit"
+              requiresTower={isGeneralCondominium(condoSlug)}
               linkedCounts={linkedCounts}
               defaultValues={{
                 unitId: unit.id,

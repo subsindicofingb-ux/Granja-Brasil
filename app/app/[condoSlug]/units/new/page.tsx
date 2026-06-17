@@ -1,4 +1,5 @@
 import { requireCondoPermission } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -56,6 +57,7 @@ export default async function NewUnitPage({ params, searchParams }: NewUnitPageP
             condoName={access.condominium.name}
             towers={towers}
             mode="create"
+            requiresTower={isGeneralCondominium(condoSlug)}
             defaultValues={{
               towerId: preselectedTowerId,
             }}

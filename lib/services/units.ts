@@ -170,7 +170,7 @@ export async function createUnit(input: {
 export async function updateUnit(input: {
   unitId: string;
   condominiumId: string;
-  towerId: string;
+  towerId?: string;
   number: string;
   block: string | null;
 }): Promise<ServiceResult<UnitWithTower>> {
@@ -179,12 +179,13 @@ export async function updateUnit(input: {
     return serviceError(existing.error);
   }
 
+  const towerId = input.towerId ?? existing.data.tower_id;
   const supabase = await createClient();
 
   const { data: tower, error: towerError } = await supabase
     .from("towers")
     .select("id")
-    .eq("id", input.towerId)
+    .eq("id", towerId)
     .eq("condominium_id", input.condominiumId)
     .maybeSingle();
 
@@ -199,7 +200,7 @@ export async function updateUnit(input: {
   const { data, error } = await supabase
     .from("units")
     .update({
-      tower_id: input.towerId,
+      tower_id: towerId,
       number: input.number,
       block: input.block,
     })

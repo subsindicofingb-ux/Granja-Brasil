@@ -62,7 +62,8 @@ async function UnitsContent({
 
   const towers = towersResult.data;
   const units = unitsResult.data;
-  const showTowerFilter = isGeneralCondominium(condoSlug);
+  const requiresTowers = isGeneralCondominium(condoSlug);
+  const showTowerFilter = requiresTowers;
 
   return (
     <div className="space-y-4">
@@ -74,7 +75,7 @@ async function UnitsContent({
         />
       )}
 
-      {towers.length === 0 ? (
+      {towers.length === 0 && requiresTowers ? (
         <EmptyState
           title="Cadastre torres primeiro"
           description="É necessário ter ao menos uma torre antes de registrar unidades."

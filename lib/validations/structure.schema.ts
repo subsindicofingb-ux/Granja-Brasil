@@ -49,24 +49,34 @@ export const towerFormSchema = z
 
 export type TowerFormValues = z.infer<typeof towerFormSchema>;
 
+const unitNumberField = z
+  .string()
+  .trim()
+  .min(1, "Informe o número da unidade.")
+  .max(20, "Número muito longo.");
+
+const unitBlockField = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (value == null) return null;
+    const trimmed = String(value).trim();
+    return trimmed === "" ? null : trimmed;
+  })
+  .refine((value) => value === null || value.length <= 20, "Bloco muito longo.");
+
 export const unitFormSchema = z.object({
   tower_id: z.string().uuid("Selecione uma torre válida."),
-  number: z
-    .string()
-    .trim()
-    .min(1, "Informe o número da unidade.")
-    .max(20, "Número muito longo."),
-  block: z
-    .union([z.string(), z.null(), z.undefined()])
-    .transform((value) => {
-      if (value == null) return null;
-      const trimmed = String(value).trim();
-      return trimmed === "" ? null : trimmed;
-    })
-    .refine((value) => value === null || value.length <= 20, "Bloco muito longo."),
+  number: unitNumberField,
+  block: unitBlockField,
+});
+
+export const unitFormWithoutTowerSchema = z.object({
+  number: unitNumberField,
+  block: unitBlockField,
 });
 
 export type UnitFormValues = z.infer<typeof unitFormSchema>;
+export type UnitFormWithoutTowerValues = z.infer<typeof unitFormWithoutTowerSchema>;
 
 const optionalEmail = z
   .union([z.string(), z.null(), z.undefined()])

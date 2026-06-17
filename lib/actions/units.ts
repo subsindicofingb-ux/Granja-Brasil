@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { getOrCreateDefaultUnitTower } from "@/lib/services/towers";
 import { createUnit, deleteUnit, updateUnit } from "@/lib/services/units";
-import { unitFormSchema } from "@/lib/validations/structure.schema";
+import { unitFormSchema, unitFormWithoutTowerSchema } from "@/lib/validations/structure.schema";
 
 function revalidateUnitPaths(condoSlug: string) {
   revalidatePath(`/app/${condoSlug}/units`);
@@ -23,21 +25,51 @@ export async function createUnitAction(
     { redirectTo: `/app/${condoSlug}/units` },
   );
 
-  const parsed = unitFormSchema.safeParse({
-    tower_id: formData.get("tower_id"),
-    number: formData.get("number"),
-    block: formData.get("block") ?? "",
-  });
+  const requiresTower = isGeneralCondominium(condoSlug);
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  let towerId: string;
+  let number: string;
+  let block: string | null;
+
+  if (requiresTower) {
+    const parsed = unitFormSchema.safeParse({
+      tower_id: formData.get("tower_id"),
+      number: formData.get("number"),
+      block: formData.get("block") ?? "",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    towerId = parsed.data.tower_id;
+    number = parsed.data.number;
+    block = parsed.data.block;
+  } else {
+    const parsed = unitFormWithoutTowerSchema.safeParse({
+      number: formData.get("number"),
+      block: formData.get("block") ?? "",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    const defaultTowerResult = await getOrCreateDefaultUnitTower(access.condominium.id);
+    if (!defaultTowerResult.ok) {
+      return { error: defaultTowerResult.error };
+    }
+
+    towerId = defaultTowerResult.data.id;
+    number = parsed.data.number;
+    block = parsed.data.block;
   }
 
   const result = await createUnit({
-    towerId: parsed.data.tower_id,
+    towerId,
     condominiumId: access.condominium.id,
-    number: parsed.data.number,
-    block: parsed.data.block,
+    number,
+    block,
   });
 
   if (!result.ok) {
@@ -61,22 +93,46 @@ export async function updateUnitAction(
     { redirectTo: `/app/${condoSlug}/units/${unitId}` },
   );
 
-  const parsed = unitFormSchema.safeParse({
-    tower_id: formData.get("tower_id"),
-    number: formData.get("number"),
-    block: formData.get("block") ?? "",
-  });
+  const requiresTower = isGeneralCondominium(condoSlug);
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  let towerId: string | undefined;
+  let number: string;
+  let block: string | null;
+
+  if (requiresTower) {
+    const parsed = unitFormSchema.safeParse({
+      tower_id: formData.get("tower_id"),
+      number: formData.get("number"),
+      block: formData.get("block") ?? "",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    towerId = parsed.data.tower_id;
+    number = parsed.data.number;
+    block = parsed.data.block;
+  } else {
+    const parsed = unitFormWithoutTowerSchema.safeParse({
+      number: formData.get("number"),
+      block: formData.get("block") ?? "",
+    });
+
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    number = parsed.data.number;
+    block = parsed.data.block;
   }
 
   const result = await updateUnit({
     unitId,
     condominiumId: access.condominium.id,
-    towerId: parsed.data.tower_id,
-    number: parsed.data.number,
-    block: parsed.data.block,
+    towerId,
+    number,
+    block,
   });
 
   if (!result.ok) {
