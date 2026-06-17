@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
 import { getVisitorAuthorizationById } from "@/lib/services/visitor-authorizations";
 import { listUnitsByCondominium } from "@/lib/services/units";
@@ -68,9 +70,28 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
   const canEdit =
     isStaff && authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING;
 
-  const unitsResult = canEdit
-    ? await listUnitsByCondominium(access.condominium.id)
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+
+  const editPanelResult = canEdit
+    ? isGeneralCondo
+      ? await loadGeneralCondoPanelData()
+      : await listUnitsByCondominium(access.condominium.id).then((result) =>
+          result.ok
+            ? {
+                ok: true as const,
+                data: {
+                  units: result.data,
+                  condominiumNamesById: {} as Record<string, string>,
+                },
+              }
+            : result,
+        )
     : null;
+
+  const editUnits = editPanelResult?.ok ? editPanelResult.data.units : [];
+  const condominiumNamesById = editPanelResult?.ok
+    ? editPanelResult.data.condominiumNamesById
+    : {};
 
   const showDoormanNotes =
     canConsult &&
@@ -162,7 +183,7 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
         </Card>
       )}
 
-      {canEdit && unitsResult && (
+      {canEdit && editPanelResult && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Editar autorização pendente</CardTitle>
@@ -171,7 +192,8 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
             <VisitorAuthorizationForm
               condoSlug={condoSlug}
               mode="edit"
-              units={unitsResult.ok ? unitsResult.data : []}
+              units={editUnits}
+              condominiumNamesById={condominiumNamesById}
               defaultValues={{
                 ...toVisitorAuthorizationFormInput(authorization),
                 authorizationId: authorization.id,

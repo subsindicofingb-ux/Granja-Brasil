@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createVehicleAction, updateVehicleAction } from "@/lib/actions/vehicles";
-import { formatUnitWithTower } from "@/lib/residents/labels";
+import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import type { UnitWithTower } from "@/lib/services/units";
 import type { ResidentWithUnit } from "@/lib/services/residents";
 import { FormAlert } from "@/components/shared/feedback";
@@ -17,6 +17,7 @@ interface VehicleFormProps {
   units: UnitWithTower[];
   residents: ResidentWithUnit[];
   mode: "create" | "edit";
+  condominiumNamesById?: Record<string, string>;
   defaultValues?: {
     vehicleId?: string;
     unitId?: string;
@@ -35,6 +36,7 @@ export function VehicleForm({
   units,
   residents,
   mode,
+  condominiumNamesById,
   defaultValues,
 }: VehicleFormProps) {
   const action = mode === "create" ? createVehicleAction : updateVehicleAction;
@@ -43,7 +45,7 @@ export function VehicleForm({
   if (units.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        Cadastre torres e unidades antes de registrar veículos.{" "}
+        Cadastre unidades antes de registrar veículos.{" "}
         <Link href={`/app/${condoSlug}/units/new`} className="font-medium underline">
           Nova unidade
         </Link>
@@ -134,7 +136,7 @@ export function VehicleForm({
           </option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.id}>
-              {formatUnitWithTower(unit)}
+              {formatUnitOptionLabel(unit, condominiumNamesById)}
             </option>
           ))}
         </select>
@@ -151,7 +153,7 @@ export function VehicleForm({
           <option value="">Nenhum / não informado</option>
           {residents.map((resident) => (
             <option key={resident.id} value={resident.id}>
-              {resident.full_name} · {formatUnitWithTower(resident.unit)}
+              {resident.full_name} · {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
             </option>
           ))}
         </select>

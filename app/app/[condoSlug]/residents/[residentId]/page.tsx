@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { getResidentById } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
-import { getResidentTypeLabel, formatUnitWithTower } from "@/lib/residents/labels";
+import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
@@ -18,11 +20,12 @@ interface ResidentDetailPageProps {
 export default async function ResidentDetailPage({ params }: ResidentDetailPageProps) {
   const { condoSlug, residentId } = await params;
   const access = await requireCondoAccess(condoSlug);
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
 
-  const [residentResult, unitsResult] = await Promise.all([
-    getResidentById(residentId, access.condominium.id),
-    listUnitsByCondominium(access.condominium.id),
-  ]);
+  const residentResult = await getResidentById(residentId, {
+    condominiumId: scopeCondominiumId,
+  });
 
   if (!residentResult.ok) {
     if (residentResult.error.includes("não encontrado")) {
@@ -38,6 +41,20 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     );
   }
 
+  const unitsResult = isGeneralCondo
+    ? await loadGeneralCondoPanelData()
+    : await listUnitsByCondominium(access.condominium.id).then((result) =>
+        result.ok
+          ? {
+              ok: true as const,
+              data: {
+                units: result.data,
+                condominiumNamesById: {} as Record<string, string>,
+              },
+            }
+          : result,
+      );
+
   if (!unitsResult.ok) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
@@ -51,6 +68,9 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
 
   const resident = residentResult.data;
   const canEdit = access.permissions.canManageResidents;
+  const units = "units" in unitsResult.data ? unitsResult.data.units : [];
+  const condominiumNamesById =
+    "condominiumNamesById" in unitsResult.data ? unitsResult.data.condominiumNamesById : {};
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -69,7 +89,8 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
           {canEdit ? (
             <ResidentForm
               condoSlug={condoSlug}
-              units={unitsResult.data}
+              units={units}
+              condominiumNamesById={condominiumNamesById}
               mode="edit"
               defaultValues={{
                 residentId: resident.id,
@@ -86,7 +107,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Unidade</span>
                 <span className="text-right font-medium">
-                  {formatUnitWithTower(resident.unit)}
+                  {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
                 </span>
               </div>
               <div className="flex justify-between">

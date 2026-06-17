@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { createVehicle, updateVehicle } from "@/lib/services/vehicles";
+import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
   resolvePhotoUrl,
@@ -47,8 +49,16 @@ export async function createVehicleAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
   const uploadResult = await uploadCondoImage({
-    condominiumId: access.condominium.id,
+    condominiumId: unitContext.data.unitCondominiumId,
     folder: "vehicles",
     file: getPhotoFile(formData),
   });
@@ -58,7 +68,7 @@ export async function createVehicleAction(
   }
 
   const result = await createVehicle({
-    condominiumId: access.condominium.id,
+    scopeCondominiumId,
     unitId: parsed.data.unit_id,
     residentId: parsed.data.resident_id,
     brand: parsed.data.brand,
@@ -105,8 +115,16 @@ export async function updateVehicleAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
   const uploadResult = await uploadCondoImage({
-    condominiumId: access.condominium.id,
+    condominiumId: unitContext.data.unitCondominiumId,
     folder: "vehicles",
     file: getPhotoFile(formData),
   });
@@ -117,7 +135,7 @@ export async function updateVehicleAction(
 
   const result = await updateVehicle({
     vehicleId,
-    condominiumId: access.condominium.id,
+    scopeCondominiumId,
     unitId: parsed.data.unit_id,
     residentId: parsed.data.resident_id,
     brand: parsed.data.brand,

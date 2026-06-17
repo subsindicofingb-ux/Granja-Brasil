@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Resident, ResidentType } from "@/types";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
+import { resolveUnitContext } from "@/lib/services/unit-access";
 
 export type ResidentWithUnit = Resident & {
   unit: {
@@ -87,19 +88,19 @@ const RESIDENT_SELECT = `
 `;
 
 export async function listResidentsByCondominium(
-  condominiumId: string,
-  options?: { towerId?: string; unitId?: string },
+  options?: {
+    condominiumId?: string;
+    unitId?: string;
+  },
 ): Promise<ServiceResult<ResidentWithUnit[]>> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from("residents")
-    .select(RESIDENT_SELECT)
-    .eq("units.towers.condominium_id", condominiumId)
-    .order("full_name", { ascending: true });
+  let query = supabase.from("residents").select(RESIDENT_SELECT).order("full_name", {
+    ascending: true,
+  });
 
-  if (options?.towerId) {
-    query = query.eq("units.tower_id", options.towerId);
+  if (options?.condominiumId) {
+    query = query.eq("units.towers.condominium_id", options.condominiumId);
   }
 
   if (options?.unitId) {
@@ -117,16 +118,17 @@ export async function listResidentsByCondominium(
 
 export async function getResidentById(
   residentId: string,
-  condominiumId: string,
+  options?: { condominiumId?: string },
 ): Promise<ServiceResult<ResidentWithUnit>> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("residents")
-    .select(RESIDENT_SELECT)
-    .eq("id", residentId)
-    .eq("units.towers.condominium_id", condominiumId)
-    .maybeSingle();
+  let query = supabase.from("residents").select(RESIDENT_SELECT).eq("id", residentId);
+
+  if (options?.condominiumId) {
+    query = query.eq("units.towers.condominium_id", options.condominiumId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -141,37 +143,18 @@ export async function getResidentById(
 
 async function assertUnitInCondominium(
   unitId: string,
-  condominiumId: string,
+  condominiumId?: string,
 ): Promise<ServiceResult<true>> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("units")
-    .select(
-      `
-      id,
-      towers!inner (
-        condominium_id
-      )
-    `,
-    )
-    .eq("id", unitId)
-    .eq("towers.condominium_id", condominiumId)
-    .maybeSingle();
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  if (!data) {
-    return serviceError("Unidade inválida para este condomínio.");
+  const unitContext = await resolveUnitContext(unitId, condominiumId);
+  if (!unitContext.ok) {
+    return serviceError(unitContext.error);
   }
 
   return serviceOk(true);
 }
 
 export async function createResident(input: {
-  condominiumId: string;
+  condominiumId?: string;
   unitId: string;
   fullName: string;
   email: string | null;
@@ -208,7 +191,7 @@ export async function createResident(input: {
 
 export async function updateResident(input: {
   residentId: string;
-  condominiumId: string;
+  condominiumId?: string;
   unitId: string;
   fullName: string;
   email: string | null;
@@ -242,7 +225,10 @@ export async function updateResident(input: {
   }
 
   const resident = data as ResidentRow;
-  if (resident.units.towers.condominium_id !== input.condominiumId) {
+  if (
+    input.condominiumId &&
+    resident.units.towers.condominium_id !== input.condominiumId
+  ) {
     return serviceError("Morador não pertence a este condomínio.");
   }
 

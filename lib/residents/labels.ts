@@ -32,3 +32,17 @@ export function formatUnitWithTower(unit: {
   const blockSuffix = unit.block ? ` · Bloco ${unit.block}` : "";
   return `${unit.tower.name} · Apto ${unit.number}${blockSuffix}`;
 }
+
+export function formatUnitOptionLabel(
+  unit: {
+    number: string;
+    block: string | null;
+    tower: { name: string; condominium_id: string };
+  },
+  condominiumNamesById?: Record<string, string>,
+): string {
+  const unitLabel = formatUnitWithTower(unit);
+  const condominiumName = condominiumNamesById?.[unit.tower.condominium_id];
+
+  return condominiumName ? `${condominiumName} · ${unitLabel}` : unitLabel;
+}

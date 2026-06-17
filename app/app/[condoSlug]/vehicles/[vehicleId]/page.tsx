@@ -2,10 +2,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { getVehicleById } from "@/lib/services/vehicles";
 import { listResidentsByCondominium } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
-import { formatUnitWithTower } from "@/lib/residents/labels";
+import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import { formatLicensePlate } from "@/lib/vehicles/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -20,12 +22,12 @@ interface VehicleDetailPageProps {
 export default async function VehicleDetailPage({ params }: VehicleDetailPageProps) {
   const { condoSlug, vehicleId } = await params;
   const access = await requireCondoAccess(condoSlug);
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
 
-  const [vehicleResult, unitsResult, residentsResult] = await Promise.all([
-    getVehicleById(vehicleId, access.condominium.id),
-    listUnitsByCondominium(access.condominium.id),
-    listResidentsByCondominium(access.condominium.id),
-  ]);
+  const vehicleResult = await getVehicleById(vehicleId, {
+    condominiumId: scopeCondominiumId,
+  });
 
   if (!vehicleResult.ok) {
     if (vehicleResult.error.includes("não encontrado")) {
@@ -41,6 +43,25 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
     );
   }
 
+  const [unitsResult, residentsResult] = await Promise.all([
+    isGeneralCondo
+      ? loadGeneralCondoPanelData()
+      : listUnitsByCondominium(access.condominium.id).then((result) =>
+          result.ok
+            ? {
+                ok: true as const,
+                data: {
+                  units: result.data,
+                  condominiumNamesById: {} as Record<string, string>,
+                },
+              }
+            : result,
+        ),
+    isGeneralCondo
+      ? listResidentsByCondominium()
+      : listResidentsByCondominium({ condominiumId: access.condominium.id }),
+  ]);
+
   if (!unitsResult.ok || !residentsResult.ok) {
     return (
       <div className="mx-auto max-w-lg space-y-4">
@@ -54,6 +75,9 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
 
   const vehicle = vehicleResult.data;
   const canEdit = access.permissions.canManageVehicles;
+  const units = "units" in unitsResult.data ? unitsResult.data.units : [];
+  const condominiumNamesById =
+    "condominiumNamesById" in unitsResult.data ? unitsResult.data.condominiumNamesById : {};
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -72,8 +96,9 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
           {canEdit ? (
             <VehicleForm
               condoSlug={condoSlug}
-              units={unitsResult.data}
+              units={units}
               residents={residentsResult.data}
+              condominiumNamesById={condominiumNamesById}
               mode="edit"
               defaultValues={{
                 vehicleId: vehicle.id,
@@ -110,7 +135,9 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Unidade</span>
-                <span className="text-right font-medium">{formatUnitWithTower(vehicle.unit)}</span>
+                <span className="text-right font-medium">
+                  {formatUnitOptionLabel(vehicle.unit, condominiumNamesById)}
+                </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Morador</span>

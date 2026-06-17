@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createResidentAction, updateResidentAction } from "@/lib/actions/residents";
 import {
   RESIDENT_TYPE_OPTIONS,
+  formatUnitOptionLabel,
   formatUnitWithTower,
 } from "@/lib/residents/labels";
 import type { ResidentType } from "@/types";
@@ -19,6 +20,7 @@ interface ResidentFormProps {
   condoSlug: string;
   units: UnitWithTower[];
   mode: "create" | "edit";
+  condominiumNamesById?: Record<string, string>;
   defaultValues?: {
     residentId?: string;
     unitId?: string;
@@ -30,14 +32,20 @@ interface ResidentFormProps {
   };
 }
 
-export function ResidentForm({ condoSlug, units, mode, defaultValues }: ResidentFormProps) {
+export function ResidentForm({
+  condoSlug,
+  units,
+  mode,
+  condominiumNamesById,
+  defaultValues,
+}: ResidentFormProps) {
   const action = mode === "create" ? createResidentAction : updateResidentAction;
   const [state, formAction, pending] = useActionState(action, {});
 
   if (units.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        Cadastre torres e unidades antes de registrar moradores.{" "}
+        Cadastre unidades antes de registrar moradores.{" "}
         <Link href={`/app/${condoSlug}/units/new`} className="font-medium underline">
           Nova unidade
         </Link>
@@ -84,7 +92,7 @@ export function ResidentForm({ condoSlug, units, mode, defaultValues }: Resident
           </option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.id}>
-              {formatUnitWithTower(unit)}
+              {formatUnitOptionLabel(unit, condominiumNamesById)}
             </option>
           ))}
         </select>

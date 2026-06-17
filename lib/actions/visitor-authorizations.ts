@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
 import {
   approveVisitorAuthorization,
@@ -68,6 +69,8 @@ export async function createVisitorAuthorizationAction(
   }
 
   const isStaff = access.permissions.canManageVisitorAuthorizations;
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
 
   const unitCheck = await assertCanRegisterForUnit(
     isStaff,
@@ -82,6 +85,7 @@ export async function createVisitorAuthorizationAction(
 
   const result = await createVisitorAuthorization({
     condominiumId: access.condominium.id,
+    scopeCondominiumId,
     requestedBy: access.profile.id,
     createdByStaff: isStaff,
     data: toVisitorAuthorizationPayload(parsed.data),
@@ -114,9 +118,13 @@ export async function updateVisitorAuthorizationAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+
   const result = await updateVisitorAuthorization({
     authorizationId,
     condominiumId: access.condominium.id,
+    scopeCondominiumId,
     data: toVisitorAuthorizationPayload(parsed.data),
   });
 

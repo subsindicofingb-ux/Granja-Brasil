@@ -7,7 +7,7 @@ import {
   updateVisitorAuthorizationAction,
 } from "@/lib/actions/visitor-authorizations";
 import { GUEST_TYPE } from "@/lib/constants";
-import { formatUnitWithTower } from "@/lib/residents/labels";
+import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import { GUEST_TYPE_OPTIONS } from "@/lib/visitor-authorizations/labels";
 import type { VisitorAuthorizationFormInput } from "@/lib/visitor-authorizations/types";
 import type { UnitWithTower } from "@/lib/services/units";
@@ -20,6 +20,7 @@ interface VisitorAuthorizationFormProps {
   condoSlug: string;
   mode: "create" | "edit";
   units: UnitWithTower[];
+  condominiumNamesById?: Record<string, string>;
   defaultValues: VisitorAuthorizationFormInput & { authorizationId?: string };
 }
 
@@ -27,6 +28,7 @@ export function VisitorAuthorizationForm({
   condoSlug,
   mode,
   units,
+  condominiumNamesById,
   defaultValues,
 }: VisitorAuthorizationFormProps) {
   const action =
@@ -65,7 +67,7 @@ export function VisitorAuthorizationForm({
           </option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.id}>
-              {formatUnitWithTower(unit)}
+              {formatUnitOptionLabel(unit, condominiumNamesById)}
             </option>
           ))}
         </select>

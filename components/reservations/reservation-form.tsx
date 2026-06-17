@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { createReservationAction } from "@/lib/actions/reservations";
-import { formatUnitWithTower } from "@/lib/residents/labels";
+import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import type { UnitWithTower } from "@/lib/services/units";
 import { FormAlert } from "@/components/shared/feedback";
@@ -15,9 +15,15 @@ interface ReservationFormProps {
   condoSlug: string;
   areas: CommonAreaRecord[];
   units: UnitWithTower[];
+  condominiumNamesById?: Record<string, string>;
 }
 
-export function ReservationForm({ condoSlug, areas, units }: ReservationFormProps) {
+export function ReservationForm({
+  condoSlug,
+  areas,
+  units,
+  condominiumNamesById,
+}: ReservationFormProps) {
   const [state, formAction, pending] = useActionState(createReservationAction, {});
 
   if (areas.length === 0) {
@@ -79,7 +85,7 @@ export function ReservationForm({ condoSlug, areas, units }: ReservationFormProp
           </option>
           {units.map((unit) => (
             <option key={unit.id} value={unit.id}>
-              {formatUnitWithTower(unit)}
+              {formatUnitOptionLabel(unit, condominiumNamesById)}
             </option>
           ))}
         </select>

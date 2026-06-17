@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { createResident, updateResident } from "@/lib/services/residents";
+import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
   resolvePhotoUrl,
@@ -45,8 +47,16 @@ export async function createResidentAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
   const uploadResult = await uploadCondoImage({
-    condominiumId: access.condominium.id,
+    condominiumId: unitContext.data.unitCondominiumId,
     folder: "residents",
     file: getPhotoFile(formData),
   });
@@ -56,7 +66,7 @@ export async function createResidentAction(
   }
 
   const result = await createResident({
-    condominiumId: access.condominium.id,
+    condominiumId: scopeCondominiumId,
     unitId: parsed.data.unit_id,
     fullName: parsed.data.full_name,
     email: parsed.data.email,
@@ -99,8 +109,16 @@ export async function updateResidentAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
   const uploadResult = await uploadCondoImage({
-    condominiumId: access.condominium.id,
+    condominiumId: unitContext.data.unitCondominiumId,
     folder: "residents",
     file: getPhotoFile(formData),
   });
@@ -111,7 +129,7 @@ export async function updateResidentAction(
 
   const result = await updateResident({
     residentId,
-    condominiumId: access.condominium.id,
+    condominiumId: scopeCondominiumId,
     unitId: parsed.data.unit_id,
     fullName: parsed.data.full_name,
     email: parsed.data.email,

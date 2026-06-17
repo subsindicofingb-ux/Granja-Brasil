@@ -2,10 +2,13 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
+import { getCondominiumBySlug } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { listResidentsByCondominium } from "@/lib/services/residents";
-import { getResidentTypeLabel, formatUnitWithTower } from "@/lib/residents/labels";
+import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/labels";
 import { isValidUuid } from "@/lib/utils";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
@@ -16,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface ResidentsPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ tower?: string; unit?: string }>;
+  searchParams: Promise<{ tower?: string; unit?: string; condominium?: string }>;
 }
 
 async function ResidentsHeader({ condoSlug }: { condoSlug: string }) {
@@ -44,17 +47,153 @@ async function ResidentsContent({
   condoSlug,
   towerId,
   unitId,
+  selectedCondominiumSlug,
 }: {
   condoSlug: string;
   towerId?: string;
   unitId?: string;
+  selectedCondominiumSlug?: string;
 }) {
   const access = await requireCondoAccess(condoSlug);
+  const isGeneralCondoPage = isGeneralCondominium(condoSlug);
+
+  if (isGeneralCondoPage) {
+    const panelResult = await loadGeneralCondoPanelData({
+      condominiumSlug: selectedCondominiumSlug,
+    });
+
+    if (!panelResult.ok) {
+      return <ErrorAlert message={panelResult.error} title="Erro ao carregar moradores" />;
+    }
+
+    const { condominiums, units, condominiumNamesById } = panelResult.data;
+    const filteredCondominium = selectedCondominiumSlug
+      ? condominiums.find((condominium) => condominium.slug === selectedCondominiumSlug)
+      : undefined;
+
+    const residentsResult = await listResidentsByCondominium({
+      condominiumId: filteredCondominium?.id,
+      unitId,
+    });
+
+    if (!residentsResult.ok) {
+      return <ErrorAlert message={residentsResult.error} title="Erro ao carregar moradores" />;
+    }
+
+    const residents = residentsResult.data;
+
+    return (
+      <div className="space-y-4">
+        <ResidentFilters
+          condoSlug={condoSlug}
+          units={units}
+          condominiums={condominiums}
+          condominiumNamesById={condominiumNamesById}
+          selectedCondominiumSlug={selectedCondominiumSlug}
+          selectedUnitId={unitId}
+        />
+
+        {units.length === 0 ? (
+          <EmptyState
+            title="Cadastre unidades primeiro"
+            description="É necessário ter unidades antes de registrar moradores."
+            action={
+              access.permissions.canManageStructure ? (
+                <Button asChild>
+                  <Link
+                    href={
+                      filteredCondominium
+                        ? `/app/${condoSlug}/units/new?condominium=${filteredCondominium.slug}`
+                        : `/app/${condoSlug}/units/new`
+                    }
+                  >
+                    Nova unidade
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : residents.length === 0 ? (
+          <EmptyState
+            title={
+              unitId || selectedCondominiumSlug
+                ? "Nenhum morador neste filtro"
+                : "Nenhum morador cadastrado"
+            }
+            description={
+              unitId || selectedCondominiumSlug
+                ? "Não há moradores para os filtros selecionados."
+                : "Cadastre o primeiro morador do condomínio."
+            }
+            action={
+              access.permissions.canManageResidents ? (
+                <Button asChild>
+                  <Link
+                    href={
+                      unitId
+                        ? `/app/${condoSlug}/residents/new?unit=${unitId}`
+                        : filteredCondominium
+                          ? `/app/${condoSlug}/residents/new?condominium=${filteredCondominium.slug}`
+                          : `/app/${condoSlug}/residents/new`
+                    }
+                  >
+                    Novo morador
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Nome</th>
+                  <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                  <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                  <th className="px-4 py-3 text-left font-medium">Contato</th>
+                  <th className="px-4 py-3 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {residents.map((resident) => (
+                  <tr key={resident.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 font-medium">{resident.full_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge className="border bg-background">
+                        {getResidentTypeLabel(resident.type)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {resident.email ?? resident.phone ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                          {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const [towersResult, allUnitsResult, residentsResult] = await Promise.all([
     listTowersByCondominium(access.condominium.id),
     listUnitsByCondominium(access.condominium.id),
-    listResidentsByCondominium(access.condominium.id, { towerId, unitId }),
+    listResidentsByCondominium({
+      condominiumId: access.condominium.id,
+      unitId,
+    }),
   ]);
 
   if (!towersResult.ok) {
@@ -72,6 +211,9 @@ async function ResidentsContent({
   const towers = towersResult.data;
   const units = allUnitsResult.data;
   const residents = residentsResult.data;
+  const filteredResidents = towerId
+    ? residents.filter((resident) => resident.unit.tower_id === towerId)
+    : residents;
 
   return (
     <div className="space-y-4">
@@ -95,7 +237,7 @@ async function ResidentsContent({
             ) : undefined
           }
         />
-      ) : residents.length === 0 ? (
+      ) : filteredResidents.length === 0 ? (
         <EmptyState
           title={
             unitId || towerId ? "Nenhum morador neste filtro" : "Nenhum morador cadastrado"
@@ -134,11 +276,11 @@ async function ResidentsContent({
               </tr>
             </thead>
             <tbody>
-              {residents.map((resident) => (
+              {filteredResidents.map((resident) => (
                 <tr key={resident.id} className="border-b last:border-0">
                   <td className="px-4 py-3 font-medium">{resident.full_name}</td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitWithTower(resident.unit)}
+                    {formatUnitOptionLabel(resident.unit)}
                   </td>
                   <td className="px-4 py-3">
                     <Badge className="border bg-background">
@@ -167,9 +309,24 @@ async function ResidentsContent({
 
 export default async function ResidentsPage({ params, searchParams }: ResidentsPageProps) {
   const { condoSlug } = await params;
-  const { tower, unit } = await searchParams;
+  const { tower, unit, condominium } = await searchParams;
   const towerId = isValidUuid(tower) ? tower : undefined;
   const unitId = isValidUuid(unit) ? unit : undefined;
+  const selectedCondominiumSlug = condominium?.trim().toLowerCase() || undefined;
+
+  if (selectedCondominiumSlug && isGeneralCondominium(condoSlug)) {
+    const condominiumResult = await getCondominiumBySlug(selectedCondominiumSlug);
+    if (!condominiumResult.ok) {
+      return (
+        <div className="space-y-6">
+          <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
+            <ResidentsHeader condoSlug={condoSlug} />
+          </Suspense>
+          <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -178,7 +335,12 @@ export default async function ResidentsPage({ params, searchParams }: ResidentsP
       </Suspense>
 
       <Suspense fallback={<TableSkeleton rows={5} cols={5} />}>
-        <ResidentsContent condoSlug={condoSlug} towerId={towerId} unitId={unitId} />
+        <ResidentsContent
+          condoSlug={condoSlug}
+          towerId={towerId}
+          unitId={unitId}
+          selectedCondominiumSlug={selectedCondominiumSlug}
+        />
       </Suspense>
     </div>
   );

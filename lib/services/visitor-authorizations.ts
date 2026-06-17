@@ -2,7 +2,7 @@ import type { Database } from "@/types/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { VISITOR_AUTHORIZATION_STATUS } from "@/lib/constants";
 import type { VisitorAuthorizationStatus } from "@/lib/constants";
-import { getUnitById } from "@/lib/services/units";
+import { resolveUnitContext } from "@/lib/services/unit-access";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { isInDoormanConsultWindow } from "@/lib/visitor-authorizations/status";
 import type {
@@ -213,10 +213,10 @@ function toDbPayload(input: VisitorWriteInput) {
 
 async function validateUnitForCondominium(
   unitId: string,
-  condominiumId: string,
+  scopeCondominiumId?: string,
 ): Promise<ServiceResult<null>> {
-  const unitResult = await getUnitById(unitId, condominiumId);
-  if (!unitResult.ok) {
+  const unitContext = await resolveUnitContext(unitId, scopeCondominiumId);
+  if (!unitContext.ok) {
     return serviceError("Unidade inválida para este condomínio.");
   }
   return serviceOk(null);
@@ -224,11 +224,15 @@ async function validateUnitForCondominium(
 
 export async function createVisitorAuthorization(input: {
   condominiumId: string;
+  scopeCondominiumId?: string;
   requestedBy: string;
   createdByStaff: boolean;
   data: VisitorWriteInput;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
-  const unitCheck = await validateUnitForCondominium(input.data.unit_id, input.condominiumId);
+  const unitCheck = await validateUnitForCondominium(
+    input.data.unit_id,
+    input.scopeCondominiumId,
+  );
   if (!unitCheck.ok) {
     return serviceError(unitCheck.error);
   }
@@ -267,9 +271,13 @@ export async function createVisitorAuthorization(input: {
 export async function updateVisitorAuthorization(input: {
   authorizationId: string;
   condominiumId: string;
+  scopeCondominiumId?: string;
   data: VisitorWriteInput;
 }): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
-  const unitCheck = await validateUnitForCondominium(input.data.unit_id, input.condominiumId);
+  const unitCheck = await validateUnitForCondominium(
+    input.data.unit_id,
+    input.scopeCondominiumId,
+  );
   if (!unitCheck.ok) {
     return serviceError(unitCheck.error);
   }

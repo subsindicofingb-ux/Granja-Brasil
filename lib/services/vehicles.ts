@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Vehicle } from "@/types";
+import { resolveUnitContext } from "@/lib/services/unit-access";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type VehicleWithUnit = Vehicle & {
@@ -107,33 +108,9 @@ const VEHICLE_SELECT = `
 
 async function assertUnitInCondominium(
   unitId: string,
-  condominiumId: string,
-): Promise<ServiceResult<true>> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("units")
-    .select(
-      `
-      id,
-      towers!inner (
-        condominium_id
-      )
-    `,
-    )
-    .eq("id", unitId)
-    .eq("towers.condominium_id", condominiumId)
-    .maybeSingle();
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  if (!data) {
-    return serviceError("Unidade inválida para este condomínio.");
-  }
-
-  return serviceOk(true);
+  scopeCondominiumId?: string,
+): Promise<ServiceResult<{ unitCondominiumId: string }>> {
+  return resolveUnitContext(unitId, scopeCondominiumId);
 }
 
 async function assertResidentInUnit(
@@ -205,16 +182,17 @@ export async function listVehiclesByCondominium(
 
 export async function getVehicleById(
   vehicleId: string,
-  condominiumId: string,
+  options?: { condominiumId?: string },
 ): Promise<ServiceResult<VehicleWithUnit>> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("vehicles")
-    .select(VEHICLE_SELECT)
-    .eq("id", vehicleId)
-    .eq("units.towers.condominium_id", condominiumId)
-    .maybeSingle();
+  let query = supabase.from("vehicles").select(VEHICLE_SELECT).eq("id", vehicleId);
+
+  if (options?.condominiumId) {
+    query = query.eq("units.towers.condominium_id", options.condominiumId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -228,7 +206,7 @@ export async function getVehicleById(
 }
 
 export async function createVehicle(input: {
-  condominiumId: string;
+  scopeCondominiumId?: string;
   unitId: string;
   residentId: string | null;
   brand: string;
@@ -238,7 +216,7 @@ export async function createVehicle(input: {
   tagNumber: string | null;
   photoUrl: string | null;
 }): Promise<ServiceResult<VehicleWithUnit>> {
-  const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
+  const unitCheck = await assertUnitInCondominium(input.unitId, input.scopeCondominiumId);
   if (!unitCheck.ok) {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
@@ -246,7 +224,7 @@ export async function createVehicle(input: {
   const residentCheck = await assertResidentInUnit(
     input.residentId,
     input.unitId,
-    input.condominiumId,
+    unitCheck.data.unitCondominiumId,
   );
   if (!residentCheck.ok) {
     return serviceError(residentCheck.error ?? "Morador inválido.");
@@ -257,7 +235,7 @@ export async function createVehicle(input: {
   const { data, error } = await supabase
     .from("vehicles")
     .insert({
-      condominium_id: input.condominiumId,
+      condominium_id: unitCheck.data.unitCondominiumId,
       unit_id: input.unitId,
       resident_id: input.residentId,
       brand: input.brand,
@@ -279,7 +257,7 @@ export async function createVehicle(input: {
 
 export async function updateVehicle(input: {
   vehicleId: string;
-  condominiumId: string;
+  scopeCondominiumId?: string;
   unitId: string;
   residentId: string | null;
   brand: string;
@@ -289,7 +267,7 @@ export async function updateVehicle(input: {
   tagNumber: string | null;
   photoUrl: string | null;
 }): Promise<ServiceResult<VehicleWithUnit>> {
-  const unitCheck = await assertUnitInCondominium(input.unitId, input.condominiumId);
+  const unitCheck = await assertUnitInCondominium(input.unitId, input.scopeCondominiumId);
   if (!unitCheck.ok) {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
@@ -297,7 +275,7 @@ export async function updateVehicle(input: {
   const residentCheck = await assertResidentInUnit(
     input.residentId,
     input.unitId,
-    input.condominiumId,
+    unitCheck.data.unitCondominiumId,
   );
   if (!residentCheck.ok) {
     return serviceError(residentCheck.error ?? "Morador inválido.");
@@ -308,7 +286,7 @@ export async function updateVehicle(input: {
   const { data, error } = await supabase
     .from("vehicles")
     .update({
-      condominium_id: input.condominiumId,
+      condominium_id: unitCheck.data.unitCondominiumId,
       unit_id: input.unitId,
       resident_id: input.residentId,
       brand: input.brand,
@@ -326,10 +304,12 @@ export async function updateVehicle(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  const vehicle = data as VehicleRow;
-  if (vehicle.units.towers.condominium_id !== input.condominiumId) {
-    return serviceError("Veículo não pertence a este condomínio.");
+  if (input.scopeCondominiumId) {
+    const vehicle = data as VehicleRow;
+    if (vehicle.units.towers.condominium_id !== input.scopeCondominiumId) {
+      return serviceError("Veículo não pertence a este condomínio.");
+    }
   }
 
-  return serviceOk(mapVehicleRow(vehicle));
+  return serviceOk(mapVehicleRow(data as VehicleRow));
 }
