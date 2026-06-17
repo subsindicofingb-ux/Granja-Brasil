@@ -12,6 +12,8 @@ import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
 import {
   encodeProfileTypeInReviewNotes,
   isMissingProfileTypeColumnError,
+  REGISTRATION_UNIT_NOT_APPLICABLE,
+  requiresRegistrationUnit,
   resolveRegistrationProfileType,
 } from "@/lib/registrations/profile-type";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
@@ -228,7 +230,10 @@ export async function createRegistrationRequestAsAdmin(input: {
   let unitNumber: string;
   let requestedUnitId: string | null = null;
 
-  if (input.unitId) {
+  if (!requiresRegistrationUnit(input.profileType)) {
+    unitKind = REGISTRATION_UNIT_KIND.APARTMENT;
+    unitNumber = REGISTRATION_UNIT_NOT_APPLICABLE;
+  } else if (input.unitId) {
     const unitMeta = await getUnitRegistrationMeta(input.unitId, input.condominiumId);
     if (!unitMeta.ok) {
       return serviceError(unitMeta.error ?? "Unidade inválida.");

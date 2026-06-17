@@ -3,7 +3,8 @@ import {
   RESIDENT_TYPES,
   type RegistrationProfileType,
 } from "@/lib/constants";
-import type { ResidentType } from "@/types";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import type { RegistrationUnitKind, ResidentType } from "@/types";
 
 const PROFILE_NOTE_PATTERN = /\[registration_profile:([a-z_]+)\]/;
 
@@ -64,4 +65,40 @@ export function resolveRegistrationProfileType(input: {
 
 export function isMissingProfileTypeColumnError(message: string | undefined): boolean {
   return Boolean(message?.includes("profile_type"));
+}
+
+export const REGISTRATION_UNIT_NOT_APPLICABLE = "—";
+
+export function requiresRegistrationUnit(profileType: RegistrationProfileType): boolean {
+  return (
+    profileType === REGISTRATION_PROFILE_TYPES.RESIDENT ||
+    profileType === REGISTRATION_PROFILE_TYPES.VISITOR
+  );
+}
+
+export function formatRegistrationUnitLabel(input: {
+  profileType: RegistrationProfileType;
+  unitNumber: string | null;
+  unitKind: RegistrationUnitKind | null;
+  condominiumSlug?: string;
+}): string {
+  if (!requiresRegistrationUnit(input.profileType)) {
+    return "Não se aplica";
+  }
+
+  if (!input.unitNumber || input.unitNumber === REGISTRATION_UNIT_NOT_APPLICABLE) {
+    return input.unitNumber === REGISTRATION_UNIT_NOT_APPLICABLE
+      ? "Não se aplica"
+      : "Unidade informada";
+  }
+
+  if (input.condominiumSlug && isGeneralCondominium(input.condominiumSlug)) {
+    return input.unitNumber;
+  }
+
+  if (input.unitKind === "house") {
+    return `Casa ${input.unitNumber}`;
+  }
+
+  return `Apto ${input.unitNumber}`;
 }

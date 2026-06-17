@@ -16,8 +16,8 @@ import {
   listPublicCondominiums,
 } from "@/lib/services/registration-requests";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
-import { isGeneralCondominium } from "@/lib/condominiums/display";
 import type { RegistrationProfileType } from "@/lib/constants";
+import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -175,13 +175,12 @@ export async function signUpAction(
       }
 
       if (selectedCondo && requestResult.data) {
-        const unitLabel = requestResult.data.unit_number
-          ? isGeneralCondominium(selectedCondo.slug)
-            ? requestResult.data.unit_number
-            : requestResult.data.unit_kind === "house"
-              ? `Casa ${requestResult.data.unit_number}`
-              : `Apto ${requestResult.data.unit_number}`
-          : "Unidade informada";
+        const unitLabel = formatRegistrationUnitLabel({
+          profileType: requestResult.data.profile_type,
+          unitNumber: requestResult.data.unit_number,
+          unitKind: requestResult.data.unit_kind,
+          condominiumSlug: selectedCondo.slug,
+        });
 
         await notifyNewRegistrationRequest({
           requestId: requestResult.data.id,

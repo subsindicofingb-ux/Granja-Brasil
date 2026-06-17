@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DEMO_CONDO_SLUG, REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
+import { requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 
 const profileTypeValues = [
   REGISTRATION_PROFILE_TYPES.RESIDENT,
@@ -20,6 +21,10 @@ export const registrationPreQualificationSchema = z
     unit_number: z.string().trim().optional(),
   })
   .superRefine((data, ctx) => {
+    if (!requiresRegistrationUnit(data.profile_type)) {
+      return;
+    }
+
     const isGeneralCondo = data.condominium_slug === DEMO_CONDO_SLUG;
 
     if (isGeneralCondo) {

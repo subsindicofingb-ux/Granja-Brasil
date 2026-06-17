@@ -6,8 +6,9 @@ import Link from "next/link";
 import { listSignupUnitsAction } from "@/lib/actions/signup-units";
 import { signUpAction } from "@/lib/auth/actions";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
+import { REGISTRATION_PROFILE_TYPES, type RegistrationProfileType } from "@/lib/constants";
 import { REGISTRATION_PROFILE_TYPE_OPTIONS } from "@/lib/registrations/labels";
+import { requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import type { PublicCondominiumOption } from "@/lib/services/registration-requests";
 import type { PublicUnitOption } from "@/lib/services/registration-requests";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,9 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(signUpAction, {});
   const [selectedCondoId, setSelectedCondoId] = useState("");
+  const [selectedProfileType, setSelectedProfileType] = useState<RegistrationProfileType>(
+    REGISTRATION_PROFILE_TYPES.RESIDENT,
+  );
   const [units, setUnits] = useState<PublicUnitOption[]>([]);
   const [unitsLoading, startUnitsTransition] = useTransition();
 
@@ -30,6 +34,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
     [condominiums, selectedCondoId],
   );
   const isGeneralCondo = selectedCondo ? isGeneralCondominium(selectedCondo.slug) : false;
+  const requiresUnit = requiresRegistrationUnit(selectedProfileType);
 
   useEffect(() => {
     if (state.redirectTo) {
@@ -38,7 +43,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   }, [state.redirectTo, router]);
 
   useEffect(() => {
-    if (!selectedCondoId || isGeneralCondo) {
+    if (!selectedCondoId || isGeneralCondo || !requiresUnit) {
       setUnits([]);
       return;
     }
@@ -47,12 +52,12 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
       const result = await listSignupUnitsAction(selectedCondoId);
       setUnits(result.ok ? (result.data ?? []) : []);
     });
-  }, [selectedCondoId, isGeneralCondo]);
+  }, [selectedCondoId, isGeneralCondo, requiresUnit]);
 
   const canSubmit =
     condominiums.length > 0 &&
     selectedCondoId &&
-    (isGeneralCondo || (!unitsLoading && units.length > 0));
+    (!requiresUnit || isGeneralCondo || (!unitsLoading && units.length > 0));
 
   return (
     <form action={formAction} className="space-y-4">
@@ -124,7 +129,27 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
           />
         </div>
 
-        {isGeneralCondo ? (
+        <div className="space-y-2">
+          <Label htmlFor="profile_type">Você é</Label>
+          <select
+            id="profile_type"
+            name="profile_type"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            value={selectedProfileType}
+            onChange={(event) =>
+              setSelectedProfileType(event.target.value as RegistrationProfileType)
+            }
+            required
+          >
+            {REGISTRATION_PROFILE_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {requiresUnit && isGeneralCondo ? (
           <div className="space-y-2">
             <Label htmlFor="unit_number">Unidade</Label>
             <Input
@@ -137,7 +162,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
               No condomínio geral Granja Brasil, digite livremente sua unidade ou casa.
             </p>
           </div>
-        ) : (
+        ) : requiresUnit ? (
           <div className="space-y-2">
             <Label htmlFor="unit_id">Unidade ou casa</Label>
             <select
@@ -164,24 +189,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
               ))}
             </select>
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="profile_type">Você é</Label>
-          <select
-            id="profile_type"
-            name="profile_type"
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            defaultValue={REGISTRATION_PROFILE_TYPES.RESIDENT}
-            required
-          >
-            {REGISTRATION_PROFILE_TYPE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        ) : null}
       </div>
 
       <Button className="w-full" type="submit" disabled={pending || !canSubmit}>

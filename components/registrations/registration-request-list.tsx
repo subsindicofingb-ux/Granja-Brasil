@@ -8,7 +8,8 @@ import {
   REGISTRATION_REQUEST_STATUS_LABELS,
 } from "@/lib/registrations/labels";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
-import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
+import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
+import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 import { FormAlert } from "@/components/shared/feedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,19 +24,12 @@ interface RegistrationRequestListProps {
 }
 
 function formatRequestedUnit(request: RegistrationRequestRecord): string {
-  if (request.unit_number) {
-    if (request.condominium && isGeneralCondominium(request.condominium.slug)) {
-      return request.unit_number;
-    }
-
-    if (request.unit_kind === "house") {
-      return `Casa ${request.unit_number}`;
-    }
-
-    return `Apto ${request.unit_number}`;
-  }
-
-  return "Unidade informada";
+  return formatRegistrationUnitLabel({
+    profileType: request.profile_type,
+    unitNumber: request.unit_number,
+    unitKind: request.unit_kind,
+    condominiumSlug: request.condominium?.slug,
+  });
 }
 
 function ReviewForm({ condoSlug, request }: { condoSlug: string; request: RegistrationRequestRecord }) {
