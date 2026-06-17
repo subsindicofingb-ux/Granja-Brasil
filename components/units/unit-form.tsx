@@ -13,6 +13,7 @@ interface UnitFormProps {
   condoSlug: string;
   condoName?: string;
   towers: Pick<Tower, "id" | "name">[];
+  condominiums?: Pick<Tower, "id" | "name">[];
   mode: "create" | "edit";
   requiresTower?: boolean;
   linkedCounts?: {
@@ -31,11 +32,14 @@ export function UnitForm({
   condoSlug,
   condoName,
   towers,
+  condominiums,
   mode,
   requiresTower = true,
   linkedCounts,
   defaultValues,
 }: UnitFormProps) {
+  const useCondominiumPicker = Boolean(condominiums?.length);
+  const pickerOptions = useCondominiumPicker ? condominiums! : towers;
   const action = mode === "create" ? createUnitAction : updateUnitAction;
   const [state, formAction, pending] = useActionState(action, {});
   const [deleteState, deleteFormAction, deletePending] = useActionState(deleteUnitAction, {});
@@ -79,12 +83,23 @@ export function UnitForm({
     }
   }
 
-  if (requiresTower && towers.length === 0) {
+  if (requiresTower && !useCondominiumPicker && towers.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
         Cadastre pelo menos uma torre antes de criar unidades.{" "}
         <Link href={`/app/${condoSlug}/towers/new`} className="font-medium underline">
           Nova torre
+        </Link>
+      </div>
+    );
+  }
+
+  if (requiresTower && useCondominiumPicker && pickerOptions.length === 0) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        Cadastre pelo menos um condomínio antes de criar unidades.{" "}
+        <Link href={`/app/${condoSlug}/units/condominiums/new`} className="font-medium underline">
+          Novo condomínio
         </Link>
       </div>
     );
@@ -108,20 +123,22 @@ export function UnitForm({
 
         {requiresTower && (
           <div className="space-y-2">
-            <Label htmlFor="tower_id">Torre</Label>
+            <Label htmlFor={useCondominiumPicker ? "condominium_id" : "tower_id"}>
+              {useCondominiumPicker ? "Condomínio" : "Torre"}
+            </Label>
             <select
-              id="tower_id"
-              name="tower_id"
+              id={useCondominiumPicker ? "condominium_id" : "tower_id"}
+              name={useCondominiumPicker ? "condominium_id" : "tower_id"}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
               defaultValue={defaultValues?.towerId ?? ""}
               required
             >
               <option value="" disabled>
-                Selecione a torre
+                {useCondominiumPicker ? "Selecione o condomínio" : "Selecione a torre"}
               </option>
-              {towers.map((tower) => (
-                <option key={tower.id} value={tower.id}>
-                  {tower.name}
+              {pickerOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
                 </option>
               ))}
             </select>

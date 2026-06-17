@@ -137,7 +137,15 @@ async function UnitsContent({
             action={
               access.permissions.canManageStructure ? (
                 <Button asChild>
-                  <Link href={`/app/${condoSlug}/units/new`}>Nova unidade</Link>
+                  <Link
+                    href={
+                      filteredCondominium
+                        ? `/app/${condoSlug}/units/new?condominium=${filteredCondominium.slug}`
+                        : `/app/${condoSlug}/units/new`
+                    }
+                  >
+                    Nova unidade
+                  </Link>
                 </Button>
               ) : undefined
             }

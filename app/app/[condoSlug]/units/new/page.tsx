@@ -1,5 +1,6 @@
 import { requireCondoPermission } from "@/lib/auth/access";
-import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
+import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -11,19 +12,73 @@ import Link from "next/link";
 
 interface NewUnitPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ tower?: string }>;
+  searchParams: Promise<{ tower?: string; condominium?: string }>;
 }
 
 export default async function NewUnitPage({ params, searchParams }: NewUnitPageProps) {
   const { condoSlug } = await params;
-  const { tower: preselectedTower } = await searchParams;
+  const { tower: preselectedTower, condominium: preselectedCondominiumSlug } = await searchParams;
   const preselectedTowerId = isValidUuid(preselectedTower) ? preselectedTower : undefined;
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
 
   const access = await requireCondoPermission(
     condoSlug,
     (ctx) => ctx.permissions.canManageStructure,
     { redirectTo: `/app/${condoSlug}/units` },
   );
+
+  if (isGeneralCondo) {
+    const condominiumsResult = await listCondominiums();
+
+    if (!condominiumsResult.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={condominiumsResult.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/units`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    const condominiums = condominiumsResult.data.map((condominium) => ({
+      id: condominium.id,
+      name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+    }));
+    const preselectedCondominiumId = preselectedCondominiumSlug
+      ? condominiumsResult.data.find(
+          (condominium) => condominium.slug === preselectedCondominiumSlug.trim().toLowerCase(),
+        )?.id
+      : undefined;
+
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <PageHeader
+          title="Nova unidade"
+          description={`Cadastre um apartamento ou sala no condomínio ${access.condominium.name}.`}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Dados da unidade</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UnitForm
+              condoSlug={condoSlug}
+              condoName={access.condominium.name}
+              towers={[]}
+              condominiums={condominiums}
+              mode="create"
+              requiresTower
+              defaultValues={{
+                towerId: preselectedCondominiumId ?? preselectedTowerId,
+              }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const towersResult = await listTowersByCondominium(access.condominium.id);
 
@@ -57,7 +112,7 @@ export default async function NewUnitPage({ params, searchParams }: NewUnitPageP
             condoName={access.condominium.name}
             towers={towers}
             mode="create"
-            requiresTower={isGeneralCondominium(condoSlug)}
+            requiresTower={false}
             defaultValues={{
               towerId: preselectedTowerId,
             }}

@@ -46,6 +46,7 @@ export async function createCondominiumAction(
 
   revalidatePath(`/app/${condoSlug}/admin/condominiums`);
   revalidatePath(`/app/${condoSlug}/units`);
+  revalidatePath(`/app/${condoSlug}/units/new`);
   revalidatePath("/app");
 
   if (returnTo === "units") {

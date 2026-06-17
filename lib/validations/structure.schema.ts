@@ -75,8 +75,15 @@ export const unitFormWithoutTowerSchema = z.object({
   block: unitBlockField,
 });
 
+export const unitFormWithCondominiumSchema = z.object({
+  condominium_id: z.string().uuid("Selecione um condomínio válido."),
+  number: unitNumberField,
+  block: unitBlockField,
+});
+
 export type UnitFormValues = z.infer<typeof unitFormSchema>;
 export type UnitFormWithoutTowerValues = z.infer<typeof unitFormWithoutTowerSchema>;
+export type UnitFormWithCondominiumValues = z.infer<typeof unitFormWithCondominiumSchema>;
 
 const optionalEmail = z
   .union([z.string(), z.null(), z.undefined()])
