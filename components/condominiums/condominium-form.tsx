@@ -39,6 +39,19 @@ export function CondominiumForm({ condoSlug, returnTo = "admin" }: CondominiumFo
         </p>
       </div>
 
+      <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+        <input
+          id="is_commercial"
+          name="is_commercial"
+          type="checkbox"
+          value="1"
+          className="h-4 w-4 rounded border border-input"
+        />
+        <Label htmlFor="is_commercial" className="font-normal">
+          Espaço comercial
+        </Label>
+      </div>
+
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={pending}>
           {pending ? "Salvando..." : "Cadastrar condomínio"}

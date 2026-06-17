@@ -144,7 +144,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   return (
     <>
       {isGeneralCondoDashboard && generalOverview && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Condomínios"
             value={generalOverview.condominiums}
@@ -159,6 +159,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
             label="Unidades"
             value={generalOverview.units}
             hint="Total no sistema"
+          />
+          <StatCard
+            label="Espaços comerciais"
+            value={generalOverview.commercialSpaces}
+            hint="Condomínios comerciais"
           />
         </div>
       )}

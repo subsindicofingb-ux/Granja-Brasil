@@ -68,6 +68,7 @@ export interface Database {
           id: string;
           name: string;
           slug: string;
+          is_commercial: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +76,7 @@ export interface Database {
           id?: string;
           name: string;
           slug: string;
+          is_commercial?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -82,6 +84,7 @@ export interface Database {
           id?: string;
           name?: string;
           slug?: string;
+          is_commercial?: boolean;
           created_at?: string;
           updated_at?: string;
         };

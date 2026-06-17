@@ -31,6 +31,7 @@ export const mockCondominium: Condominium = {
   id: SEED_IDS.condominium,
   name: "Granja Brasil",
   slug: "residencial-exemplo",
+  is_commercial: false,
   created_at: TS,
   updated_at: TS,
 };

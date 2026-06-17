@@ -32,13 +32,18 @@ export async function createCondominiumAction(
   const parsed = condominiumFormSchema.safeParse({
     name: formData.get("name"),
     slug: formData.get("slug"),
+    is_commercial: formData.get("is_commercial") === "1",
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const result = await createCondominium(parsed.data);
+  const result = await createCondominium({
+    name: parsed.data.name,
+    slug: parsed.data.slug,
+    isCommercial: parsed.data.is_commercial,
+  });
 
   if (!result.ok) {
     return { error: result.error ?? "Não foi possível cadastrar o condomínio." };
@@ -47,6 +52,7 @@ export async function createCondominiumAction(
   revalidatePath(`/app/${condoSlug}/admin/condominiums`);
   revalidatePath(`/app/${condoSlug}/units`);
   revalidatePath(`/app/${condoSlug}/units/new`);
+  revalidatePath(`/app/${condoSlug}`);
   revalidatePath("/app");
 
   if (returnTo === "units") {

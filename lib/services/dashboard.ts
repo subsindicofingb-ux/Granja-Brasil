@@ -17,6 +17,7 @@ export type GeneralCondominiumOverviewMetrics = {
   condominiums: number;
   houses: number;
   units: number;
+  commercialSpaces: number;
 };
 
 export type DashboardMetrics = {
@@ -110,13 +111,31 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 > {
   const supabase = await createClient();
 
-  const [condominiumsResult, unitsResult] = await Promise.all([
+  const [condominiumsResult, commercialResult, unitsResult] = await Promise.all([
     supabase.from("condominiums").select("id", { count: "exact", head: true }),
+    supabase
+      .from("condominiums")
+      .select("id", { count: "exact", head: true })
+      .eq("is_commercial", true),
     supabase.from("units").select("id, block, towers!inner(name)"),
   ]);
 
   if (condominiumsResult.error) {
     return serviceError(mapSupabaseError(condominiumsResult.error));
+  }
+
+  let commercialSpaces = 0;
+  if (commercialResult.error) {
+    const message = commercialResult.error.message ?? "";
+    if (
+      commercialResult.error.code !== "42703" &&
+      !message.includes("is_commercial") &&
+      !message.includes("column")
+    ) {
+      return serviceError(mapSupabaseError(commercialResult.error));
+    }
+  } else {
+    commercialSpaces = commercialResult.count ?? 0;
   }
 
   if (unitsResult.error) {
@@ -133,6 +152,7 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     condominiums: condominiumsResult.count ?? 0,
     houses,
     units: units.length,
+    commercialSpaces,
   });
 }
 
