@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
-import { requireCondoAccess } from "@/lib/auth/access";
+import { getUserMemberships, requireCondoAccess } from "@/lib/auth/access";
+import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
@@ -86,7 +87,13 @@ export async function signInAction(
     }
 
     revalidatePath("/", "layout");
-    return { redirectTo: redirectTo.startsWith("/") ? redirectTo : "/app" };
+
+    const safeRedirect = await resolveSafeAppRedirect(
+      supabase,
+      redirectTo.startsWith("/") ? redirectTo : "/app",
+    );
+
+    return { redirectTo: safeRedirect };
   } catch (err) {
     return { error: formatAuthError(err) };
   }
@@ -198,6 +205,15 @@ export async function signUpAction(
     revalidatePath("/", "layout");
 
     if (!data.session) {
+      return {
+        success:
+          "Conta criada! Confirme o e-mail enviado. O síndico do condomínio foi notificado e analisará seu cadastro.",
+      };
+    }
+
+    const memberships = await getUserMemberships();
+    if (memberships.length === 0) {
+      await supabase.auth.signOut();
       return {
         success:
           "Conta criada! Confirme o e-mail enviado. O síndico do condomínio foi notificado e analisará seu cadastro.",

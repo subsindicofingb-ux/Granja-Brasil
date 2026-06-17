@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import {
+  canAccessCondoSlug,
+  extractCondoSlugFromAppPath,
+} from "@/lib/auth/condo-access-guard";
 import {
   copyCookies,
   isAuthRoute,
   isPublicAuthPath,
   updateSession,
 } from "@/lib/supabase/middleware";
+import type { Database } from "@/types/database.types";
+import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -45,6 +52,33 @@ export async function middleware(request: NextRequest) {
     const redirectResponse = NextResponse.redirect(url);
     copyCookies(response, redirectResponse);
     return redirectResponse;
+  }
+
+  const condoSlug = extractCondoSlugFromAppPath(pathname);
+  if (user && condoSlug) {
+    const env = getSupabasePublicEnv();
+    if (env) {
+      const supabase = createServerClient<Database>(env.url, env.anonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll() {
+            // Middleware only reads membership for routing.
+          },
+        },
+      });
+
+      const allowed = await canAccessCondoSlug(supabase, condoSlug);
+      if (!allowed) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/app";
+        url.search = "";
+        const redirectResponse = NextResponse.redirect(url);
+        copyCookies(response, redirectResponse);
+        return redirectResponse;
+      }
+    }
   }
 
   if (isCallback) {

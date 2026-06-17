@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { setActiveCondoSlug } from "@/lib/auth/active-condo";
@@ -164,7 +164,7 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
 export async function requireCondoAccess(slug: string): Promise<CondoAccess> {
   const access = await getCondoAccess(slug);
   if (!access) {
-    notFound();
+    redirect("/app");
   }
 
   await setActiveCondoSlug(slug);
