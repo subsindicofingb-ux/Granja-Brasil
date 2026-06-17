@@ -6,6 +6,7 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isSuperAdmin } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { ROLES } from "@/lib/constants";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { createCondominium } from "@/lib/services/condominiums-admin";
 import { condominiumFormSchema } from "@/lib/validations/condominium.schema";
 
@@ -14,6 +15,7 @@ export async function createCondominiumAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const condoSlug = String(formData.get("condo_slug") ?? "");
+  const returnTo = String(formData.get("return_to") ?? "admin");
   const access = await requireCondoAccess(condoSlug);
 
   if (access.role !== ROLES.SUPER_ADMIN) {
@@ -21,6 +23,10 @@ export async function createCondominiumAction(
     if (!superAdmin) {
       return { error: "Sem permissão para cadastrar condomínios." };
     }
+  }
+
+  if (returnTo === "units" && !isGeneralCondominium(condoSlug)) {
+    return { error: "Somente o condomínio Granja Brasil pode cadastrar condomínios por aqui." };
   }
 
   const parsed = condominiumFormSchema.safeParse({
@@ -39,6 +45,12 @@ export async function createCondominiumAction(
   }
 
   revalidatePath(`/app/${condoSlug}/admin/condominiums`);
+  revalidatePath(`/app/${condoSlug}/units`);
   revalidatePath("/app");
+
+  if (returnTo === "units") {
+    redirect(`/app/${condoSlug}/units?condominium=${result.data.slug}`);
+  }
+
   redirect(`/app/${result.data.slug}`);
 }

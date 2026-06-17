@@ -37,7 +37,7 @@ function mapUnitRow(row: UnitRow): UnitWithTower {
 }
 
 export async function listUnitsByCondominium(
-  condominiumId: string,
+  condominiumId?: string,
   options?: { towerId?: string },
 ): Promise<ServiceResult<UnitWithTower[]>> {
   const supabase = await createClient();
@@ -59,8 +59,11 @@ export async function listUnitsByCondominium(
       )
     `,
     )
-    .eq("towers.condominium_id", condominiumId)
     .order("number", { ascending: true });
+
+  if (condominiumId) {
+    query = query.eq("towers.condominium_id", condominiumId);
+  }
 
   if (options?.towerId) {
     query = query.eq("tower_id", options.towerId);

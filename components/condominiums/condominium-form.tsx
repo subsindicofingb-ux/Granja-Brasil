@@ -10,14 +10,20 @@ import { Label } from "@/components/ui/label";
 
 interface CondominiumFormProps {
   condoSlug: string;
+  returnTo?: "units" | "admin";
 }
 
-export function CondominiumForm({ condoSlug }: CondominiumFormProps) {
+export function CondominiumForm({ condoSlug, returnTo = "admin" }: CondominiumFormProps) {
   const [state, formAction, pending] = useActionState(createCondominiumAction, {});
+  const cancelHref =
+    returnTo === "units"
+      ? `/app/${condoSlug}/units`
+      : `/app/${condoSlug}/admin/condominiums`;
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
+      <input type="hidden" name="return_to" value={returnTo} />
       <FormAlert error={state.error} success={state.success} />
 
       <div className="space-y-2">
@@ -38,7 +44,7 @@ export function CondominiumForm({ condoSlug }: CondominiumFormProps) {
           {pending ? "Salvando..." : "Cadastrar condomínio"}
         </Button>
         <Button variant="outline" asChild>
-          <Link href={`/app/${condoSlug}/admin/condominiums`}>Cancelar</Link>
+          <Link href={cancelHref}>Cancelar</Link>
         </Button>
       </div>
     </form>
