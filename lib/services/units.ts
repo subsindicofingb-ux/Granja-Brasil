@@ -233,26 +233,99 @@ export async function updateUnit(input: {
   return serviceOk(mapUnitRow(unit));
 }
 
-export async function deleteUnit(input: {
-  unitId: string;
-  condominiumId: string;
-}): Promise<ServiceResult<void>> {
-  const existing = await getUnitById(input.unitId, input.condominiumId);
+export type UnitLinkedCounts = {
+  residents: number;
+  reservations: number;
+};
+
+export async function getUnitLinkedCounts(
+  unitId: string,
+  condominiumId: string,
+): Promise<ServiceResult<UnitLinkedCounts>> {
+  const existing = await getUnitById(unitId, condominiumId);
   if (!existing.ok) {
     return serviceError(existing.error);
   }
 
   const supabase = await createClient();
 
-  const { error } = await supabase.from("units").delete().eq("id", input.unitId);
+  const [residentsResult, reservationsResult] = await Promise.all([
+    supabase
+      .from("residents")
+      .select("id", { count: "exact", head: true })
+      .eq("unit_id", unitId),
+    supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("unit_id", unitId),
+  ]);
 
-  if (error) {
-    if (error.code === "23503") {
-      return serviceError(
-        "Não é possível excluir: existem moradores, reservas ou outros vínculos nesta unidade.",
+  if (residentsResult.error) {
+    return serviceError(mapSupabaseError(residentsResult.error));
+  }
+
+  if (reservationsResult.error) {
+    return serviceError(mapSupabaseError(reservationsResult.error));
+  }
+
+  return serviceOk({
+    residents: residentsResult.count ?? 0,
+    reservations: reservationsResult.count ?? 0,
+  });
+}
+
+export async function deleteUnit(input: {
+  unitId: string;
+  condominiumId: string;
+  force?: boolean;
+}): Promise<ServiceResult<void>> {
+  const existing = await getUnitById(input.unitId, input.condominiumId);
+  if (!existing.ok) {
+    return serviceError(existing.error);
+  }
+
+  const linkedResult = await getUnitLinkedCounts(input.unitId, input.condominiumId);
+  if (!linkedResult.ok) {
+    return serviceError(linkedResult.error);
+  }
+
+  const hasLinkedRecords =
+    linkedResult.data.residents > 0 || linkedResult.data.reservations > 0;
+
+  if (hasLinkedRecords && !input.force) {
+    const parts: string[] = [];
+    if (linkedResult.data.residents > 0) {
+      parts.push(
+        `${linkedResult.data.residents} morador${linkedResult.data.residents > 1 ? "es" : ""}`,
+      );
+    }
+    if (linkedResult.data.reservations > 0) {
+      parts.push(
+        `${linkedResult.data.reservations} reserva${linkedResult.data.reservations > 1 ? "s" : ""}`,
       );
     }
 
+    return serviceError(
+      `Esta unidade possui ${parts.join(" e ")} vinculados. Confirme novamente para excluir.`,
+    );
+  }
+
+  const supabase = await createClient();
+
+  if (input.force && linkedResult.data.reservations > 0) {
+    const { error: reservationsError } = await supabase
+      .from("reservations")
+      .delete()
+      .eq("unit_id", input.unitId);
+
+    if (reservationsError) {
+      return serviceError(mapSupabaseError(reservationsError));
+    }
+  }
+
+  const { error } = await supabase.from("units").delete().eq("id", input.unitId);
+
+  if (error) {
     return serviceError(mapSupabaseError(error));
   }
 

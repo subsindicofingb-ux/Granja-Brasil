@@ -14,6 +14,10 @@ interface UnitFormProps {
   condoName?: string;
   towers: Pick<Tower, "id" | "name">[];
   mode: "create" | "edit";
+  linkedCounts?: {
+    residents: number;
+    reservations: number;
+  };
   defaultValues?: {
     unitId?: string;
     towerId?: string;
@@ -22,10 +26,56 @@ interface UnitFormProps {
   };
 }
 
-export function UnitForm({ condoSlug, condoName, towers, mode, defaultValues }: UnitFormProps) {
+export function UnitForm({
+  condoSlug,
+  condoName,
+  towers,
+  mode,
+  linkedCounts,
+  defaultValues,
+}: UnitFormProps) {
   const action = mode === "create" ? createUnitAction : updateUnitAction;
   const [state, formAction, pending] = useActionState(action, {});
   const [deleteState, deleteFormAction, deletePending] = useActionState(deleteUnitAction, {});
+  const hasLinkedRecords =
+    (linkedCounts?.residents ?? 0) > 0 || (linkedCounts?.reservations ?? 0) > 0;
+
+  function buildDeleteConfirmMessage() {
+    if (!hasLinkedRecords) {
+      return "Excluir esta unidade? Esta ação não pode ser desfeita.";
+    }
+
+    const parts: string[] = [];
+    if ((linkedCounts?.residents ?? 0) > 0) {
+      parts.push(
+        `${linkedCounts?.residents} morador${(linkedCounts?.residents ?? 0) > 1 ? "es" : ""}`,
+      );
+    }
+    if ((linkedCounts?.reservations ?? 0) > 0) {
+      parts.push(
+        `${linkedCounts?.reservations} reserva${(linkedCounts?.reservations ?? 0) > 1 ? "s" : ""}`,
+      );
+    }
+
+    return `Esta unidade possui ${parts.join(" e ")} vinculados. Deseja realmente excluir? Os vínculos também serão removidos.`;
+  }
+
+  function handleDeleteClick(event: React.MouseEvent<HTMLButtonElement>) {
+    if (!window.confirm(buildDeleteConfirmMessage())) {
+      event.preventDefault();
+      return;
+    }
+
+    const form = event.currentTarget.form;
+    if (!form) {
+      return;
+    }
+
+    const forceInput = form.querySelector<HTMLInputElement>('input[name="force_delete"]');
+    if (forceInput) {
+      forceInput.value = hasLinkedRecords ? "1" : "0";
+    }
+  }
 
   if (towers.length === 0) {
     return (
@@ -107,23 +157,27 @@ export function UnitForm({ condoSlug, condoName, towers, mode, defaultValues }: 
 
       {mode === "edit" && defaultValues?.unitId && (
         <div className="border-t pt-4">
-          <FormAlert error={deleteState.error} />
+          <FormAlert error={deleteState.error} success={deleteState.success} />
+          {hasLinkedRecords && (
+            <p className="mb-3 text-sm text-amber-800">
+              Esta unidade possui{" "}
+              {(linkedCounts?.residents ?? 0) > 0 &&
+                `${linkedCounts?.residents} morador${(linkedCounts?.residents ?? 0) > 1 ? "es" : ""}`}
+              {(linkedCounts?.residents ?? 0) > 0 && (linkedCounts?.reservations ?? 0) > 0 && " e "}
+              {(linkedCounts?.reservations ?? 0) > 0 &&
+                `${linkedCounts?.reservations} reserva${(linkedCounts?.reservations ?? 0) > 1 ? "s" : ""}`}{" "}
+              vinculados.
+            </p>
+          )}
           <form action={deleteFormAction}>
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="unit_id" value={defaultValues.unitId} />
+            <input type="hidden" name="force_delete" defaultValue="0" />
             <Button
               type="submit"
               variant="destructive"
               disabled={deletePending}
-              onClick={(event) => {
-                if (
-                  !window.confirm(
-                    "Excluir esta unidade? Esta ação não pode ser desfeita.",
-                  )
-                ) {
-                  event.preventDefault();
-                }
-              }}
+              onClick={handleDeleteClick}
             >
               {deletePending ? "Excluindo..." : "Excluir unidade"}
             </Button>

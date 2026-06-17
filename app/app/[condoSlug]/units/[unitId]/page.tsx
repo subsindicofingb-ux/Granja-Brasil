@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { listTowersByCondominium } from "@/lib/services/towers";
-import { getUnitById } from "@/lib/services/units";
+import { getUnitById, getUnitLinkedCounts } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { UnitForm } from "@/components/units/unit-form";
@@ -50,6 +50,10 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
   const unit = unitResult.data;
   const towers = towersResult.data.map((tower) => ({ id: tower.id, name: tower.name }));
   const canEdit = access.permissions.canManageStructure;
+  const linkedCountsResult = canEdit
+    ? await getUnitLinkedCounts(unitId, access.condominium.id)
+    : null;
+  const linkedCounts = linkedCountsResult?.ok ? linkedCountsResult.data : undefined;
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -71,6 +75,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
               condoName={access.condominium.name}
               towers={towers}
               mode="edit"
+              linkedCounts={linkedCounts}
               defaultValues={{
                 unitId: unit.id,
                 towerId: unit.tower_id,

@@ -105,9 +105,12 @@ export async function deleteUnitAction(
     { redirectTo: `/app/${condoSlug}/units` },
   );
 
+  const forceDelete = String(formData.get("force_delete") ?? "") === "1";
+
   const result = await deleteUnit({
     unitId,
     condominiumId: access.condominium.id,
+    force: forceDelete,
   });
 
   if (!result.ok) {
