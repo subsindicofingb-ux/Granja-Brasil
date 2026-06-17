@@ -1,4 +1,5 @@
-import { Building2 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
+import { BRAND_TAGLINE } from "@/lib/brand";
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -17,33 +18,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         : null;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col lg:flex-row">
       <div className="hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
-        <div className="flex items-center gap-2 font-semibold">
-          <Building2 className="h-5 w-5" />
-          Condomínio SaaS
-        </div>
+        <BrandLogo href="/" size="lg" className="items-start text-left" />
         <div>
           <h2 className="text-3xl font-bold leading-tight">
             Administre seu condomínio com clareza e controle.
           </h2>
-          <p className="mt-4 max-w-md text-sidebar-foreground/70">
-            Acesso seguro com Supabase Auth. Seu vínculo ao condomínio é controlado por
-            memberships e RLS.
-          </p>
+          <p className="mt-4 max-w-md text-sidebar-foreground/70">{BRAND_TAGLINE}</p>
         </div>
-        <p className="text-xs text-sidebar-foreground/50">
-          © {new Date().getFullYear()} Condomínio SaaS
-        </p>
+        <p className="text-xs text-sidebar-foreground/50">© {new Date().getFullYear()} Granja Brasil</p>
       </div>
 
-      <div className="flex flex-1 items-center justify-center p-6">
-        <Card className="w-full max-w-md">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+        <div className="mb-6 lg:hidden">
+          <BrandLogo size="hero" showTagline priority />
+        </div>
+        <Card className="w-full max-w-md shadow-sm">
           <CardHeader>
             <CardTitle>Entrar</CardTitle>
-            <CardDescription>
-              Use e-mail e senha para acessar o painel administrativo.
-            </CardDescription>
+            <CardDescription>Use e-mail e senha para acessar o painel.</CardDescription>
           </CardHeader>
           <CardContent>
             {errorMessage && (

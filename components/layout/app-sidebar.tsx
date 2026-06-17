@@ -12,6 +12,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { CondoSwitcher } from "@/components/layout/condo-switcher";
 import type { CondoAccess } from "@/lib/auth/types";
@@ -52,15 +53,8 @@ export function AppSidebar({
   return (
     <aside className="flex h-full w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-5 py-5">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">Condomínio SaaS</p>
-            <p className="truncate text-xs text-sidebar-foreground/70">{condoName}</p>
-          </div>
-        </div>
+        <BrandLogo href="/app" size="sm" className="items-start text-left" />
+        <p className="mt-3 truncate text-xs text-sidebar-foreground/70">{condoName}</p>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,10 +15,14 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Condomínio SaaS",
-    template: "%s | Condomínio SaaS",
+    default: BRAND_NAME,
+    template: `%s | ${BRAND_NAME}`,
   },
-  description: "Plataforma de administração de condomínios",
+  description: "Plataforma Granja Brasil para administração de condomínios",
+  icons: {
+    icon: "/logo-granja-brasil.png",
+    apple: "/logo-granja-brasil.png",
+  },
 };
 
 export default function RootLayout({

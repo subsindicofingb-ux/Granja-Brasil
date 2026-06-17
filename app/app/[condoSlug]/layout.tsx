@@ -25,8 +25,10 @@ export default async function CondoLayout({ children, params }: CondoLayoutProps
           memberships={memberships}
         >
           <div className="flex flex-1 flex-col overflow-hidden">
-            <AppHeader access={access} />
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            <div className="hidden lg:block">
+              <AppHeader access={access} />
+            </div>
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
           </div>
         </CondoSidebarProvider>
       </div>

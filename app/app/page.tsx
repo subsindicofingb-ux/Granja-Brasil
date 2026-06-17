@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Building2, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { getAccessibleCondominiums } from "@/lib/auth/access";
 import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
+import { BRAND_TAGLINE } from "@/lib/brand";
 import { REGISTRATION_REQUEST_STATUS } from "@/lib/constants";
 import { REGISTRATION_REQUEST_STATUS_LABELS } from "@/lib/registrations/labels";
 import { listRegistrationRequestsForProfile } from "@/lib/services/registration-requests";
@@ -30,65 +32,65 @@ export default async function AppHomePage() {
   const pendingRequests = myRequests.filter(
     (request) => request.status === REGISTRATION_REQUEST_STATUS.PENDING,
   );
+  const firstName = session.profile.full_name.split(/\s+/)[0] ?? session.profile.full_name;
 
   if (memberships.length === 1) {
     redirect(`/app/${memberships[0].condominium.slug}`);
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
-          <div className="flex items-center gap-2 font-semibold">
-            <Building2 className="h-5 w-5 text-primary" />
-            Condomínio SaaS
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-muted-foreground sm:inline">
-              {session.profile.full_name}
-            </span>
-            <form action={signOutAction}>
-              <Button variant="outline" type="submit">
-                Sair
-              </Button>
-            </form>
-          </div>
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50/80 via-background to-background">
+      <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:h-16 sm:px-6">
+          <BrandLogo href="/app" size="sm" />
+          <form action={signOutAction}>
+            <Button variant="outline" size="sm" type="submit">
+              Sair
+            </Button>
+          </form>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold">Seus condomínios</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+        <section className="mb-8 rounded-2xl border bg-card p-5 text-center shadow-sm sm:p-8">
+          <div className="flex justify-center">
+            <BrandLogo size="hero" priority />
+          </div>
+          <h1 className="mt-5 text-xl font-bold sm:text-2xl">Olá, {firstName}</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
             {memberships.length > 0
-              ? "Selecione o condomínio que deseja administrar."
-              : "Você ainda não possui vínculo com nenhum condomínio."}
+              ? "Selecione o condomínio que deseja acessar."
+              : BRAND_TAGLINE}
           </p>
-        </div>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{session.user.email}</p>
+        </section>
 
         {memberships.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Aguardando aprovação</CardTitle>
+          <Card className="border-amber-200/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Aguardando aprovação</CardTitle>
               <CardDescription>
-                Sua conta foi criada. O síndico do condomínio precisa aprovar seu cadastro antes
-                do acesso ao painel.
+                Sua conta foi criada. O síndico precisa aprovar seu cadastro antes do acesso ao
+                painel.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {pendingRequests.length > 0 ? (
                 <div className="space-y-3">
                   {pendingRequests.map((request) => (
-                    <div key={request.id} className="rounded-md border bg-muted/20 p-3 text-sm">
-                      <div className="flex items-center justify-between gap-2">
+                    <div
+                      key={request.id}
+                      className="rounded-xl border bg-muted/20 p-4 text-sm"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <span className="font-medium">
                           {request.condominium?.name ?? "Condomínio"}
                         </span>
-                        <Badge className="border bg-background">
+                        <Badge className="w-fit border bg-background">
                           {REGISTRATION_REQUEST_STATUS_LABELS[request.status]}
                         </Badge>
                       </div>
-                      <p className="mt-1 text-muted-foreground">
+                      <p className="mt-2 text-muted-foreground">
                         Solicitado em {formatDateTime(request.created_at)}
                       </p>
                     </div>
@@ -97,7 +99,7 @@ export default async function AppHomePage() {
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Se você ainda não fez o cadastro com pré-qualificação,{" "}
-                  <Link href="/signup" className="text-primary hover:underline">
+                  <Link href="/signup" className="font-medium text-primary hover:underline">
                     crie uma nova conta
                   </Link>{" "}
                   informando condomínio e unidade.
@@ -106,19 +108,27 @@ export default async function AppHomePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4">
             {memberships.map((membership) => (
               <Card
                 key={membership.id}
-                className={membership.condominium.slug === activeSlug ? "border-primary" : ""}
+                className={
+                  membership.condominium.slug === activeSlug
+                    ? "border-primary shadow-md"
+                    : "shadow-sm"
+                }
               >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle>{membership.condominium.name}</CardTitle>
-                      <CardDescription>/{membership.condominium.slug}</CardDescription>
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <CardTitle className="text-lg leading-snug">
+                        {membership.condominium.name}
+                      </CardTitle>
+                      <CardDescription className="truncate">
+                        /{membership.condominium.slug}
+                      </CardDescription>
                     </div>
-                    <Badge className="border bg-background">
+                    <Badge className="w-fit border bg-background">
                       {getRolePermissions(membership.role).label}
                     </Badge>
                   </div>
@@ -126,7 +136,7 @@ export default async function AppHomePage() {
                 <CardContent>
                   <form action={selectCondominiumFormAction}>
                     <input type="hidden" name="slug" value={membership.condominium.slug} />
-                    <Button type="submit">
+                    <Button type="submit" className="h-11 w-full sm:w-auto">
                       Acessar painel
                       <ChevronRight className="h-4 w-4" />
                     </Button>

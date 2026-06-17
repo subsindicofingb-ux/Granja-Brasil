@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { MobileCondoNav } from "@/components/layout/mobile-condo-nav";
 import type { CondoAccess, MembershipWithCondo } from "@/lib/auth/types";
 
 interface CondoSidebarProviderProps {
@@ -23,14 +24,19 @@ export function CondoSidebarProvider({
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <AppSidebar
-        condoSlug={condoSlug}
-        condoName={condoName}
-        currentPath={pathname}
-        access={access}
-        memberships={memberships}
-      />
-      {children}
+      <div className="hidden lg:flex">
+        <AppSidebar
+          condoSlug={condoSlug}
+          condoName={condoName}
+          currentPath={pathname}
+          access={access}
+          memberships={memberships}
+        />
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <MobileCondoNav condoSlug={condoSlug} access={access} />
+        {children}
+      </div>
     </div>
   );
 }
