@@ -14,10 +14,11 @@ import { isHouseTower } from "@/lib/residents/labels";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 export type GeneralCondominiumOverviewMetrics = {
-  condominiums: number;
+  residentialCondominiums: number;
+  commercialCondominiums: number;
   houses: number;
-  units: number;
-  commercialSpaces: number;
+  residentialUnits: number;
+  commercialUnits: number;
 };
 
 export type DashboardMetrics = {
@@ -111,35 +112,49 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 > {
   const supabase = await createClient();
 
-  const [condominiumsResult, commercialResult, unitsResult] = await Promise.all([
-    supabase.from("condominiums").select("id", { count: "exact", head: true }),
+  const [condominiumsResult, unitsResult] = await Promise.all([
+    supabase.from("condominiums").select("id, is_commercial"),
     supabase
-      .from("condominiums")
-      .select("id", { count: "exact", head: true })
-      .eq("is_commercial", true),
-    supabase.from("units").select("id, block, towers!inner(name)"),
+      .from("units")
+      .select("id, block, towers!inner(name, condominium_id)"),
   ]);
-
-  if (condominiumsResult.error) {
-    return serviceError(mapSupabaseError(condominiumsResult.error));
-  }
-
-  let commercialSpaces = 0;
-  if (commercialResult.error) {
-    const message = commercialResult.error.message ?? "";
-    if (
-      commercialResult.error.code !== "42703" &&
-      !message.includes("is_commercial") &&
-      !message.includes("column")
-    ) {
-      return serviceError(mapSupabaseError(commercialResult.error));
-    }
-  } else {
-    commercialSpaces = commercialResult.count ?? 0;
-  }
 
   if (unitsResult.error) {
     return serviceError(mapSupabaseError(unitsResult.error));
+  }
+
+  let residentialCondominiums = 0;
+  let commercialCondominiums = 0;
+  const commercialCondominiumIds = new Set<string>();
+
+  if (condominiumsResult.error) {
+    const message = condominiumsResult.error.message ?? "";
+    if (
+      condominiumsResult.error.code !== "42703" &&
+      !message.includes("is_commercial") &&
+      !message.includes("column")
+    ) {
+      return serviceError(mapSupabaseError(condominiumsResult.error));
+    }
+
+    const fallback = await supabase
+      .from("condominiums")
+      .select("id", { count: "exact", head: true });
+
+    if (fallback.error) {
+      return serviceError(mapSupabaseError(fallback.error));
+    }
+
+    residentialCondominiums = fallback.count ?? 0;
+  } else {
+    for (const condominium of condominiumsResult.data ?? []) {
+      if (condominium.is_commercial) {
+        commercialCondominiums += 1;
+        commercialCondominiumIds.add(condominium.id);
+      } else {
+        residentialCondominiums += 1;
+      }
+    }
   }
 
   const units = unitsResult.data ?? [];
@@ -148,11 +163,28 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
       isHouseTower(unit.towers.name) || unit.block?.trim().toLowerCase() === "casa",
   ).length;
 
+  let residentialUnits = 0;
+  let commercialUnits = 0;
+
+  for (const unit of units) {
+    if (commercialCondominiumIds.has(unit.towers.condominium_id)) {
+      commercialUnits += 1;
+    } else {
+      residentialUnits += 1;
+    }
+  }
+
+  if (condominiumsResult.error) {
+    residentialUnits = units.length;
+    commercialUnits = 0;
+  }
+
   return serviceOk({
-    condominiums: condominiumsResult.count ?? 0,
+    residentialCondominiums,
+    commercialCondominiums,
     houses,
-    units: units.length,
-    commercialSpaces,
+    residentialUnits,
+    commercialUnits,
   });
 }
 
