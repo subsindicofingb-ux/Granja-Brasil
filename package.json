@@ -13,7 +13,8 @@
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
     "db:test": "supabase test db",
-    "db:link-member": "node scripts/link-membership.mjs"
+    "db:link-member": "node scripts/link-membership.mjs",
+    "db:seed-granja-units": "node scripts/seed-granja-condo-units.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
