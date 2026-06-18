@@ -51,7 +51,7 @@ begin
         values (tower_id, apt_number, condo.name)
         on conflict on constraint units_unique_number_per_tower do nothing;
 
-        get diagnostics row_count = row_count;
+        get diagnostics row_count = ROW_COUNT;
         condo_created := condo_created + row_count;
       end loop;
     end loop;
