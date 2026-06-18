@@ -93,7 +93,7 @@ export async function signInAction(
       redirectTo.startsWith("/") ? redirectTo : "/app",
     );
 
-    return { redirectTo: safeRedirect };
+    redirect(safeRedirect);
   } catch (err) {
     return { error: formatAuthError(err) };
   }

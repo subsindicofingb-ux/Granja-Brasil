@@ -22,12 +22,32 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const next = resolveNextPath(requestUrl.searchParams.get("next"));
+  const supabase = await createClient();
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      try {
+        await ensureProfile(user);
+      } catch {
+        // Sessão já existe; profile pode ser garantido depois.
+      }
+
+      const destination = await resolveSafeAppRedirect(supabase, next);
+      return NextResponse.redirect(new URL(destination, requestUrl.origin));
+    }
+
+    const oauthError = requestUrl.searchParams.get("error");
+    if (oauthError) {
+      return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
+    }
+
+    return NextResponse.redirect(new URL("/login", requestUrl.origin));
   }
 
-  const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
