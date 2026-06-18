@@ -17,9 +17,10 @@ import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 
 const CONDOMINIUM_LOOKUP = [
-  { label: "Bromélias", patterns: ["bromélia", "bromelia"] },
-  { label: "Orquídeas", patterns: ["orquídea", "orquidea"] },
-  { label: "Quaresmas", patterns: ["quaresma"] },
+  { label: "Bromélias", patterns: ["bromélia", "bromelia"], floors: 7, apartmentsPerFloor: 6 },
+  { label: "Orquídeas", patterns: ["orquídea", "orquidea"], floors: 7, apartmentsPerFloor: 6 },
+  { label: "Quaresmas", patterns: ["quaresma"], floors: 7, apartmentsPerFloor: 6 },
+  { label: "Figueiras", patterns: ["figueira"], floors: 7, apartmentsPerFloor: 4 },
 ];
 
 const DEFAULT_TOWER_NAME = "Unidades";
@@ -39,10 +40,10 @@ function loadEnv() {
   }
 }
 
-function generateApartmentNumbers() {
+function generateApartmentNumbers(floors, apartmentsPerFloor) {
   const numbers = [];
-  for (let floor = 1; floor <= 7; floor += 1) {
-    for (let apartment = 1; apartment <= 6; apartment += 1) {
+  for (let floor = 1; floor <= floors; floor += 1) {
+    for (let apartment = 1; apartment <= apartmentsPerFloor; apartment += 1) {
       numbers.push(String(floor * 100 + apartment));
     }
   }
@@ -82,7 +83,7 @@ async function findCondominium(admin, lookup) {
   return match;
 }
 
-async function getOrCreateDefaultTower(admin, condominiumId) {
+async function getOrCreateDefaultTower(admin, condominiumId, floors) {
   const { data: existingTower, error: existingError } = await admin
     .from("towers")
     .select("id, name")
@@ -104,7 +105,7 @@ async function getOrCreateDefaultTower(admin, condominiumId) {
     .insert({
       condominium_id: condominiumId,
       name: DEFAULT_TOWER_NAME,
-      floors: 7,
+      floors,
     })
     .select("id, name")
     .single();
@@ -133,6 +134,21 @@ async function listExistingUnitKeys(admin, towerId, block) {
 loadEnv();
 
 const dryRun = process.argv.includes("--dry-run");
+const onlyArg = process.argv.find((arg) => arg.startsWith("--only="))?.split("=")[1];
+const selectedLookups = onlyArg
+  ? CONDOMINIUM_LOOKUP.filter((lookup) => {
+      const needle = normalize(onlyArg);
+      return (
+        normalize(lookup.label).includes(needle) ||
+        lookup.patterns.some((pattern) => normalize(pattern).includes(needle))
+      );
+    })
+  : CONDOMINIUM_LOOKUP;
+
+if (onlyArg && selectedLookups.length === 0) {
+  console.error(`Nenhum condomínio encontrado para --only=${onlyArg}`);
+  process.exit(1);
+}
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -147,11 +163,6 @@ const admin = createClient(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-const apartmentNumbers = generateApartmentNumbers();
-
-console.log(
-  `Unidades por condomínio: ${apartmentNumbers.length} (${apartmentNumbers[0]}–${apartmentNumbers.at(-1)})`,
-);
 if (dryRun) {
   console.log("Modo dry-run: nenhum dado será gravado.\n");
 }
@@ -159,7 +170,11 @@ if (dryRun) {
 let totalCreated = 0;
 let totalSkipped = 0;
 
-for (const lookup of CONDOMINIUM_LOOKUP) {
+for (const lookup of selectedLookups) {
+  const apartmentNumbers = generateApartmentNumbers(
+    lookup.floors,
+    lookup.apartmentsPerFloor,
+  );
   const condominium = await findCondominium(admin, lookup);
   if (!condominium) {
     console.error(`Condomínio não encontrado: ${lookup.label}`);
@@ -169,7 +184,7 @@ for (const lookup of CONDOMINIUM_LOOKUP) {
 
   const tower = dryRun
     ? { id: "(dry-run)", name: DEFAULT_TOWER_NAME }
-    : await getOrCreateDefaultTower(admin, condominium.id);
+    : await getOrCreateDefaultTower(admin, condominium.id, lookup.floors);
   const block = condominium.name;
   const existingNumbers = dryRun
     ? new Set()
@@ -184,7 +199,7 @@ for (const lookup of CONDOMINIUM_LOOKUP) {
     }));
 
   console.log(
-    `${condominium.name}: ${toInsert.length} novas, ${apartmentNumbers.length - toInsert.length} já existentes`,
+    `${condominium.name}: ${toInsert.length} novas, ${apartmentNumbers.length - toInsert.length} já existentes (${apartmentNumbers[0]}–${apartmentNumbers.at(-1)})`,
   );
 
   if (dryRun) {
