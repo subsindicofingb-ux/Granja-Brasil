@@ -6,7 +6,8 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getOrCreateDefaultUnitTower, getOrCreateHouseTower } from "@/lib/services/towers";
-import { createUnit, deleteUnit, updateUnit } from "@/lib/services/units";
+import { createUnit, deleteUnit, updateUnit, type UnitWithTower } from "@/lib/services/units";
+import { createClient } from "@/lib/supabase/server";
 import { REGISTRATION_UNIT_KIND } from "@/lib/constants";
 import {
   unitFormSchema,
@@ -18,6 +19,29 @@ import {
 function revalidateUnitPaths(condoSlug: string) {
   revalidatePath(`/app/${condoSlug}/units`);
   revalidatePath(`/app/${condoSlug}/units/new`);
+}
+
+async function resolveUnitDetailPath(
+  panelCondoSlug: string,
+  panelCondominiumId: string,
+  unit: UnitWithTower,
+): Promise<string> {
+  if (unit.tower.condominium_id === panelCondominiumId) {
+    return `/app/${panelCondoSlug}/units/${unit.id}`;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("condominiums")
+    .select("slug")
+    .eq("id", unit.tower.condominium_id)
+    .maybeSingle();
+
+  if (error || !data?.slug) {
+    return `/app/${panelCondoSlug}/units`;
+  }
+
+  return `/app/${data.slug}/units/${unit.id}`;
 }
 
 export async function createUnitAction(
@@ -63,7 +87,7 @@ export async function createUnitAction(
       }
 
       revalidateUnitPaths(condoSlug);
-      redirect(`/app/${condoSlug}/units/${result.data.id}`);
+      redirect(await resolveUnitDetailPath(condoSlug, access.condominium.id, result.data));
     }
 
     const parsed = unitFormWithCondominiumSchema.safeParse({
@@ -93,7 +117,7 @@ export async function createUnitAction(
     }
 
     revalidateUnitPaths(condoSlug);
-    redirect(`/app/${condoSlug}/units/${result.data.id}`);
+    redirect(await resolveUnitDetailPath(condoSlug, access.condominium.id, result.data));
   }
 
   const parsed = unitFormWithoutTowerSchema.safeParse({
