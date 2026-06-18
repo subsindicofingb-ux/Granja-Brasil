@@ -10,7 +10,7 @@ import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { isSupabaseConfigured, getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import { notifyNewRegistrationRequest } from "@/lib/actions/registration-requests";
 import {
   createRegistrationRequestAsAdmin,
@@ -62,7 +62,29 @@ function formatAuthError(message: unknown): string {
     return "Este e-mail já possui cadastro. Faça login ou use outro e-mail.";
   }
 
+  if (lower.includes("email not found") || lower.includes("e-mail não foi encontrado")) {
+    return "Não foi possível criar a conta com este e-mail. Tente outro endereço ou faça login se já tiver cadastro.";
+  }
+
   return text;
+}
+
+async function findAuthUserByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string,
+) {
+  const { data, error } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (
+    data.users.find((user) => user.email?.toLowerCase() === email.toLowerCase()) ?? null
+  );
 }
 
 export async function signInAction(
@@ -167,104 +189,127 @@ export async function signUpAction(
     };
   }
 
-  let supabase;
-  try {
-    supabase = await createClient();
-  } catch {
-    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
+  if (!getSupabaseServiceRoleKey()) {
+    return {
+      error:
+        "Cadastro indisponível: configure SUPABASE_SERVICE_ROLE_KEY na Vercel (Settings → Environment Variables) e faça redeploy.",
+    };
   }
 
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=/app`,
-      },
-    });
+    const admin = createAdminClient();
+    const existingUser = await findAuthUserByEmail(admin, email);
+    let userId: string;
 
-    if (error) {
-      return { error: formatAuthError(error.message) };
-    }
-
-    if (!data.user) {
-      return {
-        success:
-          "Se este e-mail ainda não estiver cadastrado, você receberá instruções para confirmar a conta. Caso já tenha cadastro, faça login.",
-      };
-    }
-
-    if (data.user) {
-      await ensureProfile(data.user);
-
-      const condos = await listPublicCondominiums();
-      const selectedCondo = condos.ok
-        ? condos.data?.find((condo) => condo.id === preQualification.data.condominium_id)
-        : undefined;
-
-      const requestResult = await createRegistrationRequestAsAdmin({
-        profileId: data.user.id,
-        condominiumId: preQualification.data.condominium_id,
-        profileType: preQualification.data.profile_type as RegistrationProfileType,
-        fullName,
-        email,
-        unitId: requiresRegistrationUnit(
-          preQualification.data.profile_type as RegistrationProfileType,
-        )
-          ? preQualification.data.unit_id || undefined
-          : undefined,
-        unitNumber: requiresRegistrationUnit(
-          preQualification.data.profile_type as RegistrationProfileType,
-        )
-          ? preQualification.data.unit_number || undefined
-          : undefined,
+    if (existingUser) {
+      const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, {
+        password,
+        user_metadata: { full_name: fullName },
       });
 
-      if (!requestResult.ok) {
+      if (updateError) {
         return {
           error:
-            requestResult.error ??
-            "Conta criada, mas não foi possível enviar a solicitação ao condomínio. Entre em contato com o síndico.",
+            "Este e-mail já possui cadastro. Faça login em /login ou use a opção de recuperar senha.",
         };
       }
 
-      if (selectedCondo && requestResult.data) {
-        const unitLabel = formatRegistrationUnitLabel({
-          profileType: requestResult.data.profile_type,
-          unitNumber: requestResult.data.unit_number,
-          unitKind: requestResult.data.unit_kind,
-          condominiumSlug: selectedCondo.slug,
-        });
+      userId = existingUser.id;
+    } else {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: fullName },
+      });
 
-        await notifyNewRegistrationRequest({
-          requestId: requestResult.data.id,
-          condominiumId: selectedCondo.id,
-          condominiumName: selectedCondo.name,
-          fullName,
-          email,
-          unitLabel,
-          profileType: preQualification.data.profile_type as RegistrationProfileType,
-          residentType: requestResult.data.resident_type,
-        });
+      if (createError) {
+        return { error: formatAuthError(createError.message) };
       }
+
+      if (!created.user) {
+        return { error: "Não foi possível criar a conta. Tente novamente." };
+      }
+
+      userId = created.user.id;
     }
 
-    revalidatePath("/", "layout");
+    const { error: profileError } = await admin.from("profiles").upsert(
+      {
+        id: userId,
+        full_name: fullName,
+      },
+      { onConflict: "id" },
+    );
 
-    if (!data.session) {
+    if (profileError) {
+      return { error: formatAuthError(profileError.message) };
+    }
+
+    const condos = await listPublicCondominiums();
+    const selectedCondo = condos.ok
+      ? condos.data?.find((condo) => condo.id === preQualification.data.condominium_id)
+      : undefined;
+
+    const requestResult = await createRegistrationRequestAsAdmin({
+      profileId: userId,
+      condominiumId: preQualification.data.condominium_id,
+      profileType: preQualification.data.profile_type as RegistrationProfileType,
+      fullName,
+      email,
+      unitId: requiresRegistrationUnit(
+        preQualification.data.profile_type as RegistrationProfileType,
+      )
+        ? preQualification.data.unit_id || undefined
+        : undefined,
+      unitNumber: requiresRegistrationUnit(
+        preQualification.data.profile_type as RegistrationProfileType,
+      )
+        ? preQualification.data.unit_number || undefined
+        : undefined,
+    });
+
+    const pendingAlreadyExists =
+      !requestResult.ok &&
+      Boolean(requestResult.error?.includes("solicitação pendente"));
+
+    if (!requestResult.ok && !pendingAlreadyExists) {
       return {
-        success:
-          "Conta criada! Confirme o e-mail enviado. O síndico do condomínio foi notificado e analisará seu cadastro.",
+        error:
+          requestResult.error ??
+          "Conta criada, mas não foi possível enviar a solicitação ao condomínio. Entre em contato com o síndico.",
       };
     }
 
-    const memberships = await getUserMemberships();
-    if (memberships.length === 0) {
-      await supabase.auth.signOut();
+    if (selectedCondo && requestResult.ok && requestResult.data) {
+      const unitLabel = formatRegistrationUnitLabel({
+        profileType: requestResult.data.profile_type,
+        unitNumber: requestResult.data.unit_number,
+        unitKind: requestResult.data.unit_kind,
+        condominiumSlug: selectedCondo.slug,
+      });
+
+      await notifyNewRegistrationRequest({
+        requestId: requestResult.data.id,
+        condominiumId: selectedCondo.id,
+        condominiumName: selectedCondo.name,
+        fullName,
+        email,
+        unitLabel,
+        profileType: preQualification.data.profile_type as RegistrationProfileType,
+        residentType: requestResult.data.resident_type,
+      });
+    }
+
+    const supabase = await createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    revalidatePath("/", "layout");
+
+    if (signInError) {
       return {
         success:
-          "Conta criada! Confirme o e-mail enviado. O síndico do condomínio foi notificado e analisará seu cadastro.",
+          "Solicitação registrada! Faça login em /login com seu e-mail e senha. Aguarde a aprovação do responsável.",
       };
     }
 

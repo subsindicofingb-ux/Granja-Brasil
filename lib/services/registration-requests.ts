@@ -367,6 +367,9 @@ export async function createRegistrationRequestAsAdmin(input: {
     }
 
     if (result.error) {
+      if (result.error.code === "23505") {
+        return serviceError("Você já possui uma solicitação pendente neste condomínio.");
+      }
       return serviceError(mapSupabaseError(result.error));
     }
 
