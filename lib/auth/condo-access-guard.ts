@@ -25,9 +25,20 @@ export async function canAccessCondoSlug(
     return true;
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return false;
+  }
+
+  // Filtra pelo usuário atual: staff (síndico/admin/portaria) enxerga todas as
+  // memberships do condomínio via RLS; maybeSingle() falha com várias linhas.
   const { data: membership, error } = await supabase
     .from("memberships")
     .select("id, condominium:condominiums!inner(slug)")
+    .eq("profile_id", user.id)
     .eq("condominiums.slug", condoSlug)
     .maybeSingle();
 
