@@ -32,7 +32,7 @@ begin
       values
         ('%jacarand%', 3, 4, null::int, '101–304'),
         ('%jequitib%', 3, 4, null::int, '101–304'),
-        ('%cambuca%', 4, 4, null::int, '101–404'),
+        ('%cambuc%', 4, 4, null::int, '101–404'),
         ('%jabuticabeira%', 4, 4, null::int, '101–404'),
         ('%palmeira%', 4, 12, null::int, '101–412'),
         ('%acácia%', 4, 4, 2, '101–402'),
