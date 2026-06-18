@@ -15,7 +15,8 @@
     "db:test": "supabase test db",
     "db:link-member": "node scripts/link-membership.mjs",
     "db:seed-granja-units": "node scripts/seed-granja-condo-units.mjs",
-    "db:seed-figueiras-units": "node scripts/seed-granja-condo-units.mjs --only=figueiras"
+    "db:seed-figueiras-units": "node scripts/seed-granja-condo-units.mjs --only=figueiras",
+    "db:seed-remaining-units": "node scripts/seed-granja-condo-units.mjs --only=jacaranda,jequitiba,cambuca,jabuticabeira,palmeira,acacia,bouganville,cerejeira,pau,magnolia"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",

@@ -21,6 +21,26 @@ const CONDOMINIUM_LOOKUP = [
   { label: "Orquídeas", patterns: ["orquídea", "orquidea"], floors: 7, apartmentsPerFloor: 6 },
   { label: "Quaresmas", patterns: ["quaresma"], floors: 7, apartmentsPerFloor: 6 },
   { label: "Figueiras", patterns: ["figueira"], floors: 7, apartmentsPerFloor: 4 },
+  { label: "Jacarandás", patterns: ["jacaranda"], floors: 3, apartmentsPerFloor: 4 },
+  { label: "Jequitibás", patterns: ["jequitiba"], floors: 3, apartmentsPerFloor: 4 },
+  { label: "Cambucás", patterns: ["cambuca"], floors: 4, apartmentsPerFloor: 4 },
+  { label: "Jabuticabeiras", patterns: ["jabuticabeira"], floors: 4, apartmentsPerFloor: 4 },
+  { label: "Palmeiras", patterns: ["palmeira"], floors: 4, apartmentsPerFloor: 12 },
+  {
+    label: "Acácias",
+    patterns: ["acácia", "acacia"],
+    floors: 4,
+    apartmentsPerFloor: 2,
+  },
+  {
+    label: "Bouganville",
+    patterns: ["bouganville", "buganville", "bougainville"],
+    floors: 4,
+    apartmentsPerFloor: 2,
+  },
+  { label: "Cerejeiras", patterns: ["cerejeira"], floors: 4, apartmentsPerFloor: 2 },
+  { label: "Pau Brasil", patterns: ["pau brasil"], floors: 7, apartmentsPerFloor: 8 },
+  { label: "Magnólias", patterns: ["magnólia", "magnolia"], floors: 7, apartmentsPerFloor: 2 },
 ];
 
 const DEFAULT_TOWER_NAME = "Unidades";
@@ -134,19 +154,24 @@ async function listExistingUnitKeys(admin, towerId, block) {
 loadEnv();
 
 const dryRun = process.argv.includes("--dry-run");
-const onlyArg = process.argv.find((arg) => arg.startsWith("--only="))?.split("=")[1];
-const selectedLookups = onlyArg
-  ? CONDOMINIUM_LOOKUP.filter((lookup) => {
-      const needle = normalize(onlyArg);
-      return (
-        normalize(lookup.label).includes(needle) ||
-        lookup.patterns.some((pattern) => normalize(pattern).includes(needle))
-      );
-    })
-  : CONDOMINIUM_LOOKUP;
+const onlyNeedles = process.argv
+  .filter((arg) => arg.startsWith("--only="))
+  .flatMap((arg) => arg.slice("--only=".length).split(","))
+  .map((value) => normalize(value.trim()))
+  .filter(Boolean);
+const selectedLookups =
+  onlyNeedles.length > 0
+    ? CONDOMINIUM_LOOKUP.filter((lookup) =>
+        onlyNeedles.some(
+          (needle) =>
+            normalize(lookup.label).includes(needle) ||
+            lookup.patterns.some((pattern) => normalize(pattern).includes(needle)),
+        ),
+      )
+    : CONDOMINIUM_LOOKUP;
 
-if (onlyArg && selectedLookups.length === 0) {
-  console.error(`Nenhum condomínio encontrado para --only=${onlyArg}`);
+if (onlyNeedles.length > 0 && selectedLookups.length === 0) {
+  console.error(`Nenhum condomínio encontrado para --only=${onlyNeedles.join(",")}`);
   process.exit(1);
 }
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
