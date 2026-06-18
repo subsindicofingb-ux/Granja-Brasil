@@ -13,12 +13,13 @@ import { listUnitsByCondominium } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
-import { CondominiumFilter } from "@/components/units/condominium-filter";
+import { UnitsListControls } from "@/components/units/units-list-controls";
 import { Button } from "@/components/ui/button";
+import { parseUnitSort, sortUnits } from "@/lib/units/sort";
 
 interface UnitsPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ condominium?: string }>;
+  searchParams: Promise<{ condominium?: string; sort?: string }>;
 }
 
 async function UnitsHeader({ condoSlug }: { condoSlug: string }) {
@@ -60,9 +61,11 @@ async function UnitsHeader({ condoSlug }: { condoSlug: string }) {
 async function UnitsContent({
   condoSlug,
   selectedCondominiumSlug,
+  selectedSort,
 }: {
   condoSlug: string;
   selectedCondominiumSlug?: string;
+  selectedSort: ReturnType<typeof parseUnitSort>;
 }) {
   const access = await requireCondoAccess(condoSlug);
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
@@ -92,7 +95,18 @@ async function UnitsContent({
       return <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />;
     }
 
-    const units = unitsResult.data;
+    const units = sortUnits(
+      unitsResult.data,
+      selectedSort,
+      (unit) => {
+        const unitCondominium = condominiums.find(
+          (condominium) => condominium.id === unit.tower.condominium_id,
+        );
+        return unitCondominium
+          ? formatCondominiumDisplayName(unitCondominium.name, unitCondominium.slug)
+          : "";
+      },
+    );
     const requiresTowersForView = filteredCondominium?.slug === DEMO_CONDO_SLUG;
     const towersResult = requiresTowersForView
       ? await listTowersByCondominium(filteredCondominium!.id)
@@ -101,10 +115,12 @@ async function UnitsContent({
 
     return (
       <div className="space-y-4">
-        <CondominiumFilter
+        <UnitsListControls
           condoSlug={condoSlug}
           condominiums={condominiums}
           selectedCondominiumSlug={selectedCondominiumSlug}
+          selectedSort={selectedSort}
+          showCondominiumSort
         />
 
         {requiresTowersForView && towers.length === 0 ? (
@@ -207,10 +223,12 @@ async function UnitsContent({
     return <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />;
   }
 
-  const units = unitsResult.data;
+  const units = sortUnits(unitsResult.data, selectedSort);
 
   return (
     <div className="space-y-4">
+      <UnitsListControls condoSlug={condoSlug} selectedSort={selectedSort} />
+
       {units.length === 0 ? (
         <EmptyState
           title="Nenhuma unidade cadastrada"
@@ -259,8 +277,9 @@ async function UnitsContent({
 
 export default async function UnitsPage({ params, searchParams }: UnitsPageProps) {
   const { condoSlug } = await params;
-  const { condominium: selectedCondominiumSlug } = await searchParams;
+  const { condominium: selectedCondominiumSlug, sort } = await searchParams;
   const normalizedCondominiumSlug = selectedCondominiumSlug?.trim().toLowerCase() || undefined;
+  const selectedSort = parseUnitSort(sort?.trim().toLowerCase());
 
   if (normalizedCondominiumSlug) {
     const condominiumResult = await getCondominiumBySlug(normalizedCondominiumSlug);
@@ -286,6 +305,7 @@ export default async function UnitsPage({ params, searchParams }: UnitsPageProps
         <UnitsContent
           condoSlug={condoSlug}
           selectedCondominiumSlug={normalizedCondominiumSlug}
+          selectedSort={selectedSort}
         />
       </Suspense>
     </div>
