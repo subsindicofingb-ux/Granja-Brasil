@@ -20,6 +20,10 @@ interface SignUpFormProps {
 
 export function SignUpForm({ condominiums }: SignUpFormProps) {
   const [state, formAction, pending] = useActionState(signUpAction, {});
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [unitNumber, setUnitNumber] = useState("");
   const [selectedCondoId, setSelectedCondoId] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedProfileType, setSelectedProfileType] = useState<RegistrationProfileType>(
@@ -43,6 +47,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
 
   useEffect(() => {
     setSelectedUnitId("");
+    setUnitNumber("");
   }, [selectedCondoId, selectedProfileType]);
 
   useEffect(() => {
@@ -57,15 +62,30 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
     });
   }, [selectedCondoId, isGeneralCondo, requiresUnit]);
 
+  const hasRequiredUnit =
+    !requiresUnit ||
+    (isGeneralCondo && unitNumber.trim().length > 0) ||
+    (!isGeneralCondo && !unitsLoading && units.length > 0 && Boolean(selectedUnitId));
+
   const canSubmit =
     condominiums.length > 0 &&
+    fullName.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
     selectedCondoId &&
-    (!requiresUnit ||
-      isGeneralCondo ||
-      (!unitsLoading && units.length > 0 && Boolean(selectedUnitId)));
+    hasRequiredUnit;
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="full_name" value={fullName} />
+      <input type="hidden" name="email" value={email} />
+      <input type="hidden" name="password" value={password} />
+      <input type="hidden" name="condominium_id" value={selectedCondoId} />
+      <input type="hidden" name="condominium_slug" value={selectedCondo?.slug ?? ""} />
+      <input type="hidden" name="profile_type" value={selectedProfileType} />
+      <input type="hidden" name="unit_id" value={selectedUnitId} />
+      <input type="hidden" name="unit_number" value={unitNumber} />
+
       {state.error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {state.error}
@@ -80,20 +100,35 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="full_name">Nome completo</Label>
-        <Input id="full_name" name="full_name" placeholder="Maria Silva" required />
+        <Input
+          id="full_name"
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          placeholder="Maria Silva"
+          autoComplete="name"
+          required
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
+          required
+        />
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="password">Senha</Label>
         <Input
           id="password"
-          name="password"
           type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
           minLength={6}
           required
@@ -112,7 +147,6 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
           <Label htmlFor="condominium_id">Condomínio</Label>
           <select
             id="condominium_id"
-            name="condominium_id"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             value={selectedCondoId}
             onChange={(event) => setSelectedCondoId(event.target.value)}
@@ -127,18 +161,12 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
               </option>
             ))}
           </select>
-          <input
-            type="hidden"
-            name="condominium_slug"
-            value={selectedCondo?.slug ?? ""}
-          />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="profile_type">Você é</Label>
           <select
             id="profile_type"
-            name="profile_type"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             value={selectedProfileType}
             onChange={(event) =>
@@ -159,7 +187,8 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
             <Label htmlFor="unit_number">Unidade</Label>
             <Input
               id="unit_number"
-              name="unit_number"
+              value={unitNumber}
+              onChange={(event) => setUnitNumber(event.target.value)}
               placeholder="Ex: Bloco A · Apto 101 ou Casa 12"
               required
             />
@@ -172,7 +201,6 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
             <Label htmlFor="unit_id">Unidade ou casa</Label>
             <select
               id="unit_id"
-              name="unit_id"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
               value={selectedUnitId}
               onChange={(event) => setSelectedUnitId(event.target.value)}

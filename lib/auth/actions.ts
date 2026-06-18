@@ -46,6 +46,22 @@ function formatAuthError(message: unknown): string {
     return "Não foi possível conectar ao Supabase. Verifique: (1) o projeto Supabase não está pausado, (2) NEXT_PUBLIC_SUPABASE_URL está correto (https://xxx.supabase.co), (3) fez redeploy na Vercel após salvar as variáveis, (4) prefira a URL de produção do site (não preview protegida).";
   }
 
+  if (
+    lower.includes("email not provided") ||
+    lower.includes("e-mail não informado") ||
+    lower.includes("email address is invalid")
+  ) {
+    return "Informe um e-mail válido.";
+  }
+
+  if (
+    lower.includes("user already registered") ||
+    lower.includes("already been registered") ||
+    lower.includes("já está cadastrado")
+  ) {
+    return "Este e-mail já possui cadastro. Faça login ou use outro e-mail.";
+  }
+
   return text;
 }
 
@@ -104,27 +120,44 @@ export async function signUpAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const fullName = String(formData.get("full_name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const condominiumId = String(formData.get("condominium_id") ?? "").trim();
+  const condominiumSlug = String(formData.get("condominium_slug") ?? "").trim();
+  const profileType = String(formData.get("profile_type") ?? "").trim();
+  const unitId = String(formData.get("unit_id") ?? "").trim();
+  const unitNumber = String(formData.get("unit_number") ?? "").trim();
 
-  const preQualification = registrationPreQualificationSchema.safeParse({
-    condominium_id: formData.get("condominium_id"),
-    condominium_slug: formData.get("condominium_slug"),
-    profile_type: formData.get("profile_type"),
-    unit_id: String(formData.get("unit_id") ?? ""),
-    unit_number: String(formData.get("unit_number") ?? ""),
-  });
-
-  if (!fullName || !email || !password) {
-    return { error: "Preencha todos os campos." };
+  if (!fullName) {
+    return { error: "Informe o nome completo." };
   }
 
-  if (!preQualification.success) {
-    return { error: preQualification.error.issues[0]?.message ?? "Dados de pré-qualificação inválidos." };
+  if (!email) {
+    return { error: "Informe o e-mail." };
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Informe um e-mail válido." };
+  }
+
+  if (!password) {
+    return { error: "Informe a senha." };
   }
 
   if (password.length < 6) {
     return { error: "A senha deve ter pelo menos 6 caracteres." };
+  }
+
+  const preQualification = registrationPreQualificationSchema.safeParse({
+    condominium_id: condominiumId,
+    condominium_slug: condominiumSlug,
+    profile_type: profileType,
+    unit_id: unitId,
+    unit_number: unitNumber,
+  });
+
+  if (!preQualification.success) {
+    return { error: preQualification.error.issues[0]?.message ?? "Dados de pré-qualificação inválidos." };
   }
 
   if (!isSupabaseConfigured()) {
@@ -153,6 +186,13 @@ export async function signUpAction(
 
     if (error) {
       return { error: formatAuthError(error.message) };
+    }
+
+    if (!data.user) {
+      return {
+        success:
+          "Se este e-mail ainda não estiver cadastrado, você receberá instruções para confirmar a conta. Caso já tenha cadastro, faça login.",
+      };
     }
 
     if (data.user) {
