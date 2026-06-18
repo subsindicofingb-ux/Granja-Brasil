@@ -6,6 +6,11 @@ import type {
   OperatingHours,
 } from "@/lib/common-areas/types";
 import { ALLOWED_DAYS } from "@/lib/common-areas/types";
+import {
+  getGranjaCondominiumId,
+  isEligibleForGranjaSharedCommonAreas,
+  type CondominiumContext,
+} from "@/lib/condominiums/granja-shared-areas";
 import type { Json } from "@/types/database.types";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
@@ -141,6 +146,72 @@ export async function listCommonAreasByCondominium(
   }
 
   return serviceOk(((data as CommonAreaRow[] | null) ?? []).map(mapCommonArea));
+}
+
+function mergeCommonAreas(primary: CommonAreaRecord[], secondary: CommonAreaRecord[]) {
+  const byId = new Map<string, CommonAreaRecord>();
+
+  for (const area of primary) {
+    byId.set(area.id, area);
+  }
+
+  for (const area of secondary) {
+    byId.set(area.id, area);
+  }
+
+  return Array.from(byId.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function listReservableCommonAreasForContext(
+  context: CondominiumContext,
+  options?: CommonAreaListOptions,
+): Promise<ServiceResult<CommonAreaRecord[]>> {
+  const ownResult = await listCommonAreasByCondominium(context.condominiumId, options);
+
+  if (!ownResult.ok) {
+    return ownResult;
+  }
+
+  if (!(await isEligibleForGranjaSharedCommonAreas(context))) {
+    return ownResult;
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId || granjaCondominiumId === context.condominiumId) {
+    return ownResult;
+  }
+
+  const granjaResult = await listCommonAreasByCondominium(granjaCondominiumId, options);
+
+  if (!granjaResult.ok) {
+    return ownResult;
+  }
+
+  return serviceOk(mergeCommonAreas(ownResult.data, granjaResult.data));
+}
+
+export async function getBookableCommonAreaById(
+  areaId: string,
+  context: CondominiumContext,
+): Promise<ServiceResult<CommonAreaRecord>> {
+  const ownResult = await getCommonAreaById(areaId, context.condominiumId);
+
+  if (ownResult.ok) {
+    return ownResult;
+  }
+
+  if (!(await isEligibleForGranjaSharedCommonAreas(context))) {
+    return ownResult;
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId || granjaCondominiumId === context.condominiumId) {
+    return ownResult;
+  }
+
+  return getCommonAreaById(areaId, granjaCondominiumId);
 }
 
 export async function getCommonAreaById(

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
-import { getReservationById, listUnitIdsForProfile } from "@/lib/services/reservations";
+import { getReservationByIdForContext, listUnitIdsForProfile } from "@/lib/services/reservations";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import {
   canCancelReservation,
@@ -21,7 +21,10 @@ interface ReservationDetailPageProps {
 export default async function ReservationDetailPage({ params }: ReservationDetailPageProps) {
   const { condoSlug, reservationId } = await params;
   const access = await requireCondoAccess(condoSlug);
-  const result = await getReservationById(reservationId, access.condominium.id);
+  const result = await getReservationByIdForContext(reservationId, {
+    condominiumId: access.condominium.id,
+    condominiumSlug: access.condominium.slug,
+  });
 
   if (!result.ok) {
     if (result.error.includes("não encontrada")) {

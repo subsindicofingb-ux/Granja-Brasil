@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
-import { getCommonAreaById } from "@/lib/services/common-areas";
+import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { toCommonAreaFormInput } from "@/lib/common-areas/mappers";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -17,7 +17,10 @@ interface AreaDetailPageProps {
 export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   const { condoSlug, areaId } = await params;
   const access = await requireCondoAccess(condoSlug);
-  const result = await getCommonAreaById(areaId, access.condominium.id);
+  const result = await getBookableCommonAreaById(areaId, {
+    condominiumId: access.condominium.id,
+    condominiumSlug: access.condominium.slug,
+  });
 
   if (!result.ok) {
     if (result.error.includes("não encontrado")) {
@@ -34,7 +37,8 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
   }
 
   const area = result.data;
-  const canEdit = access.permissions.canManageAreas;
+  const canEdit =
+    access.permissions.canManageAreas && area.condominium_id === access.condominium.id;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

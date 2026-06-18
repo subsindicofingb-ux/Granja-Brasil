@@ -3,8 +3,8 @@ import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
-import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
-import { listReservationsByCondominium } from "@/lib/services/reservations";
+import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
+import { listReservationsForContext } from "@/lib/services/reservations";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
 import { isValidUuid, formatDateTime } from "@/lib/utils";
@@ -81,9 +81,13 @@ async function ReservationsContent({
     );
   }
 
+  const bookingContext = {
+    condominiumId: access.condominium.id,
+    condominiumSlug: access.condominium.slug,
+  };
   const [areasResult, reservationsResult] = await Promise.all([
-    listCommonAreasByCondominium(access.condominium.id, { isActive: true }),
-    listReservationsByCondominium(access.condominium.id, {
+    listReservableCommonAreasForContext(bookingContext, { isActive: true }),
+    listReservationsForContext(bookingContext, {
       commonAreaId: areaId,
       status,
       ...(view === "agenda" ? getAgendaRange() : {}),

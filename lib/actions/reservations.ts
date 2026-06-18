@@ -4,14 +4,23 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import type { CondominiumContext } from "@/lib/condominiums/granja-shared-areas";
 import {
   approveReservation,
   cancelReservation,
   createReservation,
+  getReservationByIdForContext,
   listUnitIdsForProfile,
   rejectReservation,
 } from "@/lib/services/reservations";
 import { parseReservationFormData } from "@/lib/validations/reservation.schema";
+
+function toBookingContext(input: { id: string; slug: string }): CondominiumContext {
+  return {
+    condominiumId: input.id,
+    condominiumSlug: input.slug,
+  };
+}
 
 function revalidateReservationPaths(condoSlug: string, reservationId?: string) {
   revalidatePath(`/app/${condoSlug}/reservations`);
@@ -83,6 +92,7 @@ export async function createReservationAction(
     endAt: parsed.data.end_at,
     notes: parsed.data.notes,
     requestedBy: access.profile.id,
+    bookingContext: toBookingContext(access.condominium),
   });
 
   if (!result.ok) {
@@ -106,7 +116,12 @@ export async function approveReservationAction(
     { redirectTo: `/app/${condoSlug}/reservations/${reservationId}` },
   );
 
-  const result = await approveReservation(reservationId, access.condominium.id);
+  const bookingContext = toBookingContext(access.condominium);
+  const result = await approveReservation(
+    reservationId,
+    access.condominium.id,
+    bookingContext,
+  );
 
   if (!result.ok) {
     return { error: result.error };
@@ -129,7 +144,12 @@ export async function rejectReservationAction(
     { redirectTo: `/app/${condoSlug}/reservations/${reservationId}` },
   );
 
-  const result = await rejectReservation(reservationId, access.condominium.id);
+  const bookingContext = toBookingContext(access.condominium);
+  const result = await rejectReservation(
+    reservationId,
+    access.condominium.id,
+    bookingContext,
+  );
 
   if (!result.ok) {
     return { error: result.error };
@@ -154,8 +174,10 @@ export async function cancelReservationAction(
   }
 
   if (!isStaff) {
-    const { getReservationById } = await import("@/lib/services/reservations");
-    const current = await getReservationById(reservationId, access.condominium.id);
+    const current = await getReservationByIdForContext(
+      reservationId,
+      toBookingContext(access.condominium),
+    );
 
     if (!current.ok) {
       return { error: current.error };
@@ -175,7 +197,11 @@ export async function cancelReservationAction(
     }
   }
 
-  const result = await cancelReservation(reservationId, access.condominium.id);
+  const result = await cancelReservation(
+    reservationId,
+    access.condominium.id,
+    toBookingContext(access.condominium),
+  );
 
   if (!result.ok) {
     return { error: result.error };

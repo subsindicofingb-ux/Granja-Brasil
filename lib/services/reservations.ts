@@ -1,6 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
-import { getCommonAreaById } from "@/lib/services/common-areas";
+import {
+  getBookableCommonAreaById,
+  getCommonAreaById,
+} from "@/lib/services/common-areas";
+import {
+  getGranjaCondominiumId,
+  isEligibleForGranjaSharedCommonAreas,
+  type CondominiumContext,
+} from "@/lib/condominiums/granja-shared-areas";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { notifyReservationEvent } from "@/lib/reservations/notifications";
 import type {
@@ -116,6 +124,7 @@ export type ReservationListOptions = {
   commonAreaId?: string;
   unitId?: string;
   unitIds?: string[];
+  unitCondominiumId?: string;
   status?: ReservationStatus | "all";
   from?: string;
   to?: string;
@@ -143,6 +152,10 @@ export async function listReservationsByCondominium(
     query = query.in("unit_id", options.unitIds);
   }
 
+  if (options?.unitCondominiumId) {
+    query = query.eq("units.towers.condominium_id", options.unitCondominiumId);
+  }
+
   if (options?.status && options.status !== "all") {
     query = query.eq("status", options.status);
   }
@@ -162,6 +175,57 @@ export async function listReservationsByCondominium(
   }
 
   return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
+}
+
+function mergeReservations(
+  primary: ReservationWithDetails[],
+  secondary: ReservationWithDetails[],
+): ReservationWithDetails[] {
+  const byId = new Map<string, ReservationWithDetails>();
+
+  for (const reservation of primary) {
+    byId.set(reservation.id, reservation);
+  }
+
+  for (const reservation of secondary) {
+    byId.set(reservation.id, reservation);
+  }
+
+  return Array.from(byId.values()).sort((left, right) =>
+    left.start_at.localeCompare(right.start_at),
+  );
+}
+
+export async function listReservationsForContext(
+  context: CondominiumContext,
+  options?: ReservationListOptions,
+): Promise<ServiceResult<ReservationWithDetails[]>> {
+  const ownResult = await listReservationsByCondominium(context.condominiumId, options);
+
+  if (!ownResult.ok) {
+    return ownResult;
+  }
+
+  if (!(await isEligibleForGranjaSharedCommonAreas(context))) {
+    return ownResult;
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId || granjaCondominiumId === context.condominiumId) {
+    return ownResult;
+  }
+
+  const granjaResult = await listReservationsByCondominium(granjaCondominiumId, {
+    ...options,
+    unitCondominiumId: context.condominiumId,
+  });
+
+  if (!granjaResult.ok) {
+    return ownResult;
+  }
+
+  return serviceOk(mergeReservations(ownResult.data, granjaResult.data));
 }
 
 export async function listUpcomingReservationsByCondominium(
@@ -300,24 +364,60 @@ export async function getReservationById(
   reservationId: string,
   condominiumId: string,
 ): Promise<ServiceResult<ReservationWithDetails>> {
+  return getReservationByIdForContext(reservationId, {
+    condominiumId,
+    condominiumSlug: "",
+  });
+}
+
+export async function getReservationByIdForContext(
+  reservationId: string,
+  context: CondominiumContext,
+): Promise<ServiceResult<ReservationWithDetails>> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("reservations")
     .select(RESERVATION_DETAIL_SELECT)
     .eq("id", reservationId)
-    .eq("common_areas.condominium_id", condominiumId)
+    .eq("common_areas.condominium_id", context.condominiumId)
     .maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
 
-  if (!data) {
+  if (data) {
+    return serviceOk(mapReservationDetail(data as ReservationDetailRow));
+  }
+
+  if (!(await isEligibleForGranjaSharedCommonAreas(context))) {
     return serviceError("Reserva não encontrada neste condomínio.");
   }
 
-  return serviceOk(mapReservationDetail(data as ReservationDetailRow));
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId || granjaCondominiumId === context.condominiumId) {
+    return serviceError("Reserva não encontrada neste condomínio.");
+  }
+
+  const { data: granjaReservation, error: granjaError } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("id", reservationId)
+    .eq("common_areas.condominium_id", granjaCondominiumId)
+    .eq("units.towers.condominium_id", context.condominiumId)
+    .maybeSingle();
+
+  if (granjaError) {
+    return serviceError(mapSupabaseError(granjaError));
+  }
+
+  if (!granjaReservation) {
+    return serviceError("Reserva não encontrada neste condomínio.");
+  }
+
+  return serviceOk(mapReservationDetail(granjaReservation as ReservationDetailRow));
 }
 
 export async function listUnitIdsForProfile(
@@ -357,14 +457,18 @@ export async function createReservation(input: {
   endAt: string;
   notes: string | null;
   requestedBy: string | null;
+  bookingContext?: CondominiumContext;
 }): Promise<ServiceResult<ReservationWithDetails>> {
-  const areaResult = await getCommonAreaById(input.commonAreaId, input.condominiumId);
+  const areaResult = input.bookingContext
+    ? await getBookableCommonAreaById(input.commonAreaId, input.bookingContext)
+    : await getCommonAreaById(input.commonAreaId, input.condominiumId);
 
   if (!areaResult.ok) {
     return serviceError(areaResult.error);
   }
 
   const area = areaResult.data;
+  const notificationCondominiumId = area.condominium_id;
   const startAt = new Date(input.startAt);
   const endAt = new Date(input.endAt);
 
@@ -412,7 +516,7 @@ export async function createReservation(input: {
   await notifyReservationEvent({
     type: "reservation_created",
     reservationId: reservation.id,
-    condominiumId: input.condominiumId,
+    condominiumId: notificationCondominiumId,
   });
 
   return serviceOk(reservation);
@@ -424,12 +528,22 @@ async function updateReservationStatus(input: {
   status: ReservationStatus;
   notificationType: "reservation_approved" | "reservation_rejected" | "reservation_cancelled";
   validate?: (reservation: ReservationWithDetails) => string | null;
+  bookingContext?: CondominiumContext;
 }): Promise<ServiceResult<ReservationWithDetails>> {
-  const current = await getReservationById(input.reservationId, input.condominiumId);
+  const context = input.bookingContext ?? {
+    condominiumId: input.condominiumId,
+    condominiumSlug: "",
+  };
+  const current = await getReservationByIdForContext(input.reservationId, context);
 
   if (!current.ok) {
     return serviceError(current.error);
   }
+
+  const areaResult = await getBookableCommonAreaById(current.data.common_area_id, context);
+  const notificationCondominiumId = areaResult.ok
+    ? areaResult.data.condominium_id
+    : input.condominiumId;
 
   if (input.validate) {
     const validationError = input.validate(current.data);
@@ -439,11 +553,6 @@ async function updateReservationStatus(input: {
   }
 
   if (input.status === "approved") {
-    const areaResult = await getCommonAreaById(
-      current.data.common_area_id,
-      input.condominiumId,
-    );
-
     if (!areaResult.ok) {
       return serviceError(areaResult.error);
     }
@@ -486,7 +595,7 @@ async function updateReservationStatus(input: {
   await notifyReservationEvent({
     type: input.notificationType,
     reservationId: reservation.id,
-    condominiumId: input.condominiumId,
+    condominiumId: notificationCondominiumId,
   });
 
   return serviceOk(reservation);
@@ -495,10 +604,12 @@ async function updateReservationStatus(input: {
 export async function approveReservation(
   reservationId: string,
   condominiumId: string,
+  bookingContext?: CondominiumContext,
 ): Promise<ServiceResult<ReservationWithDetails>> {
   return updateReservationStatus({
     reservationId,
     condominiumId,
+    bookingContext,
     status: "approved",
     notificationType: "reservation_approved",
     validate: (reservation) =>
@@ -511,10 +622,12 @@ export async function approveReservation(
 export async function rejectReservation(
   reservationId: string,
   condominiumId: string,
+  bookingContext?: CondominiumContext,
 ): Promise<ServiceResult<ReservationWithDetails>> {
   return updateReservationStatus({
     reservationId,
     condominiumId,
+    bookingContext,
     status: "rejected",
     notificationType: "reservation_rejected",
     validate: (reservation) =>
@@ -527,10 +640,12 @@ export async function rejectReservation(
 export async function cancelReservation(
   reservationId: string,
   condominiumId: string,
+  bookingContext?: CondominiumContext,
 ): Promise<ServiceResult<ReservationWithDetails>> {
   return updateReservationStatus({
     reservationId,
     condominiumId,
+    bookingContext,
     status: "cancelled",
     notificationType: "reservation_cancelled",
     validate: (reservation) =>

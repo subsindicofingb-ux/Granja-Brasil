@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
-import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
+import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { formatAllowedDays, formatMinutes } from "@/lib/common-areas/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
@@ -51,9 +51,13 @@ async function AreasContent({
   statusFilter?: boolean;
 }) {
   const access = await requireCondoAccess(condoSlug);
-  const result = await listCommonAreasByCondominium(access.condominium.id, {
-    isActive: statusFilter,
-  });
+  const result = await listReservableCommonAreasForContext(
+    {
+      condominiumId: access.condominium.id,
+      condominiumSlug: access.condominium.slug,
+    },
+    { isActive: statusFilter },
+  );
 
   if (!result.ok) {
     return <ErrorAlert message={result.error} />;
@@ -124,7 +128,10 @@ async function AreasContent({
                 )}
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/app/${condoSlug}/areas/${area.id}`}>
-                    {access.permissions.canManageAreas ? "Editar regras" : "Ver detalhes"}
+                    {access.permissions.canManageAreas &&
+                    area.condominium_id === access.condominium.id
+                      ? "Editar regras"
+                      : "Ver detalhes"}
                   </Link>
                 </Button>
               </CardContent>

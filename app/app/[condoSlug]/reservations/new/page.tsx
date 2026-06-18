@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
-import { listCommonAreasByCondominium } from "@/lib/services/common-areas";
+import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
 import { serviceOk } from "@/lib/services/types";
@@ -28,9 +28,14 @@ export default async function NewReservationPage({ params }: NewReservationPageP
   const isStaff = access.permissions.canApproveReservations;
   const isGeneralCondo = isGeneralCondominium(condoSlug);
 
+  const bookingContext = {
+    condominiumId: access.condominium.id,
+    condominiumSlug: access.condominium.slug,
+  };
+
   if (isGeneralCondo && isStaff) {
     const [areasResult, panelResult] = await Promise.all([
-      listCommonAreasByCondominium(access.condominium.id, { isActive: true }),
+      listReservableCommonAreasForContext(bookingContext, { isActive: true }),
       loadGeneralCondoPanelData(),
     ]);
 
@@ -72,7 +77,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
   }
 
   const [areasResult, unitsResult, ownedUnitsResult] = await Promise.all([
-    listCommonAreasByCondominium(access.condominium.id, { isActive: true }),
+    listReservableCommonAreasForContext(bookingContext, { isActive: true }),
     listUnitsByCondominium(access.condominium.id),
     isStaff
       ? Promise.resolve(serviceOk([] as string[]))
