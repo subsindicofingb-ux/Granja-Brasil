@@ -2,7 +2,10 @@
  * Cadastra unidades 101–706 (7 andares × 6 aptos) nos condomínios Bromélias,
  * Orquídeas e Quaresmas.
  *
- * Uso:
+ * Opção A — Supabase SQL Editor (recomendado se não tiver .env.local):
+ *   Abra scripts/seed-granja-condo-units.sql e execute no SQL Editor.
+ *
+ * Opção B — Terminal do projeto (requer .env.local):
  *   node scripts/seed-granja-condo-units.mjs
  *   node scripts/seed-granja-condo-units.mjs --dry-run
  *
