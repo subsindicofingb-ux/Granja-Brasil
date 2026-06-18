@@ -182,8 +182,18 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         )}
         <StatCard
           label={isUnitScoped ? "Moradores da unidade" : "Moradores"}
-          value={metrics.residents}
-          hint={isUnitScoped ? "Na sua unidade" : "Cadastrados no condomínio"}
+          value={
+            isGeneralCondoDashboard && generalOverview
+              ? generalOverview.totalResidents
+              : metrics.residents
+          }
+          hint={
+            isUnitScoped
+              ? "Na sua unidade"
+              : isGeneralCondoDashboard
+                ? "Cadastrados em todos os condomínios"
+                : "Cadastrados no condomínio"
+          }
         />
         <StatCard
           label="Espaços comuns"
