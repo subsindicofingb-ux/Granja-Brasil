@@ -30,7 +30,8 @@ const CONDOMINIUM_LOOKUP = [
     label: "Acácias",
     patterns: ["acácia", "acacia"],
     floors: 4,
-    apartmentsPerFloor: 2,
+    apartmentsPerFloor: 4,
+    lastFloorApartments: 2,
   },
   {
     label: "Bouganville",
@@ -38,7 +39,13 @@ const CONDOMINIUM_LOOKUP = [
     floors: 4,
     apartmentsPerFloor: 2,
   },
-  { label: "Cerejeiras", patterns: ["cerejeira"], floors: 4, apartmentsPerFloor: 2 },
+  {
+    label: "Cerejeiras",
+    patterns: ["cerejeira"],
+    floors: 4,
+    apartmentsPerFloor: 4,
+    lastFloorApartments: 2,
+  },
   { label: "Pau Brasil", patterns: ["pau brasil"], floors: 7, apartmentsPerFloor: 8 },
   { label: "Magnólias", patterns: ["magnólia", "magnolia"], floors: 7, apartmentsPerFloor: 2 },
 ];
@@ -60,10 +67,12 @@ function loadEnv() {
   }
 }
 
-function generateApartmentNumbers(floors, apartmentsPerFloor) {
+function generateApartmentNumbers(floors, apartmentsPerFloor, lastFloorApartments) {
   const numbers = [];
   for (let floor = 1; floor <= floors; floor += 1) {
-    for (let apartment = 1; apartment <= apartmentsPerFloor; apartment += 1) {
+    const count =
+      lastFloorApartments && floor === floors ? lastFloorApartments : apartmentsPerFloor;
+    for (let apartment = 1; apartment <= count; apartment += 1) {
       numbers.push(String(floor * 100 + apartment));
     }
   }
@@ -199,6 +208,7 @@ for (const lookup of selectedLookups) {
   const apartmentNumbers = generateApartmentNumbers(
     lookup.floors,
     lookup.apartmentsPerFloor,
+    lookup.lastFloorApartments,
   );
   const condominium = await findCondominium(admin, lookup);
   if (!condominium) {

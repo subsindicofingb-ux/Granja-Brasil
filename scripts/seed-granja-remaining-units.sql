@@ -4,7 +4,8 @@
 -- Jacarandás, Jequitibás       → 101–304  (3 andares × 4 aptos)
 -- Cambucás, Jabuticabeiras     → 101–404  (4 andares × 4 aptos)
 -- Palmeiras                    → 101–412  (4 andares × 12 aptos)
--- Acácias, Bouganville, Cerejeiras → 101–402 (4 andares × 2 aptos)
+-- Acácias, Cerejeiras           → 101–402  (3 andares × 4 aptos + 4º × 2)
+-- Bouganville                   → 101–402  (4 andares × 2 aptos)
 -- Pau Brasil                   → 101–708  (7 andares × 8 aptos)
 -- Magnólias                    → 101–702  (7 andares × 2 aptos)
 --
@@ -23,24 +24,25 @@ declare
   row_count int;
   condo_created int;
   expected_total int;
+  apts_on_floor int;
 begin
   for cfg in
     select *
     from (
       values
-        ('%jacaranda%', 3, 4, '101–304'),
-        ('%jequitiba%', 3, 4, '101–304'),
-        ('%cambuca%', 4, 4, '101–404'),
-        ('%jabuticabeira%', 4, 4, '101–404'),
-        ('%palmeira%', 4, 12, '101–412'),
-        ('%acácia%', 4, 2, '101–402'),
-        ('%bouganville%', 4, 2, '101–402'),
-        ('%cerejeira%', 4, 2, '101–402'),
-        ('%pau brasil%', 7, 8, '101–708'),
-        ('%magnólia%', 7, 2, '101–702')
-    ) as t(pattern, floors, apts_per_floor, range_label)
+        ('%jacaranda%', 3, 4, null::int, '101–304'),
+        ('%jequitiba%', 3, 4, null::int, '101–304'),
+        ('%cambuca%', 4, 4, null::int, '101–404'),
+        ('%jabuticabeira%', 4, 4, null::int, '101–404'),
+        ('%palmeira%', 4, 12, null::int, '101–412'),
+        ('%acácia%', 4, 4, 2, '101–402'),
+        ('%bouganville%', 4, 2, null::int, '101–402'),
+        ('%cerejeira%', 4, 4, 2, '101–402'),
+        ('%pau brasil%', 7, 8, null::int, '101–708'),
+        ('%magnólia%', 7, 2, null::int, '101–702')
+    ) as t(pattern, floors, apts_per_floor, last_floor_apts, range_label)
   loop
-    expected_total := cfg.floors * cfg.apts_per_floor;
+    expected_total := (cfg.floors - 1) * cfg.apts_per_floor + coalesce(cfg.last_floor_apts, cfg.apts_per_floor);
 
     for condo in
       select id, name
@@ -66,7 +68,12 @@ begin
       end if;
 
       for floor in 1..cfg.floors loop
-        for apt in 1..cfg.apts_per_floor loop
+        apts_on_floor := cfg.apts_per_floor;
+        if cfg.last_floor_apts is not null and floor = cfg.floors then
+          apts_on_floor := cfg.last_floor_apts;
+        end if;
+
+        for apt in 1..apts_on_floor loop
           apt_number := (floor * 100 + apt)::text;
 
           insert into public.units (tower_id, number, block)
