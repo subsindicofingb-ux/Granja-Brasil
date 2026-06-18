@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { createUnitAction, deleteUnitAction, updateUnitAction } from "@/lib/actions/units";
+import { REGISTRATION_UNIT_KIND } from "@/lib/constants";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ interface UnitFormProps {
   condominiums?: Pick<Tower, "id" | "name">[];
   mode: "create" | "edit";
   requiresTower?: boolean;
+  allowHouseModality?: boolean;
   linkedCounts?: {
     residents: number;
     reservations: number;
@@ -35,11 +37,17 @@ export function UnitForm({
   condominiums,
   mode,
   requiresTower = true,
+  allowHouseModality = false,
   linkedCounts,
   defaultValues,
 }: UnitFormProps) {
   const useCondominiumPicker = Boolean(condominiums?.length);
   const pickerOptions = useCondominiumPicker ? condominiums! : towers;
+  const [unitModality, setUnitModality] = useState<
+    typeof REGISTRATION_UNIT_KIND.APARTMENT | typeof REGISTRATION_UNIT_KIND.HOUSE
+  >(REGISTRATION_UNIT_KIND.APARTMENT);
+  const isHouseModality =
+    allowHouseModality && mode === "create" && unitModality === REGISTRATION_UNIT_KIND.HOUSE;
   const action = mode === "create" ? createUnitAction : updateUnitAction;
   const [state, formAction, pending] = useActionState(action, {});
   const [deleteState, deleteFormAction, deletePending] = useActionState(deleteUnitAction, {});
@@ -115,13 +123,40 @@ export function UnitForm({
 
         <FormAlert error={state.error} success={state.success} />
 
-        {mode === "create" && condoName && (
+        {mode === "create" && condoName && !isHouseModality && (
           <p className="text-sm text-muted-foreground">
             A unidade será cadastrada no condomínio <span className="font-medium">{condoName}</span>.
           </p>
         )}
 
-        {requiresTower && (
+        {allowHouseModality && mode === "create" && (
+          <div className="space-y-2">
+            <Label htmlFor="unit_modality">Modalidade</Label>
+            <select
+              id="unit_modality"
+              name="unit_modality"
+              value={unitModality}
+              onChange={(event) =>
+                setUnitModality(
+                  event.target.value === REGISTRATION_UNIT_KIND.HOUSE
+                    ? REGISTRATION_UNIT_KIND.HOUSE
+                    : REGISTRATION_UNIT_KIND.APARTMENT,
+                )
+              }
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            >
+              <option value={REGISTRATION_UNIT_KIND.APARTMENT}>Unidade em condomínio</option>
+              <option value={REGISTRATION_UNIT_KIND.HOUSE}>Casa (autônoma)</option>
+            </select>
+            {isHouseModality && (
+              <p className="text-xs text-muted-foreground">
+                Casas não pertencem a um condomínio específico e ficam vinculadas ao Granja Brasil.
+              </p>
+            )}
+          </div>
+        )}
+
+        {requiresTower && !isHouseModality && (
           <div className="space-y-2">
             <Label htmlFor={useCondominiumPicker ? "condominium_id" : "tower_id"}>
               {useCondominiumPicker ? "Condomínio" : "Torre"}
@@ -146,29 +181,37 @@ export function UnitForm({
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="number">Número</Label>
+          <Label htmlFor="number">{isHouseModality ? "Número da casa" : "Número"}</Label>
           <Input
             id="number"
             name="number"
-            placeholder="Ex: 304"
+            placeholder={isHouseModality ? "Ex: 12" : "Ex: 304"}
             defaultValue={defaultValues?.number}
             required
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="block">Bloco (opcional)</Label>
-          <Input
-            id="block"
-            name="block"
-            placeholder="Ex: A"
-            defaultValue={defaultValues?.block ?? ""}
-          />
-        </div>
+        {!isHouseModality && (
+          <div className="space-y-2">
+            <Label htmlFor="block">Bloco (opcional)</Label>
+            <Input
+              id="block"
+              name="block"
+              placeholder="Ex: A"
+              defaultValue={defaultValues?.block ?? ""}
+            />
+          </div>
+        )}
 
         <div className="flex gap-2 pt-2">
           <Button type="submit" disabled={pending}>
-            {pending ? "Salvando..." : mode === "create" ? "Criar unidade" : "Salvar alterações"}
+            {pending
+              ? "Salvando..."
+              : mode === "create"
+                ? isHouseModality
+                  ? "Cadastrar casa"
+                  : "Criar unidade"
+                : "Salvar alterações"}
           </Button>
           <Button variant="outline" asChild>
             <Link href={`/app/${condoSlug}/units`}>Cancelar</Link>

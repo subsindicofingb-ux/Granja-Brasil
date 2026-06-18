@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { getOrCreateDefaultUnitTower } from "@/lib/services/towers";
+import { getOrCreateDefaultUnitTower, getOrCreateHouseTower } from "@/lib/services/towers";
 import { createUnit, deleteUnit, updateUnit } from "@/lib/services/units";
+import { REGISTRATION_UNIT_KIND } from "@/lib/constants";
 import {
   unitFormSchema,
+  unitFormHouseSchema,
   unitFormWithCondominiumSchema,
   unitFormWithoutTowerSchema,
 } from "@/lib/validations/structure.schema";
@@ -33,6 +35,37 @@ export async function createUnitAction(
   const requiresTower = isGeneralCondominium(condoSlug);
 
   if (requiresTower) {
+    const unitModality = String(formData.get("unit_modality") ?? REGISTRATION_UNIT_KIND.APARTMENT);
+
+    if (unitModality === REGISTRATION_UNIT_KIND.HOUSE) {
+      const parsed = unitFormHouseSchema.safeParse({
+        number: formData.get("number"),
+      });
+
+      if (!parsed.success) {
+        return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+      }
+
+      const houseTowerResult = await getOrCreateHouseTower(access.condominium.id);
+      if (!houseTowerResult.ok) {
+        return { error: houseTowerResult.error };
+      }
+
+      const result = await createUnit({
+        towerId: houseTowerResult.data.id,
+        condominiumId: access.condominium.id,
+        number: parsed.data.number,
+        block: null,
+      });
+
+      if (!result.ok) {
+        return { error: result.error };
+      }
+
+      revalidateUnitPaths(condoSlug);
+      redirect(`/app/${condoSlug}/units/${result.data.id}`);
+    }
+
     const parsed = unitFormWithCondominiumSchema.safeParse({
       condominium_id: formData.get("condominium_id"),
       number: formData.get("number"),

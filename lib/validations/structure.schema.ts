@@ -81,9 +81,14 @@ export const unitFormWithCondominiumSchema = z.object({
   block: unitBlockField,
 });
 
+export const unitFormHouseSchema = z.object({
+  number: unitNumberField,
+});
+
 export type UnitFormValues = z.infer<typeof unitFormSchema>;
 export type UnitFormWithoutTowerValues = z.infer<typeof unitFormWithoutTowerSchema>;
 export type UnitFormWithCondominiumValues = z.infer<typeof unitFormWithCondominiumSchema>;
+export type UnitFormHouseValues = z.infer<typeof unitFormHouseSchema>;
 
 const optionalEmail = z
   .union([z.string(), z.null(), z.undefined()])

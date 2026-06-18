@@ -70,6 +70,7 @@ export default async function NewUnitPage({ params, searchParams }: NewUnitPageP
               condominiums={condominiums}
               mode="create"
               requiresTower
+              allowHouseModality
               defaultValues={{
                 towerId: preselectedCondominiumId ?? preselectedTowerId,
               }}

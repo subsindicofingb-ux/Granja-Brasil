@@ -105,6 +105,46 @@ export async function countTowersByCondominium(condominiumId: string): Promise<n
 }
 
 const DEFAULT_UNIT_TOWER_NAME = "Unidades";
+const HOUSE_TOWER_NAME = "Casa";
+
+export async function getOrCreateHouseTower(
+  condominiumId: string,
+): Promise<ServiceResult<Tower>> {
+  const supabase = await createClient();
+
+  const { data: existingTower, error: existingError } = await supabase
+    .from("towers")
+    .select("*")
+    .eq("condominium_id", condominiumId)
+    .ilike("name", HOUSE_TOWER_NAME)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return serviceError(mapSupabaseError(existingError));
+  }
+
+  if (existingTower) {
+    return serviceOk(existingTower);
+  }
+
+  const { data: createdTower, error: createError } = await supabase
+    .from("towers")
+    .insert({
+      condominium_id: condominiumId,
+      name: HOUSE_TOWER_NAME,
+      floors: 1,
+    })
+    .select("*")
+    .single();
+
+  if (createError) {
+    return serviceError(mapSupabaseError(createError));
+  }
+
+  return serviceOk(createdTower);
+}
 
 export async function getOrCreateDefaultUnitTower(
   condominiumId: string,
