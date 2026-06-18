@@ -229,6 +229,30 @@ export async function createRegistrationRequest(input: {
   return serviceOk(mapRequestRow(data as RequestRow));
 }
 
+async function ensureRegistrationProfile(
+  profileId: string,
+  fullName: string,
+): Promise<ServiceResult<void>> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.from("profiles").upsert(
+      {
+        id: profileId,
+        full_name: fullName.trim() || "Usuário",
+      },
+      { onConflict: "id" },
+    );
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    return serviceOk(undefined);
+  } catch {
+    return serviceError("Não foi possível preparar o perfil para o cadastro.");
+  }
+}
+
 export async function createRegistrationRequestAsAdmin(input: {
   profileId: string;
   condominiumId: string;
@@ -266,6 +290,49 @@ export async function createRegistrationRequestAsAdmin(input: {
 
   try {
     const admin = createAdminClient();
+
+    const profileResult = await ensureRegistrationProfile(input.profileId, input.fullName);
+    if (!profileResult.ok) {
+      return serviceError(profileResult.error ?? "Não foi possível preparar o perfil.");
+    }
+
+    const { data: condominium, error: condominiumError } = await admin
+      .from("condominiums")
+      .select("id")
+      .eq("id", input.condominiumId)
+      .maybeSingle();
+
+    if (condominiumError) {
+      return serviceError(mapSupabaseError(condominiumError));
+    }
+
+    if (!condominium) {
+      return serviceError("Condomínio não encontrado. Selecione novamente.");
+    }
+
+    if (requestedUnitId) {
+      const { data: unit, error: unitError } = await admin
+        .from("units")
+        .select(
+          `
+          id,
+          towers!inner (
+            condominium_id
+          )
+        `,
+        )
+        .eq("id", requestedUnitId)
+        .eq("towers.condominium_id", input.condominiumId)
+        .maybeSingle();
+
+      if (unitError) {
+        return serviceError(mapSupabaseError(unitError));
+      }
+
+      if (!unit) {
+        return serviceError("Unidade inválida para este condomínio. Selecione novamente.");
+      }
+    }
 
     const basePayload = {
       profile_id: input.profileId,

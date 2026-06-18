@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { listSignupUnitsAction } from "@/lib/actions/signup-units";
 import { signUpAction } from "@/lib/auth/actions";
@@ -20,9 +19,9 @@ interface SignUpFormProps {
 }
 
 export function SignUpForm({ condominiums }: SignUpFormProps) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState(signUpAction, {});
   const [selectedCondoId, setSelectedCondoId] = useState("");
+  const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedProfileType, setSelectedProfileType] = useState<RegistrationProfileType>(
     REGISTRATION_PROFILE_TYPES.RESIDENT,
   );
@@ -38,9 +37,13 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
 
   useEffect(() => {
     if (state.redirectTo) {
-      router.push(state.redirectTo);
+      window.location.assign(state.redirectTo);
     }
-  }, [state.redirectTo, router]);
+  }, [state.redirectTo]);
+
+  useEffect(() => {
+    setSelectedUnitId("");
+  }, [selectedCondoId, selectedProfileType]);
 
   useEffect(() => {
     if (!selectedCondoId || isGeneralCondo || !requiresUnit) {
@@ -57,7 +60,9 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   const canSubmit =
     condominiums.length > 0 &&
     selectedCondoId &&
-    (!requiresUnit || isGeneralCondo || (!unitsLoading && units.length > 0));
+    (!requiresUnit ||
+      isGeneralCondo ||
+      (!unitsLoading && units.length > 0 && Boolean(selectedUnitId)));
 
   return (
     <form action={formAction} className="space-y-4">
@@ -169,7 +174,8 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
               id="unit_id"
               name="unit_id"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-              defaultValue=""
+              value={selectedUnitId}
+              onChange={(event) => setSelectedUnitId(event.target.value)}
               disabled={!selectedCondoId || unitsLoading}
               required
             >

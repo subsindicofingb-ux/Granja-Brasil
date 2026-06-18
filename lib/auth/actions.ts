@@ -18,7 +18,7 @@ import {
 } from "@/lib/services/registration-requests";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
 import type { RegistrationProfileType } from "@/lib/constants";
-import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
+import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -169,8 +169,16 @@ export async function signUpAction(
         profileType: preQualification.data.profile_type as RegistrationProfileType,
         fullName,
         email,
-        unitId: preQualification.data.unit_id || undefined,
-        unitNumber: preQualification.data.unit_number || undefined,
+        unitId: requiresRegistrationUnit(
+          preQualification.data.profile_type as RegistrationProfileType,
+        )
+          ? preQualification.data.unit_id || undefined
+          : undefined,
+        unitNumber: requiresRegistrationUnit(
+          preQualification.data.profile_type as RegistrationProfileType,
+        )
+          ? preQualification.data.unit_number || undefined
+          : undefined,
       });
 
       if (!requestResult.ok) {
