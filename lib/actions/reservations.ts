@@ -12,7 +12,9 @@ import {
   getReservationByIdForContext,
   listUnitIdsForProfile,
   rejectReservation,
+  submitReservationReceipt,
 } from "@/lib/services/reservations";
+import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { parseReservationFormData } from "@/lib/validations/reservation.schema";
 
 function toBookingContext(input: { id: string; slug: string }): CondominiumContext {
@@ -71,6 +73,7 @@ export async function createReservationAction(
   }
 
   const isStaff = access.permissions.canApproveReservations;
+  const isResidentForm = String(formData.get("form_mode") ?? "staff") === "resident";
 
   const unitCheck = await assertCanBookForUnit(
     condoSlug,
@@ -91,6 +94,8 @@ export async function createReservationAction(
     startAt: parsed.data.start_at,
     endAt: parsed.data.end_at,
     notes: parsed.data.notes,
+    guestCount: parsed.data.guest_count,
+    enforceGuestCount: isResidentForm,
     requestedBy: access.profile.id,
     bookingContext: toBookingContext(access.condominium),
   });
@@ -209,4 +214,79 @@ export async function cancelReservationAction(
 
   revalidateReservationPaths(condoSlug, reservationId);
   return { success: "Reserva cancelada." };
+}
+
+export async function submitReservationReceiptAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const reservationId = String(formData.get("reservation_id") ?? "");
+  const receipt = formData.get("receipt");
+
+  const access = await requireCondoAccess(condoSlug);
+
+  if (!access.permissions.canManageReservations) {
+    return { error: "Sem permissão para enviar recibo." };
+  }
+
+  const current = await getReservationByIdForContext(
+    reservationId,
+    toBookingContext(access.condominium),
+  );
+
+  if (!current.ok) {
+    return { error: current.error };
+  }
+
+  if (current.data.status !== "awaiting_receipt") {
+    return { error: "Esta reserva não está aguardando recibo." };
+  }
+
+  const isStaff = access.permissions.canApproveReservations;
+
+  if (!isStaff) {
+    const unitsResult = await listUnitIdsForProfile(
+      access.profile.id,
+      access.condominium.id,
+    );
+
+    if (!unitsResult.ok) {
+      return { error: unitsResult.error };
+    }
+
+    if (!unitsResult.data.includes(current.data.unit_id)) {
+      return { error: "Você só pode enviar recibo das suas reservas." };
+    }
+  }
+
+  const uploadResult = await uploadCondoImage({
+    condominiumId: current.data.common_area.condominium_id,
+    folder: "reservations",
+    file: receipt instanceof File ? receipt : null,
+  });
+
+  if (!uploadResult.ok) {
+    return { error: uploadResult.error };
+  }
+
+  if (!uploadResult.data) {
+    return { error: "Selecione o arquivo do recibo." };
+  }
+
+  const result = await submitReservationReceipt({
+    reservationId,
+    bookingContext: toBookingContext(access.condominium),
+    receiptUrl: uploadResult.data,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateReservationPaths(condoSlug, reservationId);
+  return {
+    success:
+      "Recibo enviado com sucesso. Aguarde a autorização do administrador da Granja.",
+  };
 }

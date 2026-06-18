@@ -2,11 +2,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const RECEIPT_TYPES = new Set([...IMAGE_TYPES, "application/pdf"]);
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
-  folder: "residents" | "vehicles";
+  folder: "residents" | "vehicles" | "reservations";
   file: File | null;
 }): Promise<ServiceResult<string | null>> {
   const file = input.file;
@@ -16,14 +17,23 @@ export async function uploadCondoImage(input: {
   }
 
   if (file.size > MAX_BYTES) {
-    return serviceError("A imagem deve ter no máximo 5 MB.");
+    return serviceError("O arquivo deve ter no máximo 5 MB.");
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return serviceError("Use imagem JPG, PNG ou WebP.");
+  const allowedTypes = input.folder === "reservations" ? RECEIPT_TYPES : IMAGE_TYPES;
+
+  if (!allowedTypes.has(file.type)) {
+    return serviceError(
+      input.folder === "reservations"
+        ? "Use imagem JPG, PNG, WebP ou PDF."
+        : "Use imagem JPG, PNG ou WebP.",
+    );
   }
 
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const extension =
+    file.type === "application/pdf"
+      ? "pdf"
+      : (file.name.split(".").pop()?.toLowerCase() ?? "jpg");
   const path = `${input.condominiumId}/${input.folder}/${crypto.randomUUID()}.${extension}`;
 
   try {

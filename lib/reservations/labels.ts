@@ -1,6 +1,7 @@
 import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
 
 export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
+  [RESERVATION_STATUS.AWAITING_RECEIPT]: "Aguardando recibo",
   [RESERVATION_STATUS.PENDING]: "Pendente",
   [RESERVATION_STATUS.APPROVED]: "Aprovada",
   [RESERVATION_STATUS.REJECTED]: "Rejeitada",
@@ -20,6 +21,8 @@ export function getReservationStatusBadgeClass(status: ReservationStatus): strin
   switch (status) {
     case RESERVATION_STATUS.APPROVED:
       return "border-green-200 bg-green-50 text-green-700";
+    case RESERVATION_STATUS.AWAITING_RECEIPT:
+      return "border-blue-200 bg-blue-50 text-blue-700";
     case RESERVATION_STATUS.PENDING:
       return "border-amber-200 bg-amber-50 text-amber-700";
     case RESERVATION_STATUS.REJECTED:

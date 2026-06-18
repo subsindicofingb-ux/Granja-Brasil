@@ -15,7 +15,12 @@ export type MembershipRole =
 
 export type ResidentType = "owner" | "tenant" | "dependent" | "responsible";
 
-export type ReservationStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type ReservationStatus =
+  | "awaiting_receipt"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled";
 
 export type AnnouncementPriority = "normal" | "important" | "urgent";
 
@@ -340,6 +345,9 @@ export interface Database {
           end_at: string;
           status: ReservationStatus;
           notes: string | null;
+          guest_count: number | null;
+          payment_receipt_url: string | null;
+          payment_receipt_submitted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -352,6 +360,9 @@ export interface Database {
           end_at: string;
           status?: ReservationStatus;
           notes?: string | null;
+          guest_count?: number | null;
+          payment_receipt_url?: string | null;
+          payment_receipt_submitted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -364,6 +375,9 @@ export interface Database {
           end_at?: string;
           status?: ReservationStatus;
           notes?: string | null;
+          guest_count?: number | null;
+          payment_receipt_url?: string | null;
+          payment_receipt_submitted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -9,6 +9,7 @@ export const ROLES = {
 export type Role = (typeof ROLES)[keyof typeof ROLES];
 
 export const RESERVATION_STATUS = {
+  AWAITING_RECEIPT: "awaiting_receipt",
   PENDING: "pending",
   APPROVED: "approved",
   REJECTED: "rejected",

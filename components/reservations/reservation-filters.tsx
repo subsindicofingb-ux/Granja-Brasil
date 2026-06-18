@@ -50,6 +50,7 @@ export function ReservationFilters({
           className="flex h-9 min-w-[160px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
         >
           <option value="all">Todos</option>
+          <option value={RESERVATION_STATUS.AWAITING_RECEIPT}>Aguardando recibo</option>
           <option value={RESERVATION_STATUS.PENDING}>Pendentes</option>
           <option value={RESERVATION_STATUS.APPROVED}>Aprovadas</option>
           <option value={RESERVATION_STATUS.REJECTED}>Rejeitadas</option>

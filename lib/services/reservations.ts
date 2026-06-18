@@ -22,6 +22,10 @@ import {
   resolveInitialReservationStatus,
   validateBooking,
 } from "@/lib/reservations/validate-booking";
+import {
+  requiresGranjaPaymentReceipt,
+  requiresGuestCount,
+} from "@/lib/reservations/area-rules";
 
 type ReservationRow = ReservationRecord;
 
@@ -57,6 +61,9 @@ const RESERVATION_SELECT = `
   end_at,
   status,
   notes,
+  guest_count,
+  payment_receipt_url,
+  payment_receipt_submitted_at,
   created_at,
   updated_at
 `;
@@ -95,6 +102,9 @@ function mapReservation(row: ReservationRow): ReservationRecord {
     end_at: row.end_at,
     status: row.status,
     notes: row.notes,
+    guest_count: row.guest_count ?? null,
+    payment_receipt_url: row.payment_receipt_url ?? null,
+    payment_receipt_submitted_at: row.payment_receipt_submitted_at ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -107,6 +117,7 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       id: row.common_areas.id,
       name: row.common_areas.name,
       requires_approval: row.common_areas.requires_approval,
+      condominium_id: row.common_areas.condominium_id,
     },
     unit: {
       id: row.units.id,
@@ -294,7 +305,13 @@ export async function countReservationsByStatusForCondominium(
   options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<Record<ReservationStatus, number>>> {
   const supabase = await createClient();
-  const statuses: ReservationStatus[] = ["pending", "approved", "rejected", "cancelled"];
+  const statuses: ReservationStatus[] = [
+    "awaiting_receipt",
+    "pending",
+    "approved",
+    "rejected",
+    "cancelled",
+  ];
   const counts = Object.fromEntries(
     statuses.map((status) => [status, 0]),
   ) as Record<ReservationStatus, number>;
@@ -351,7 +368,7 @@ export async function listBlockingReservationsForArea(
     .from("reservations")
     .select(RESERVATION_SELECT)
     .eq("common_area_id", commonAreaId)
-    .in("status", ["pending", "approved"]);
+    .in("status", ["pending", "approved", "awaiting_receipt"]);
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -456,6 +473,8 @@ export async function createReservation(input: {
   startAt: string;
   endAt: string;
   notes: string | null;
+  guestCount?: number | null;
+  enforceGuestCount?: boolean;
   requestedBy: string | null;
   bookingContext?: CondominiumContext;
 }): Promise<ServiceResult<ReservationWithDetails>> {
@@ -469,6 +488,24 @@ export async function createReservation(input: {
 
   const area = areaResult.data;
   const notificationCondominiumId = area.condominium_id;
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
+    areaName: area.name,
+    areaCondominiumId: area.condominium_id,
+    granjaCondominiumId,
+  });
+  const guestCountRequired = requiresGuestCount(area.name);
+
+  if (guestCountRequired && input.enforceGuestCount !== false) {
+    if (!input.guestCount || input.guestCount < 1) {
+      return serviceError("Informe o número de convidados.");
+    }
+
+    if (input.guestCount > area.capacity) {
+      return serviceError(`O número de convidados não pode exceder ${area.capacity}.`);
+    }
+  }
+
   const startAt = new Date(input.startAt);
   const endAt = new Date(input.endAt);
 
@@ -490,7 +527,9 @@ export async function createReservation(input: {
     return serviceError(validation.error);
   }
 
-  const status = resolveInitialReservationStatus(area);
+  const status = resolveInitialReservationStatus(area, {
+    requiresPaymentReceipt: paymentReceiptRequired,
+  });
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -502,6 +541,7 @@ export async function createReservation(input: {
       start_at: input.startAt,
       end_at: input.endAt,
       notes: input.notes,
+      guest_count: guestCountRequired ? input.guestCount : null,
       status,
     })
     .select(RESERVATION_DETAIL_SELECT)
@@ -517,6 +557,61 @@ export async function createReservation(input: {
     type: "reservation_created",
     reservationId: reservation.id,
     condominiumId: notificationCondominiumId,
+  });
+
+  return serviceOk(reservation);
+}
+
+export async function submitReservationReceipt(input: {
+  reservationId: string;
+  bookingContext: CondominiumContext;
+  receiptUrl: string;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const current = await getReservationByIdForContext(input.reservationId, input.bookingContext);
+
+  if (!current.ok) {
+    return serviceError(current.error);
+  }
+
+  if (current.data.status !== "awaiting_receipt") {
+    return serviceError("Esta reserva não está aguardando recibo.");
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
+    areaName: current.data.common_area.name,
+    areaCondominiumId: current.data.common_area.condominium_id,
+    granjaCondominiumId,
+  });
+
+  if (!paymentReceiptRequired) {
+    return serviceError("Este espaço não exige recibo de pagamento.");
+  }
+
+  const supabase = await createClient();
+  const submittedAt = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({
+      payment_receipt_url: input.receiptUrl,
+      payment_receipt_submitted_at: submittedAt,
+      status: "pending",
+    })
+    .eq("id", input.reservationId)
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const reservation = mapReservationDetail(data as ReservationDetailRow);
+
+  await notifyReservationEvent({
+    type: "reservation_created",
+    reservationId: reservation.id,
+    condominiumId: current.data.common_area.condominium_id,
   });
 
   return serviceOk(reservation);
@@ -549,6 +644,21 @@ async function updateReservationStatus(input: {
     const validationError = input.validate(current.data);
     if (validationError) {
       return serviceError(validationError);
+    }
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
+    areaName: current.data.common_area.name,
+    areaCondominiumId: current.data.common_area.condominium_id,
+    granjaCondominiumId,
+  });
+
+  if (input.status === "approved" && paymentReceiptRequired) {
+    if (!current.data.payment_receipt_url) {
+      return serviceError(
+        "Envie o recibo de pagamento antes da autorização do administrador da Granja.",
+      );
     }
   }
 

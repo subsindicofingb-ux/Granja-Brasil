@@ -169,14 +169,23 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
   return { valid: true };
 }
 
-export function resolveInitialReservationStatus(area: CommonAreaRecord): "pending" | "approved" {
+export function resolveInitialReservationStatus(
+  area: CommonAreaRecord,
+  options?: { requiresPaymentReceipt?: boolean },
+): import("@/lib/constants").ReservationStatus {
+  if (options?.requiresPaymentReceipt) {
+    return "awaiting_receipt";
+  }
+
   return area.requires_approval ? "pending" : "approved";
 }
 
 export function canCancelReservation(
   status: ReservationRecord["status"],
 ): boolean {
-  return status === "pending" || status === "approved";
+  return (
+    status === "awaiting_receipt" || status === "pending" || status === "approved"
+  );
 }
 
 export function canApproveReservation(status: ReservationRecord["status"]): boolean {
@@ -184,7 +193,7 @@ export function canApproveReservation(status: ReservationRecord["status"]): bool
 }
 
 export function canRejectReservation(status: ReservationRecord["status"]): boolean {
-  return status === "pending";
+  return status === "pending" || status === "awaiting_receipt";
 }
 
 export function groupReservationsByLocalDate<T extends { start_at: string }>(

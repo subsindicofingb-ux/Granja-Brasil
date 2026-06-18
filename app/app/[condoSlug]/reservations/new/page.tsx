@@ -5,6 +5,7 @@ import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data
 import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import { buildReservationAreaOptions } from "@/lib/reservations/form-areas";
 import { serviceOk } from "@/lib/services/types";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -51,6 +52,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     }
 
     const areas = areasResult.ok ? areasResult.data : [];
+    const areaOptions = await buildReservationAreaOptions(areas);
 
     return (
       <div className="mx-auto max-w-lg space-y-6">
@@ -66,7 +68,8 @@ export default async function NewReservationPage({ params }: NewReservationPageP
           <CardContent>
             <ReservationForm
               condoSlug={condoSlug}
-              areas={areas}
+              mode="staff"
+              areas={areaOptions}
               units={panelResult.data.units}
               condominiumNamesById={panelResult.data.condominiumNamesById}
             />
@@ -85,6 +88,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
   ]);
 
   const areas = areasResult.ok ? areasResult.data : [];
+  const areaOptions = await buildReservationAreaOptions(areas);
   let units = unitsResult.ok ? unitsResult.data : [];
 
   if (!isStaff && ownedUnitsResult.ok) {
@@ -104,7 +108,12 @@ export default async function NewReservationPage({ params }: NewReservationPageP
           <CardTitle className="text-base">Dados da reserva</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReservationForm condoSlug={condoSlug} areas={areas} units={units} />
+          <ReservationForm
+            condoSlug={condoSlug}
+            mode={isStaff ? "staff" : "resident"}
+            areas={areaOptions}
+            units={units}
+          />
         </CardContent>
       </Card>
     </div>

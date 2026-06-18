@@ -9,6 +9,9 @@ export type ReservationRecord = {
   end_at: string;
   status: ReservationStatus;
   notes: string | null;
+  guest_count: number | null;
+  payment_receipt_url: string | null;
+  payment_receipt_submitted_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -18,6 +21,7 @@ export type ReservationWithDetails = ReservationRecord & {
     id: string;
     name: string;
     requires_approval: boolean;
+    condominium_id: string;
   };
   unit: {
     id: string;
@@ -34,7 +38,11 @@ export type ReservationWithDetails = ReservationRecord & {
   } | null;
 };
 
-export const BLOCKING_RESERVATION_STATUSES: ReservationStatus[] = ["pending", "approved"];
+export const BLOCKING_RESERVATION_STATUSES: ReservationStatus[] = [
+  "awaiting_receipt",
+  "pending",
+  "approved",
+];
 
 export type BookingValidationInput = {
   area: import("@/lib/common-areas/types").CommonAreaRecord;
