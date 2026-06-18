@@ -5,7 +5,7 @@
 -- Cambucás, Jabuticabeiras     → 101–404  (4 andares × 4 aptos)
 -- Palmeiras                    → 101–412  (4 andares × 12 aptos)
 -- Acácias, Cerejeiras           → 101–402  (3 andares × 4 aptos + 4º × 2)
--- Bouganville                   → 101–402  (4 andares × 2 aptos)
+-- Bouganville                   → 101–402  (3 andares × 4 aptos + 4º × 2)
 -- Pau Brasil                   → 101–708  (7 andares × 8 aptos)
 -- Magnólias                    → 101–702  (7 andares × 2 aptos)
 --
@@ -36,7 +36,7 @@ begin
         ('%jabuticabeira%', 4, 4, null::int, '101–404'),
         ('%palmeira%', 4, 12, null::int, '101–412'),
         ('%acácia%', 4, 4, 2, '101–402'),
-        ('%bouganville%', 4, 2, null::int, '101–402'),
+        ('%bouganville%', 4, 4, 2, '101–402'),
         ('%cerejeira%', 4, 4, 2, '101–402'),
         ('%pau brasil%', 7, 8, null::int, '101–708'),
         ('%magnólia%', 7, 2, null::int, '101–702')

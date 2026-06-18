@@ -35,9 +35,10 @@ const CONDOMINIUM_LOOKUP = [
   },
   {
     label: "Bouganville",
-    patterns: ["bouganville", "buganville", "bougainville"],
+    patterns: ["bouganville", "bougainville"],
     floors: 4,
-    apartmentsPerFloor: 2,
+    apartmentsPerFloor: 4,
+    lastFloorApartments: 2,
   },
   {
     label: "Cerejeiras",
