@@ -30,8 +30,8 @@ begin
     select *
     from (
       values
-        ('%jacaranda%', 3, 4, null::int, '101–304'),
-        ('%jequitiba%', 3, 4, null::int, '101–304'),
+        ('%jacarand%', 3, 4, null::int, '101–304'),
+        ('%jequitib%', 3, 4, null::int, '101–304'),
         ('%cambuca%', 4, 4, null::int, '101–404'),
         ('%jabuticabeira%', 4, 4, null::int, '101–404'),
         ('%palmeira%', 4, 12, null::int, '101–412'),
