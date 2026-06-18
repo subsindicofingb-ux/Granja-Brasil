@@ -5,7 +5,9 @@ import type { RegistrationRequestRecord } from "@/lib/registrations/types";
 import {
   REGISTRATION_UNIT_KIND,
   RESIDENT_TYPES,
+  ROLES,
   type RegistrationProfileType,
+  type Role,
 } from "@/lib/constants";
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
 import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
@@ -72,6 +74,17 @@ function mapProfileTypeToResidentType(profileType: RegistrationProfileType): Res
       return RESIDENT_TYPES.TENANT;
     default:
       return RESIDENT_TYPES.OWNER;
+  }
+}
+
+function mapProfileTypeToMembershipRole(profileType: RegistrationProfileType): Role {
+  switch (profileType) {
+    case "syndic":
+      return ROLES.SYNDIC;
+    case "staff":
+      return ROLES.DOORMAN;
+    default:
+      return ROLES.RESIDENT;
   }
 }
 
@@ -476,17 +489,19 @@ async function findOrCreateUnitForRequest(input: {
   const towerIds = (towers ?? []).map((tower) => tower.id);
 
   if (towerIds.length > 0) {
-    const { data: existingUnit, error: unitError } = await supabase
+    const { data: existingUnits, error: unitError } = await supabase
       .from("units")
       .select("id")
       .in("tower_id", towerIds)
       .eq("number", input.unitNumber.trim())
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .limit(1);
 
     if (unitError) {
       return serviceError(mapSupabaseError(unitError));
     }
 
+    const existingUnit = existingUnits?.[0];
     if (existingUnit) {
       return serviceOk(existingUnit.id);
     }
@@ -548,13 +563,21 @@ export async function approveRegistrationRequest(input: {
     return serviceError("Esta solicitação já foi analisada.");
   }
 
-  let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? null;
+  const needsUnit = requiresRegistrationUnit(request.profile_type);
+  let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? request.unit_id ?? null;
 
-  if (!resolvedUnitId && request.unit_kind && request.unit_number) {
+  if (
+    needsUnit &&
+    !resolvedUnitId &&
+    request.unit_kind &&
+    request.unit_number &&
+    request.unit_number !== REGISTRATION_UNIT_NOT_APPLICABLE
+  ) {
     const unitResult = await findOrCreateUnitForRequest({
       condominiumId: input.condominiumId,
       unitKind: request.unit_kind,
       unitNumber: request.unit_number,
+      unitId: request.requested_unit_id ?? undefined,
     });
 
     if (!unitResult.ok) {
@@ -564,31 +587,31 @@ export async function approveRegistrationRequest(input: {
     resolvedUnitId = unitResult.data;
   }
 
-  if (!resolvedUnitId) {
+  if (needsUnit && !resolvedUnitId) {
     return serviceError("Unidade da solicitação não encontrada.");
   }
 
-  const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
-  if (!unitCheck.ok) {
-    return serviceError(unitCheck.error ?? "Unidade inválida.");
+  if (needsUnit && resolvedUnitId) {
+    const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
+    if (!unitCheck.ok) {
+      return serviceError(unitCheck.error ?? "Unidade inválida.");
+    }
   }
 
   const supabase = await createClient();
 
-  const { data: resident, error: residentError } = await supabase
-    .from("residents")
-    .insert({
+  if (needsUnit && resolvedUnitId) {
+    const { error: residentError } = await supabase.from("residents").insert({
       unit_id: resolvedUnitId,
       profile_id: request.profile_id,
       full_name: request.full_name,
       email: request.email,
       type: request.resident_type,
-    })
-    .select("id")
-    .single();
+    });
 
-  if (residentError) {
-    return serviceError(mapSupabaseError(residentError));
+    if (residentError) {
+      return serviceError(mapSupabaseError(residentError));
+    }
   }
 
   const { data: existingMembership } = await supabase
@@ -602,7 +625,7 @@ export async function approveRegistrationRequest(input: {
     const { error: membershipError } = await supabase.from("memberships").insert({
       profile_id: request.profile_id,
       condominium_id: input.condominiumId,
-      role: "resident",
+      role: mapProfileTypeToMembershipRole(request.profile_type),
     });
 
     if (membershipError) {
@@ -621,14 +644,18 @@ export async function approveRegistrationRequest(input: {
     })
     .eq("id", input.requestId)
     .eq("condominium_id", input.condominiumId)
+    .eq("status", "pending")
     .select(REQUEST_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
 
-  void resident;
+  if (!data) {
+    return serviceError("Não foi possível concluir a aprovação da solicitação.");
+  }
+
   return serviceOk(mapRequestRow(data as RequestRow));
 }
 
@@ -652,10 +679,14 @@ export async function rejectRegistrationRequest(input: {
     .eq("condominium_id", input.condominiumId)
     .eq("status", "pending")
     .select(REQUEST_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
+  }
+
+  if (!data) {
+    return serviceError("Solicitação não encontrada ou já analisada.");
   }
 
   return serviceOk(mapRequestRow(data as RequestRow));

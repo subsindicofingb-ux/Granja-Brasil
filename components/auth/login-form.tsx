@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { signInAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,12 @@ interface LoginFormProps {
 
 export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(signInAction, {});
+
+  useEffect(() => {
+    if (state.redirectTo) {
+      window.location.assign(state.redirectTo);
+    }
+  }, [state.redirectTo]);
 
   return (
     <form action={formAction} className="space-y-4">

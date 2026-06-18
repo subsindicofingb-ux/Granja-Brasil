@@ -21,12 +21,14 @@ export async function reviewRegistrationRequestAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const requestCondoSlug = String(
+    formData.get("request_condominium_slug") ?? formData.get("condo_slug") ?? "",
+  ).trim();
 
   const access = await requireCondoPermission(
-    condoSlug,
+    requestCondoSlug,
     (ctx) => ctx.permissions.canManageRegistrationRequests,
-    { redirectTo: `/app/${condoSlug}/settings/registration-requests` },
+    { redirectTo: `/app/${requestCondoSlug}/settings/registration-requests` },
   );
 
   const parsed = reviewRegistrationRequestSchema.safeParse({
@@ -62,7 +64,7 @@ export async function reviewRegistrationRequestAction(
     return { error: result.error ?? "Não foi possível analisar a solicitação." };
   }
 
-  revalidateRegistrationPaths(condoSlug);
+  revalidateRegistrationPaths(requestCondoSlug);
 
   return {
     success:

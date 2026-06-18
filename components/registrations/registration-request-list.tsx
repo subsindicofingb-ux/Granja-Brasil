@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { reviewRegistrationRequestAction } from "@/lib/actions/registration-requests";
 import {
   getRegistrationProfileTypeLabel,
@@ -33,11 +34,20 @@ function formatRequestedUnit(request: RegistrationRequestRecord): string {
 }
 
 function ReviewForm({ condoSlug, request }: { condoSlug: string; request: RegistrationRequestRecord }) {
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(reviewRegistrationRequestAction, {});
+  const requestCondoSlug = request.condominium?.slug ?? condoSlug;
+
+  useEffect(() => {
+    if (state.success) {
+      router.refresh();
+    }
+  }, [state.success, router]);
 
   return (
     <form action={formAction} className="space-y-3 border-t pt-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
+      <input type="hidden" name="request_condominium_slug" value={requestCondoSlug} />
       <input type="hidden" name="request_id" value={request.id} />
 
       <FormAlert error={state.error} success={state.success} />
