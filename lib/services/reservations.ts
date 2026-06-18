@@ -603,7 +603,10 @@ export async function submitReservationReceipt(input: {
     .single();
 
   if (error) {
-    return serviceError(mapSupabaseError(error));
+    return serviceError(
+      mapSupabaseError(error) ||
+        "Não foi possível registrar o recibo. Verifique sua permissão e tente novamente.",
+    );
   }
 
   const reservation = mapReservationDetail(data as ReservationDetailRow);

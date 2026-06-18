@@ -45,7 +45,11 @@ export async function uploadCondoImage(input: {
     });
 
     if (error) {
-      return serviceError(error.message);
+      return serviceError(
+        error.message.includes("mime") || error.message.includes("Invalid")
+          ? "Formato não permitido. Use JPG, PNG, WebP ou PDF (máx. 5 MB)."
+          : error.message,
+      );
     }
 
     const { data } = admin.storage.from("condo-uploads").getPublicUrl(path);
