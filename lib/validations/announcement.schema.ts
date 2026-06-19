@@ -5,15 +5,20 @@ import {
 } from "@/lib/constants";
 import { fromDatetimeLocalValue } from "@/lib/reservations/timezone";
 
-const optionalTowerId = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform((value) => {
-    if (value == null || value === "") return null;
-    return String(value);
-  })
-  .refine((value) => value === null || z.string().uuid().safeParse(value).success, {
-    message: "Torre inválida.",
-  });
+const optionalUuid = (message: string) =>
+  z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((value) => {
+      if (value == null || value === "") return null;
+      return String(value);
+    })
+    .refine((value) => value === null || z.string().uuid().safeParse(value).success, {
+      message,
+    });
+
+const optionalTowerId = optionalUuid("Torre inválida.");
+const optionalTargetCondominiumId = optionalUuid("Condomínio inválido.");
+const optionalTargetProfileId = optionalUuid("Morador inválido.");
 
 const optionalExpiresAt = z
   .union([z.string(), z.null(), z.undefined()])
@@ -36,6 +41,8 @@ export const announcementFormSchema = z
       ANNOUNCEMENT_PRIORITY.URGENT,
     ]),
     tower_id: optionalTowerId,
+    target_condominium_id: optionalTargetCondominiumId,
+    target_profile_id: optionalTargetProfileId,
     publication_status: z.enum([
       ANNOUNCEMENT_PUBLICATION_STATUS.DRAFT,
       ANNOUNCEMENT_PUBLICATION_STATUS.PUBLISHED,
@@ -57,6 +64,14 @@ export const announcementFormSchema = z
         path: ["expires_at"],
       });
     }
+
+    if (data.target_profile_id && data.target_condominium_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Escolha destino por condomínio ou por morador, não ambos.",
+        path: ["target_profile_id"],
+      });
+    }
   });
 
 export function parseAnnouncementFormData(formData: FormData) {
@@ -65,6 +80,8 @@ export function parseAnnouncementFormData(formData: FormData) {
     body: formData.get("body"),
     priority: formData.get("priority"),
     tower_id: formData.get("tower_id"),
+    target_condominium_id: formData.get("target_condominium_id"),
+    target_profile_id: formData.get("target_profile_id"),
     publication_status: formData.get("publication_status"),
     published_at: formData.get("published_at"),
     expires_at: formData.get("expires_at") ?? "",
@@ -76,7 +93,9 @@ export function toAnnouncementPayload(data: z.infer<typeof announcementFormSchem
     title: data.title,
     body: data.body,
     priority: data.priority,
-    tower_id: data.tower_id,
+    tower_id: data.target_profile_id ? null : data.tower_id,
+    target_condominium_id: data.target_profile_id ? null : data.target_condominium_id,
+    target_profile_id: data.target_profile_id,
     publication_status: data.publication_status,
     published_at: data.published_at,
     expires_at: data.expires_at,

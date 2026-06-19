@@ -234,3 +234,70 @@ export async function updateResident(input: {
 
   return serviceOk(mapResidentRow(resident));
 }
+
+export type AnnouncementResidentTarget = {
+  profile_id: string;
+  full_name: string;
+  condominium_name?: string;
+};
+
+export async function listResidentsWithProfileForAnnouncement(input: {
+  condominiumId?: string;
+  excludeCondominiumId?: string;
+  includeAllSubCondominiums?: boolean;
+}): Promise<ServiceResult<AnnouncementResidentTarget[]>> {
+  const residentsResult = await listResidentsByCondominium(
+    input.includeAllSubCondominiums ? undefined : { condominiumId: input.condominiumId },
+  );
+
+  if (!residentsResult.ok) {
+    return serviceError(residentsResult.error);
+  }
+
+  const condoNameById = new Map<string, string>();
+
+  if (input.includeAllSubCondominiums) {
+    const supabase = await createClient();
+    const { data: condos } = await supabase.from("condominiums").select("id, name");
+
+    for (const condo of condos ?? []) {
+      if (input.excludeCondominiumId && condo.id === input.excludeCondominiumId) {
+        continue;
+      }
+
+      condoNameById.set(condo.id, condo.name);
+    }
+  }
+
+  const seen = new Set<string>();
+  const targets: AnnouncementResidentTarget[] = [];
+
+  for (const resident of residentsResult.data ?? []) {
+    if (!resident.profile_id || seen.has(resident.profile_id)) {
+      continue;
+    }
+
+    const condoId = resident.unit.tower.condominium_id;
+
+    if (input.excludeCondominiumId && condoId === input.excludeCondominiumId) {
+      continue;
+    }
+
+    if (input.condominiumId && condoId !== input.condominiumId) {
+      continue;
+    }
+
+    if (input.includeAllSubCondominiums && !condoNameById.has(condoId)) {
+      continue;
+    }
+
+    seen.add(resident.profile_id);
+    targets.push({
+      profile_id: resident.profile_id,
+      full_name: resident.full_name,
+      condominium_name: condoNameById.get(condoId),
+    });
+  }
+
+  return serviceOk(targets.sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR")));
+}

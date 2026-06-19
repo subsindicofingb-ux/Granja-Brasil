@@ -12,7 +12,9 @@ export {
   getResidentById,
   createResident,
   updateResident,
+  listResidentsWithProfileForAnnouncement,
   type ResidentWithUnit,
+  type AnnouncementResidentTarget,
 } from "./residents";
 export {
   listCommonAreasByCondominium,
@@ -42,6 +44,9 @@ export {
   getAnnouncementById,
   createAnnouncement,
   updateAnnouncement,
+  markAnnouncementAsRead,
+  getAnnouncementReadStatus,
+  countAnnouncementReads,
   type AnnouncementListOptions,
 } from "./announcements";
 export {

@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { matchesAnnouncementCondominiumFilter } from "@/lib/announcements/targeting";
 import { getTowerById } from "@/lib/services/towers";
+import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import type {
   AnnouncementRecord,
@@ -21,6 +23,8 @@ const ANNOUNCEMENT_SELECT = `
   id,
   condominium_id,
   tower_id,
+  target_condominium_id,
+  target_profile_id,
   title,
   body,
   priority,
@@ -38,7 +42,7 @@ const ANNOUNCEMENT_DETAIL_SELECT = `
     id,
     name
   ),
-  profiles (
+  profiles!announcements_created_by_fkey (
     id,
     full_name
   )
@@ -49,6 +53,8 @@ function mapAnnouncement(row: AnnouncementRow): AnnouncementRecord {
     id: row.id,
     condominium_id: row.condominium_id,
     tower_id: row.tower_id,
+    target_condominium_id: row.target_condominium_id,
+    target_profile_id: row.target_profile_id,
     title: row.title,
     body: row.body,
     priority: row.priority,
@@ -71,8 +77,39 @@ function mapAnnouncementDetail(row: AnnouncementDetailRow): AnnouncementWithDeta
 
 export type AnnouncementListOptions = {
   towerId?: string;
+  targetCondominiumId?: string;
   includeCondominiumWide?: boolean;
 };
+
+function applyAnnouncementListFilters(
+  announcements: AnnouncementWithDetails[],
+  options: AnnouncementListOptions | undefined,
+  granjaCondominiumId: string | null,
+): AnnouncementWithDetails[] {
+  let filtered = announcements;
+
+  if (options?.targetCondominiumId) {
+    filtered = filtered.filter((announcement) =>
+      matchesAnnouncementCondominiumFilter(
+        announcement,
+        options.targetCondominiumId,
+        granjaCondominiumId,
+      ),
+    );
+  }
+
+  if (options?.towerId) {
+    filtered = filtered.filter((announcement) => {
+      if (options.includeCondominiumWide === false) {
+        return announcement.tower_id === options.towerId;
+      }
+
+      return announcement.tower_id == null || announcement.tower_id === options.towerId;
+    });
+  }
+
+  return filtered;
+}
 
 async function validateTowerForCondominium(
   towerId: string | null,
@@ -91,37 +128,112 @@ async function validateTowerForCondominium(
   return serviceOk(null);
 }
 
-export async function listAnnouncementsByCondominium(
-  condominiumId: string,
-  options?: AnnouncementListOptions,
-): Promise<ServiceResult<AnnouncementWithDetails[]>> {
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("announcements")
-    .select(ANNOUNCEMENT_DETAIL_SELECT)
-    .eq("condominium_id", condominiumId)
-    .order("published_at", { ascending: false });
-
-  if (options?.towerId) {
-    if (options.includeCondominiumWide === false) {
-      query = query.eq("tower_id", options.towerId);
-    } else {
-      query = query.or(`tower_id.is.null,tower_id.eq.${options.towerId}`);
-    }
+async function validateTargetCondominium(
+  targetCondominiumId: string | null,
+  granjaCondominiumId: string | null,
+): Promise<ServiceResult<null>> {
+  if (!targetCondominiumId) {
+    return serviceOk(null);
   }
 
-  const { data, error } = await query;
+  if (!granjaCondominiumId) {
+    return serviceError("Destino por condomínio disponível apenas na administração geral.");
+  }
+
+  if (targetCondominiumId === granjaCondominiumId) {
+    return serviceError("Selecione um condomínio específico, não a administração geral.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("condominiums")
+    .select("id")
+    .eq("id", targetCondominiumId)
+    .maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk(((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail));
+  if (!data) {
+    return serviceError("Condomínio de destino inválido.");
+  }
+
+  return serviceOk(null);
+}
+
+async function validateTargetProfile(
+  targetProfileId: string | null,
+  condominiumId: string,
+  granjaCondominiumId: string | null,
+  isGranjaSource: boolean,
+): Promise<ServiceResult<null>> {
+  if (!targetProfileId) {
+    return serviceOk(null);
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("residents")
+    .select("profile_id, units!inner(towers!inner(condominium_id))")
+    .eq("profile_id", targetProfileId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const condoIds = (data ?? []).map(
+    (row) => (row.units as { towers: { condominium_id: string } }).towers.condominium_id,
+  );
+
+  if (condoIds.length === 0) {
+    return serviceError("Morador de destino inválido.");
+  }
+
+  if (isGranjaSource) {
+    const valid = condoIds.some((condoId) => condoId !== granjaCondominiumId);
+
+    if (!valid) {
+      return serviceError("O morador selecionado não pertence a um condomínio válido.");
+    }
+
+    return serviceOk(null);
+  }
+
+  if (!condoIds.includes(condominiumId)) {
+    return serviceError("O morador selecionado não pertence a este condomínio.");
+  }
+
+  return serviceOk(null);
+}
+
+export async function listAnnouncementsByCondominium(
+  condominiumId: string,
+  options?: AnnouncementListOptions,
+): Promise<ServiceResult<AnnouncementWithDetails[]>> {
+  const supabase = await createClient();
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .select(ANNOUNCEMENT_DETAIL_SELECT)
+    .order("published_at", { ascending: false });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const announcements = applyAnnouncementListFilters(
+    ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+    options,
+    granjaCondominiumId,
+  );
+
+  return serviceOk(announcements);
 }
 
 export async function listRecentAnnouncementsByCondominium(
-  condominiumId: string,
+  _condominiumId: string,
   limit = 5,
 ): Promise<ServiceResult<AnnouncementWithDetails[]>> {
   const supabase = await createClient();
@@ -130,7 +242,6 @@ export async function listRecentAnnouncementsByCondominium(
   const { data, error } = await supabase
     .from("announcements")
     .select(ANNOUNCEMENT_DETAIL_SELECT)
-    .eq("condominium_id", condominiumId)
     .eq("publication_status", filters.publication_status)
     .lte("published_at", filters.nowIso)
     .or(filters.expires_or)
@@ -150,7 +261,7 @@ export async function listRecentAnnouncementsByCondominium(
 
 export async function getAnnouncementById(
   announcementId: string,
-  condominiumId: string,
+  _condominiumId: string,
 ): Promise<ServiceResult<AnnouncementWithDetails>> {
   const supabase = await createClient();
 
@@ -158,7 +269,6 @@ export async function getAnnouncementById(
     .from("announcements")
     .select(ANNOUNCEMENT_DETAIL_SELECT)
     .eq("id", announcementId)
-    .eq("condominium_id", condominiumId)
     .maybeSingle();
 
   if (error) {
@@ -177,6 +287,8 @@ type AnnouncementWriteInput = {
   body: string;
   priority: AnnouncementRecord["priority"];
   tower_id: string | null;
+  target_condominium_id: string | null;
+  target_profile_id: string | null;
   publication_status: AnnouncementRecord["publication_status"];
   published_at: string;
   expires_at: string | null;
@@ -188,10 +300,51 @@ function toDbPayload(input: AnnouncementWriteInput) {
     body: input.body,
     priority: input.priority,
     tower_id: input.tower_id,
+    target_condominium_id: input.target_condominium_id,
+    target_profile_id: input.target_profile_id,
     publication_status: input.publication_status,
     published_at: input.published_at,
     expires_at: input.expires_at,
   };
+}
+
+async function validateAnnouncementWriteInput(
+  input: AnnouncementWriteInput,
+  condominiumId: string,
+): Promise<ServiceResult<null>> {
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const isGranjaSource = granjaCondominiumId === condominiumId;
+
+  const towerCheck = await validateTowerForCondominium(
+    input.target_profile_id ? null : input.tower_id,
+    condominiumId,
+  );
+
+  if (!towerCheck.ok) {
+    return towerCheck;
+  }
+
+  const condoTargetCheck = await validateTargetCondominium(
+    input.target_profile_id ? null : input.target_condominium_id,
+    isGranjaSource ? granjaCondominiumId : null,
+  );
+
+  if (!condoTargetCheck.ok) {
+    return condoTargetCheck;
+  }
+
+  const profileCheck = await validateTargetProfile(
+    input.target_profile_id,
+    condominiumId,
+    granjaCondominiumId,
+    isGranjaSource,
+  );
+
+  if (!profileCheck.ok) {
+    return profileCheck;
+  }
+
+  return serviceOk(null);
 }
 
 export async function createAnnouncement(input: {
@@ -199,10 +352,10 @@ export async function createAnnouncement(input: {
   createdBy: string;
   data: AnnouncementWriteInput;
 }): Promise<ServiceResult<AnnouncementWithDetails>> {
-  const towerCheck = await validateTowerForCondominium(input.data.tower_id, input.condominiumId);
+  const validation = await validateAnnouncementWriteInput(input.data, input.condominiumId);
 
-  if (!towerCheck.ok) {
-    return serviceError(towerCheck.error);
+  if (!validation.ok) {
+    return serviceError(validation.error);
   }
 
   const supabase = await createClient();
@@ -229,10 +382,10 @@ export async function updateAnnouncement(input: {
   condominiumId: string;
   data: AnnouncementWriteInput;
 }): Promise<ServiceResult<AnnouncementWithDetails>> {
-  const towerCheck = await validateTowerForCondominium(input.data.tower_id, input.condominiumId);
+  const validation = await validateAnnouncementWriteInput(input.data, input.condominiumId);
 
-  if (!towerCheck.ok) {
-    return serviceError(towerCheck.error);
+  if (!validation.ok) {
+    return serviceError(validation.error);
   }
 
   const supabase = await createClient();
@@ -250,4 +403,80 @@ export async function updateAnnouncement(input: {
   }
 
   return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+}
+
+export async function markAnnouncementAsRead(input: {
+  announcementId: string;
+  profileId: string;
+}): Promise<ServiceResult<{ read_at: string }>> {
+  const supabase = await createClient();
+  const readAt = new Date().toISOString();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("announcement_reads")
+    .select("read_at")
+    .eq("announcement_id", input.announcementId)
+    .eq("profile_id", input.profileId)
+    .maybeSingle();
+
+  if (existingError) {
+    return serviceError(mapSupabaseError(existingError));
+  }
+
+  if (existing?.read_at) {
+    return serviceOk({ read_at: existing.read_at });
+  }
+
+  const { data, error } = await supabase
+    .from("announcement_reads")
+    .insert({
+      announcement_id: input.announcementId,
+      profile_id: input.profileId,
+      read_at: readAt,
+    })
+    .select("read_at")
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk({ read_at: data.read_at });
+}
+
+export async function getAnnouncementReadStatus(input: {
+  announcementId: string;
+  profileId: string;
+}): Promise<ServiceResult<{ read_at: string | null }>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("announcement_reads")
+    .select("read_at")
+    .eq("announcement_id", input.announcementId)
+    .eq("profile_id", input.profileId)
+    .maybeSingle();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk({ read_at: data?.read_at ?? null });
+}
+
+export async function countAnnouncementReads(
+  announcementId: string,
+): Promise<ServiceResult<number>> {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from("announcement_reads")
+    .select("*", { count: "exact", head: true })
+    .eq("announcement_id", announcementId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(count ?? 0);
 }

@@ -410,6 +410,8 @@ export interface Database {
           id: string;
           condominium_id: string;
           tower_id: string | null;
+          target_condominium_id: string | null;
+          target_profile_id: string | null;
           title: string;
           body: string;
           priority: AnnouncementPriority;
@@ -424,6 +426,8 @@ export interface Database {
           id?: string;
           condominium_id: string;
           tower_id?: string | null;
+          target_condominium_id?: string | null;
+          target_profile_id?: string | null;
           title: string;
           body: string;
           priority?: AnnouncementPriority;
@@ -438,6 +442,8 @@ export interface Database {
           id?: string;
           condominium_id?: string;
           tower_id?: string | null;
+          target_condominium_id?: string | null;
+          target_profile_id?: string | null;
           title?: string;
           body?: string;
           priority?: AnnouncementPriority;
@@ -450,25 +456,72 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "announcements_condominium_id_fkey",
-            columns: ["condominium_id"],
-            isOneToOne: false,
-            referencedRelation: "condominiums",
-            referencedColumns: ["id"],
+            foreignKeyName: "announcements_condominium_id_fkey";
+            columns: ["condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "announcements_tower_id_fkey",
-            columns: ["tower_id"],
-            isOneToOne: false,
-            referencedRelation: "towers",
-            referencedColumns: ["id"],
+            foreignKeyName: "announcements_tower_id_fkey";
+            columns: ["tower_id"];
+            isOneToOne: false;
+            referencedRelation: "towers";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "announcements_created_by_fkey",
-            columns: ["created_by"],
-            isOneToOne: false,
-            referencedRelation: "profiles",
-            referencedColumns: ["id"],
+            foreignKeyName: "announcements_target_condominium_id_fkey";
+            columns: ["target_condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "announcements_target_profile_id_fkey";
+            columns: ["target_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "announcements_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      announcement_reads: {
+        Row: {
+          announcement_id: string;
+          profile_id: string;
+          read_at: string;
+        };
+        Insert: {
+          announcement_id: string;
+          profile_id: string;
+          read_at?: string;
+        };
+        Update: {
+          announcement_id?: string;
+          profile_id?: string;
+          read_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "announcement_reads_announcement_id_fkey";
+            columns: ["announcement_id"];
+            isOneToOne: false;
+            referencedRelation: "announcements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "announcement_reads_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
           },
         ];
       };
@@ -739,6 +792,10 @@ export interface Database {
           p_access_ends_at: string;
           p_horizon?: string;
         };
+        Returns: boolean;
+      };
+      is_announcement_visible_to_profile: {
+        Args: { p_announcement_id: string };
         Returns: boolean;
       };
     };

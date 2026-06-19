@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Suspense } from "react";
+import { Plus } from "lucide-react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listAnnouncementsByCondominium } from "@/lib/services/announcements";
+import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { isValidUuid } from "@/lib/utils";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { AnnouncementCard } from "@/components/announcements/announcement-card";
-import { AnnouncementTowerFilter } from "@/components/announcements/announcement-tower-filter";
+import { AnnouncementCondominiumFilter } from "@/components/announcements/announcement-condominium-filter";
 import { Button } from "@/components/ui/button";
 
 interface AnnouncementsPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ tower?: string }>;
+  searchParams: Promise<{ tower?: string; condo?: string }>;
 }
 
 async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
@@ -40,16 +42,21 @@ async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
 async function AnnouncementsContent({
   condoSlug,
   towerId,
+  targetCondominiumId,
 }: {
   condoSlug: string;
   towerId?: string;
+  targetCondominiumId?: string;
 }) {
   const access = await requireCondoAccess(condoSlug);
+  const isGranja = isGeneralCondominium(condoSlug);
 
-  const [towersResult, announcementsResult] = await Promise.all([
+  const [towersResult, condominiumsResult, announcementsResult] = await Promise.all([
     listTowersByCondominium(access.condominium.id),
+    isGranja ? listCondominiums() : Promise.resolve(null),
     listAnnouncementsByCondominium(access.condominium.id, {
       towerId,
+      targetCondominiumId,
       includeCondominiumWide: towerId ? true : undefined,
     }),
   ]);
@@ -58,20 +65,34 @@ async function AnnouncementsContent({
     return <ErrorAlert message={towersResult.error} title="Erro ao carregar torres" />;
   }
 
+  if (isGranja && condominiumsResult && !condominiumsResult.ok) {
+    return <ErrorAlert message={condominiumsResult.error} title="Erro ao carregar condomínios" />;
+  }
+
   if (!announcementsResult.ok) {
     return <ErrorAlert message={announcementsResult.error} title="Erro ao carregar avisos" />;
   }
 
   const towers = towersResult.data ?? [];
+  const condominiums = (condominiumsResult?.ok ? condominiumsResult.data : []).filter(
+    (condominium) => condominium.id !== access.condominium.id,
+  );
   const announcements = announcementsResult.data ?? [];
+  const showFilter = isGranja ? condominiums.length > 0 : towers.length > 0;
 
   return (
     <div className="space-y-4">
-      {towers.length > 0 && (
-        <AnnouncementTowerFilter
+      {showFilter && (
+        <AnnouncementCondominiumFilter
           condoSlug={condoSlug}
+          mode={isGranja ? "granja" : "towers"}
           towers={towers.map((tower) => ({ id: tower.id, name: tower.name }))}
+          condominiums={condominiums.map((condominium) => ({
+            id: condominium.id,
+            name: condominium.name,
+          }))}
           selectedTower={towerId}
+          selectedCondominium={targetCondominiumId}
         />
       )}
 
@@ -79,7 +100,7 @@ async function AnnouncementsContent({
         <EmptyState
           title="Nenhum aviso encontrado"
           description={
-            towerId
+            towerId || targetCondominiumId
               ? "Não há avisos para o filtro selecionado."
               : "Publique o primeiro comunicado do condomínio."
           }
@@ -119,8 +140,9 @@ function AnnouncementsListSkeleton() {
 
 export default async function AnnouncementsPage({ params, searchParams }: AnnouncementsPageProps) {
   const { condoSlug } = await params;
-  const { tower } = await searchParams;
+  const { tower, condo } = await searchParams;
   const towerId = isValidUuid(tower) ? tower : undefined;
+  const targetCondominiumId = isValidUuid(condo) ? condo : undefined;
 
   return (
     <div className="space-y-6">
@@ -129,7 +151,11 @@ export default async function AnnouncementsPage({ params, searchParams }: Announ
       </Suspense>
 
       <Suspense fallback={<AnnouncementsListSkeleton />}>
-        <AnnouncementsContent condoSlug={condoSlug} towerId={towerId} />
+        <AnnouncementsContent
+          condoSlug={condoSlug}
+          towerId={towerId}
+          targetCondominiumId={targetCondominiumId}
+        />
       </Suspense>
     </div>
   );

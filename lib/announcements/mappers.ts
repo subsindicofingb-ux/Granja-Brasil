@@ -10,6 +10,8 @@ export function toAnnouncementFormInput(
     body: announcement.body,
     priority: announcement.priority,
     tower_id: announcement.tower_id,
+    target_condominium_id: announcement.target_condominium_id,
+    target_profile_id: announcement.target_profile_id,
     publication_status: announcement.publication_status,
     published_at: toDatetimeLocalValue(announcement.published_at),
     expires_at: announcement.expires_at

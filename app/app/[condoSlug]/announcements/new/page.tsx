@@ -1,4 +1,7 @@
 import { requireCondoPermission } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { listCondominiums } from "@/lib/services/condominiums-admin";
+import { listResidentsWithProfileForAnnouncement } from "@/lib/services/residents";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { createDefaultAnnouncementForm } from "@/lib/announcements/defaults";
 import { toDatetimeLocalValue } from "@/lib/reservations/timezone";
@@ -19,8 +22,26 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
     { redirectTo: `/app/${condoSlug}/announcements` },
   );
 
-  const towersResult = await listTowersByCondominium(access.condominium.id);
+  const isGranjaSource = isGeneralCondominium(condoSlug);
+
+  const [towersResult, condominiumsResult, residentsResult] = await Promise.all([
+    listTowersByCondominium(access.condominium.id),
+    isGranjaSource ? listCondominiums() : Promise.resolve(null),
+    listResidentsWithProfileForAnnouncement(
+      isGranjaSource
+        ? {
+            includeAllSubCondominiums: true,
+            excludeCondominiumId: access.condominium.id,
+          }
+        : { condominiumId: access.condominium.id },
+    ),
+  ]);
+
   const towers = towersResult.ok ? towersResult.data : [];
+  const condominiums = (condominiumsResult?.ok ? condominiumsResult.data : []).filter(
+    (condominium) => condominium.id !== access.condominium.id,
+  );
+  const residents = residentsResult.ok ? residentsResult.data : [];
 
   const defaultValues = createDefaultAnnouncementForm(
     toDatetimeLocalValue(new Date().toISOString()),
@@ -30,7 +51,7 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Novo aviso"
-        description="Publique um comunicado para o condomínio ou para uma torre específica."
+        description="Publique um comunicado para todo o condomínio, para um bloco específico ou para um morador."
       />
 
       <Card>
@@ -41,7 +62,13 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
           <AnnouncementForm
             condoSlug={condoSlug}
             mode="create"
+            isGranjaSource={isGranjaSource}
             towers={towers.map((tower) => ({ id: tower.id, name: tower.name }))}
+            condominiums={condominiums.map((condominium) => ({
+              id: condominium.id,
+              name: condominium.name,
+            }))}
+            residents={residents}
             defaultValues={defaultValues}
           />
         </CardContent>

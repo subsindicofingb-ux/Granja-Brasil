@@ -1,10 +1,14 @@
 import type { AnnouncementPriority } from "@/lib/constants";
 import type { AnnouncementPublicationStatus } from "@/lib/constants";
 
+export type AnnouncementAudienceScope = "all" | "condominium" | "resident";
+
 export type AnnouncementRecord = {
   id: string;
   condominium_id: string;
   tower_id: string | null;
+  target_condominium_id: string | null;
+  target_profile_id: string | null;
   title: string;
   body: string;
   priority: AnnouncementPriority;
@@ -29,11 +33,19 @@ export type AnnouncementWithDetails = AnnouncementRecord & {
   } | null;
 };
 
+export type AnnouncementResidentOption = {
+  profile_id: string;
+  full_name: string;
+  condominium_name?: string;
+};
+
 export type AnnouncementFormInput = {
   title: string;
   body: string;
   priority: AnnouncementPriority;
   tower_id: string | null;
+  target_condominium_id: string | null;
+  target_profile_id: string | null;
   publication_status: AnnouncementPublicationStatus;
   published_at: string;
   expires_at: string | null;
