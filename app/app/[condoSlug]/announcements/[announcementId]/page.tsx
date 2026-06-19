@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import {
-  countAnnouncementReads,
   getAnnouncementById,
-  getAnnouncementReadStatus,
+  listAnnouncementReadReceipts,
   markAnnouncementAsRead,
+  type AnnouncementReadReceipt,
 } from "@/lib/services/announcements";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listResidentsWithProfileForAnnouncement } from "@/lib/services/residents";
@@ -20,6 +20,7 @@ import {
 } from "@/lib/announcements/labels";
 import { AnnouncementDisplayStatusBadge } from "@/components/announcements/announcement-display-status-badge";
 import { AnnouncementForm } from "@/components/announcements/announcement-form";
+import { AnnouncementReadReceipts } from "@/components/announcements/announcement-read-receipts";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,8 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   }
 
   const announcement = announcementResult.data;
-  const canEdit = access.permissions.canManageAnnouncements;
+  const canManage = access.permissions.canManageAnnouncements;
+  const isSender = canManage && announcement.condominium_id === access.condominium.id;
   const displayStatus = getAnnouncementDisplayStatus(announcement);
   const towers = towersResult.ok ? towersResult.data : [];
   const condominiums = (
@@ -86,28 +88,21 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     announcement,
     targetCondominiumName,
     targetProfileName,
-    isGranjaSource,
+    isGranjaSource: isGranjaSource || announcement.condominium_id !== access.condominium.id,
   });
 
   let readAt: string | null = null;
-  let readCount: number | null = null;
+  let readReceipts: AnnouncementReadReceipt[] = [];
 
-  if (!canEdit) {
+  if (!isSender) {
     const readResult = await markAnnouncementAsRead({
       announcementId,
       profileId: access.profile.id,
     });
     readAt = readResult.ok ? readResult.data.read_at : null;
   } else {
-    const [readStatusResult, readCountResult] = await Promise.all([
-      getAnnouncementReadStatus({
-        announcementId,
-        profileId: access.profile.id,
-      }),
-      countAnnouncementReads(announcementId),
-    ]);
-    readAt = readStatusResult.ok ? readStatusResult.data.read_at : null;
-    readCount = readCountResult.ok ? readCountResult.data : null;
+    const receiptsResult = await listAnnouncementReadReceipts(announcementId);
+    readReceipts = receiptsResult.ok ? receiptsResult.data : [];
   }
 
   return (
@@ -115,11 +110,13 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
       <PageHeader
         title={announcement.title}
         description={
-          canEdit ? "Edite o comunicado ou revise as informações de publicação." : "Comunicado do condomínio."
+          isSender
+            ? "Edite o comunicado ou revise as confirmações de leitura."
+            : "Comunicado do condomínio."
         }
       />
 
-      {!canEdit && (
+      {!isSender && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
@@ -153,17 +150,13 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
         </Card>
       )}
 
-      {canEdit && (
+      {isSender && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Editar aviso</CardTitle>
-            {readCount != null && readCount > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {readCount} confirmação{readCount === 1 ? "" : "ões"} de leitura
-              </p>
-            )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <AnnouncementReadReceipts receipts={readReceipts} />
             <AnnouncementForm
               condoSlug={condoSlug}
               mode="edit"

@@ -464,6 +464,48 @@ export async function getAnnouncementReadStatus(input: {
   return serviceOk({ read_at: data?.read_at ?? null });
 }
 
+export type AnnouncementReadReceipt = {
+  profile_id: string;
+  full_name: string;
+  read_at: string;
+};
+
+export async function listAnnouncementReadReceipts(
+  announcementId: string,
+): Promise<ServiceResult<AnnouncementReadReceipt[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("announcement_reads")
+    .select(
+      `
+      profile_id,
+      read_at,
+      profiles (
+        full_name
+      )
+    `,
+    )
+    .eq("announcement_id", announcementId)
+    .order("read_at", { ascending: false });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const receipts: AnnouncementReadReceipt[] = ((data ?? []) as Array<{
+    profile_id: string;
+    read_at: string;
+    profiles: { full_name: string } | null;
+  }>).map((row) => ({
+    profile_id: row.profile_id,
+    full_name: row.profiles?.full_name ?? "Usuário",
+    read_at: row.read_at,
+  }));
+
+  return serviceOk(receipts);
+}
+
 export async function countAnnouncementReads(
   announcementId: string,
 ): Promise<ServiceResult<number>> {

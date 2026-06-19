@@ -46,8 +46,10 @@ export {
   updateAnnouncement,
   markAnnouncementAsRead,
   getAnnouncementReadStatus,
+  listAnnouncementReadReceipts,
   countAnnouncementReads,
   type AnnouncementListOptions,
+  type AnnouncementReadReceipt,
 } from "./announcements";
 export {
   listVisitorAuthorizationsByCondominium,
