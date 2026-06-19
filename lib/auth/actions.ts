@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
+import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { getUserMemberships, requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
@@ -233,6 +234,8 @@ export async function updatePasswordAction(
     if (error) {
       return { error: formatAuthError(error.message) };
     }
+
+    await clearPendingPasswordReset();
 
     revalidatePath("/", "layout");
 

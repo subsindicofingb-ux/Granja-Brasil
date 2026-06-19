@@ -4,6 +4,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { getAuthUser } from "@/lib/auth/session";
+import { setPendingPasswordReset } from "@/lib/auth/password-reset";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ResetPasswordPage() {
@@ -12,6 +13,8 @@ export default async function ResetPasswordPage() {
   if (!user) {
     redirect("/forgot-password");
   }
+
+  await setPendingPasswordReset();
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">

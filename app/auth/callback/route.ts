@@ -1,17 +1,35 @@
 import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/auth/session";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
+import { applyPendingPasswordResetCookie } from "@/lib/auth/password-reset";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
-function resolveNextPath(value: string | null) {
+function resolveNextPath(value: string | null, type: string | null) {
+  if (type === "recovery") {
+    return "/reset-password";
+  }
+
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/app";
   }
 
   return value;
+}
+
+function redirectWithOptionalPasswordReset(
+  requestUrl: URL,
+  destination: string,
+): NextResponse {
+  const response = NextResponse.redirect(new URL(destination, requestUrl.origin));
+
+  if (destination === "/reset-password") {
+    return applyPendingPasswordResetCookie(response);
+  }
+
+  return response;
 }
 
 export async function GET(request: Request) {
@@ -21,7 +39,8 @@ export async function GET(request: Request) {
 
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = resolveNextPath(requestUrl.searchParams.get("next"));
+  const type = requestUrl.searchParams.get("type");
+  const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
   const supabase = await createClient();
 
   if (!code) {
@@ -37,7 +56,7 @@ export async function GET(request: Request) {
       }
 
       const destination = await resolveSafeAppRedirect(supabase, next);
-      return NextResponse.redirect(new URL(destination, requestUrl.origin));
+      return redirectWithOptionalPasswordReset(requestUrl, destination);
     }
 
     const oauthError = requestUrl.searchParams.get("error");
@@ -67,5 +86,5 @@ export async function GET(request: Request) {
   }
 
   const destination = await resolveSafeAppRedirect(supabase, next);
-  return NextResponse.redirect(new URL(destination, requestUrl.origin));
+  return redirectWithOptionalPasswordReset(requestUrl, destination);
 }

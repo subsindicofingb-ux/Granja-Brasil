@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
+const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password"]);
+
 export function extractCondoSlugFromAppPath(pathname: string): string | null {
   if (!pathname.startsWith("/app/")) {
     return null;
@@ -54,6 +56,11 @@ export async function resolveSafeAppRedirect(
   redirectTo: string,
 ): Promise<string> {
   const normalized = redirectTo.startsWith("/") ? redirectTo : "/app";
+
+  if (ALLOWED_NON_APP_REDIRECTS.has(normalized)) {
+    return normalized;
+  }
+
   const condoSlug = extractCondoSlugFromAppPath(normalized);
 
   if (!condoSlug) {

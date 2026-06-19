@@ -10,6 +10,7 @@ import {
   isPublicAuthPath,
   updateSession,
 } from "@/lib/supabase/middleware";
+import { PENDING_PASSWORD_RESET_COOKIE } from "@/lib/auth/constants";
 import type { Database } from "@/types/database.types";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
@@ -35,6 +36,17 @@ export async function middleware(request: NextRequest) {
   const isProtectedApp = pathname.startsWith("/app");
   const isLoginOrSignup = isAuthRoute(pathname);
   const isCallback = isPublicAuthPath(pathname);
+  const pendingPasswordReset =
+    request.cookies.get(PENDING_PASSWORD_RESET_COOKIE)?.value === "1";
+
+  if (pendingPasswordReset && user && pathname.startsWith("/app")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/reset-password";
+    url.search = "";
+    const redirectResponse = NextResponse.redirect(url);
+    copyCookies(response, redirectResponse);
+    return redirectResponse;
+  }
 
   if (isProtectedApp && !user) {
     const url = request.nextUrl.clone();
