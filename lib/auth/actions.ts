@@ -137,6 +137,113 @@ export async function signInAction(
   }
 }
 
+export async function requestPasswordResetAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    return { error: "Informe o e-mail." };
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Informe um e-mail válido." };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.",
+    };
+  }
+
+  let supabase;
+
+  try {
+    supabase = await createClient();
+  } catch {
+    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
+  }
+
+  try {
+    const redirectTo = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+    if (error) {
+      return { error: formatAuthError(error.message) };
+    }
+
+    return {
+      success:
+        "Se existir uma conta com este e-mail, enviamos um link para redefinir a senha. Verifique a caixa de entrada e o spam.",
+    };
+  } catch (err) {
+    return { error: formatAuthError(err) };
+  }
+}
+
+export async function updatePasswordAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirm_password") ?? "");
+
+  if (!password) {
+    return { error: "Informe a nova senha." };
+  }
+
+  if (password.length < 6) {
+    return { error: "A senha deve ter pelo menos 6 caracteres." };
+  }
+
+  if (password !== confirmPassword) {
+    return { error: "As senhas não coincidem." };
+  }
+
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.",
+    };
+  }
+
+  let supabase;
+
+  try {
+    supabase = await createClient();
+  } catch {
+    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error: "Link expirado ou inválido. Solicite uma nova redefinição em Esqueci a senha.",
+    };
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      return { error: formatAuthError(error.message) };
+    }
+
+    revalidatePath("/", "layout");
+
+    const safeRedirect = await resolveSafeAppRedirect(supabase, "/app");
+
+    return { redirectTo: safeRedirect };
+  } catch (err) {
+    return { error: formatAuthError(err) };
+  }
+}
+
 export async function signUpAction(
   _prev: AuthActionState,
   formData: FormData,

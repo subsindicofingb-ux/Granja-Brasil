@@ -45,7 +45,7 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (isLoginOrSignup && user) {
+  if (isLoginOrSignup && user && pathname !== "/reset-password") {
     const url = request.nextUrl.clone();
     url.pathname = "/app";
     url.search = "";
