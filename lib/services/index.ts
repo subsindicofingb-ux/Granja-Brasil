@@ -47,6 +47,7 @@ export {
   createAnnouncementReply,
   updateAnnouncement,
   markAnnouncementAsRead,
+  getUnreadAnnouncementIds,
   getAnnouncementReadStatus,
   listAnnouncementReadReceipts,
   listAnnouncementReplies,

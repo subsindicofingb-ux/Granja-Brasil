@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
 import type { UnitListFilter } from "@/lib/auth/unit-scope";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
-import { listRecentAnnouncementsByCondominium, type AnnouncementViewContext } from "@/lib/services/announcements";
+import { listRecentAnnouncementsByCondominium, getUnreadAnnouncementIds, type AnnouncementViewContext } from "@/lib/services/announcements";
 import {
   countReservationsByStatusForCondominium,
   listRecentReservationsByCondominium,
@@ -34,6 +34,7 @@ export type DashboardData = {
   upcomingReservations: ReservationWithDetails[];
   recentReservations: ReservationWithDetails[];
   recentAnnouncements: AnnouncementWithDetails[];
+  unreadAnnouncementIds: string[];
   isUnitScoped: boolean;
 };
 
@@ -263,6 +264,15 @@ export async function getDashboardData(
     return serviceError(announcementsResult.error);
   }
 
+  const unreadAnnouncementIds = [
+    ...(
+      await getUnreadAnnouncementIds(
+        viewContext.profileId,
+        announcementsResult.data,
+      )
+    ).values(),
+  ];
+
   return serviceOk({
     metrics: {
       units: unitsResult.data,
@@ -273,6 +283,7 @@ export async function getDashboardData(
     upcomingReservations: upcomingResult.data,
     recentReservations: recentResult.data,
     recentAnnouncements: announcementsResult.data,
+    unreadAnnouncementIds,
     isUnitScoped,
   });
 }

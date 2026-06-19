@@ -7,9 +7,14 @@ import { isGeneralCondominium } from "@/lib/condominiums/display";
 import type { AuthActionState } from "@/lib/auth/types";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import {
+  notifyAnnouncementCreated,
+  notifyAnnouncementReply,
+} from "@/lib/email/announcement-notifications";
+import {
   createAnnouncement,
   createAnnouncementReply,
   createResidentAnnouncement,
+  getAnnouncementById,
   updateAnnouncement,
 } from "@/lib/services/announcements";
 import {
@@ -89,6 +94,11 @@ export async function createAnnouncementAction(
     return { error: result.error };
   }
 
+  void notifyAnnouncementCreated({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  }).catch(() => {});
+
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
 }
@@ -135,6 +145,11 @@ export async function createResidentAnnouncementAction(
     return { error: result.error };
   }
 
+  void notifyAnnouncementCreated({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  }).catch(() => {});
+
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
 }
@@ -168,6 +183,20 @@ export async function replyAnnouncementAction(
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  const rootResult = await getAnnouncementById(
+    parsed.data.parent_announcement_id,
+    access.condominium.id,
+  );
+
+  if (rootResult.ok) {
+    void notifyAnnouncementReply({
+      rootAnnouncement: rootResult.data,
+      replyBody: parsed.data.body,
+      senderProfileId: access.profile.id,
+      senderName: access.profile.fullName,
+    }).catch(() => {});
   }
 
   revalidateAnnouncementPaths(condoSlug, parsed.data.parent_announcement_id);

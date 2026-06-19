@@ -115,6 +115,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   });
 
   let readAt: string | null = null;
+  let readError: string | null = null;
   let readReceipts: AnnouncementReadReceipt[] = [];
 
   if (!isAuthor) {
@@ -122,7 +123,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
       announcementId,
       profileId: access.profile.id,
     });
-    readAt = readResult.ok ? readResult.data.read_at : null;
+    if (readResult.ok) {
+      readAt = readResult.data.read_at;
+    } else {
+      readError = readResult.error;
+    }
   } else {
     const receiptsResult = await listAnnouncementReadReceipts(announcementId);
     readReceipts = receiptsResult.ok ? receiptsResult.data : [];
@@ -168,6 +173,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
                 Leitura confirmada em {formatDateTime(readAt)}
               </p>
             )}
+            {!isAuthor && readError && (
+              <p className="text-amber-700">
+                Não foi possível registrar a confirmação de leitura. Tente abrir novamente.
+              </p>
+            )}
             <p className="whitespace-pre-wrap">{announcement.body}</p>
             {announcement.attachment_url && (
               <AnnouncementAttachmentLink
@@ -179,7 +189,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
         </Card>
       )}
 
-      {isAuthor && readReceipts.length >= 0 && (
+      {isAuthor && (
         <AnnouncementReadReceipts receipts={readReceipts} />
       )}
 

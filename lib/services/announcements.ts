@@ -322,10 +322,14 @@ type AnnouncementWriteInput = {
 
 type AnnouncementInsert = Database["public"]["Tables"]["announcements"]["Insert"];
 
+async function getAnnouncementWriteClient() {
+  return getSupabaseServiceRoleKey() ? createAdminClient() : await createClient();
+}
+
 async function insertAnnouncementRecord(
   payload: AnnouncementInsert,
 ): Promise<ServiceResult<AnnouncementWithDetails>> {
-  const writeClient = getSupabaseServiceRoleKey() ? createAdminClient() : await createClient();
+  const writeClient = await getAnnouncementWriteClient();
 
   const { data, error } = await writeClient
     .from("announcements")
@@ -451,10 +455,10 @@ export async function markAnnouncementAsRead(input: {
   announcementId: string;
   profileId: string;
 }): Promise<ServiceResult<{ read_at: string }>> {
-  const supabase = await createClient();
+  const readClient = await getAnnouncementWriteClient();
   const readAt = new Date().toISOString();
 
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await readClient
     .from("announcement_reads")
     .select("read_at")
     .eq("announcement_id", input.announcementId)
@@ -469,7 +473,7 @@ export async function markAnnouncementAsRead(input: {
     return serviceOk({ read_at: existing.read_at });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await readClient
     .from("announcement_reads")
     .insert({
       announcement_id: input.announcementId,
@@ -484,6 +488,54 @@ export async function markAnnouncementAsRead(input: {
   }
 
   return serviceOk({ read_at: data.read_at });
+}
+
+export async function getUnreadAnnouncementIds(
+  profileId: string,
+  announcements: Pick<AnnouncementRecord, "id" | "created_by">[],
+): Promise<Set<string>> {
+  const unreadCandidates = announcements.filter(
+    (announcement) => announcement.created_by !== profileId,
+  );
+
+  if (unreadCandidates.length === 0) {
+    return new Set();
+  }
+
+  const readClient = await getAnnouncementWriteClient();
+  const { data, error } = await readClient
+    .from("announcement_reads")
+    .select("announcement_id")
+    .eq("profile_id", profileId)
+    .in(
+      "announcement_id",
+      unreadCandidates.map((announcement) => announcement.id),
+    );
+
+  if (error) {
+    return new Set(unreadCandidates.map((announcement) => announcement.id));
+  }
+
+  const readIds = new Set((data ?? []).map((row) => row.announcement_id));
+
+  return new Set(
+    unreadCandidates
+      .filter((announcement) => !readIds.has(announcement.id))
+      .map((announcement) => announcement.id),
+  );
+}
+
+async function clearAnnouncementReadsForOthers(
+  announcementId: string,
+  excludeProfileId: string,
+): Promise<void> {
+  const writeClient = await getAnnouncementWriteClient();
+
+  await writeClient
+    .from("announcement_reads")
+    .delete()
+    .eq("announcement_id", announcementId)
+    .neq("profile_id", excludeProfileId);
 }
 
 export async function getAnnouncementReadStatus(input: {
@@ -515,9 +567,9 @@ export type AnnouncementReadReceipt = {
 export async function listAnnouncementReadReceipts(
   announcementId: string,
 ): Promise<ServiceResult<AnnouncementReadReceipt[]>> {
-  const supabase = await createClient();
+  const readClient = await getAnnouncementWriteClient();
 
-  const { data, error } = await supabase
+  const { data, error } = await readClient
     .from("announcement_reads")
     .select(
       `
@@ -651,8 +703,7 @@ export async function createAnnouncementReply(input: {
   }
 
   const publishedAt = new Date().toISOString();
-
-  return insertAnnouncementRecord({
+  const result = await insertAnnouncementRecord({
     condominium_id: parent.condominium_id,
     created_by: input.createdBy,
     parent_id: parent.id,
@@ -669,4 +720,10 @@ export async function createAnnouncementReply(input: {
     attachment_url: input.attachmentUrl ?? null,
     attachment_name: input.attachmentName ?? null,
   });
+
+  if (result.ok) {
+    await clearAnnouncementReadsForOthers(parent.id, input.createdBy);
+  }
+
+  return result;
 }

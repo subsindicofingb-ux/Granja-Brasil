@@ -108,8 +108,10 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   const generalOverview = generalOverviewResult?.ok ? generalOverviewResult.data : null;
 
-  const { metrics, upcomingReservations, recentReservations, recentAnnouncements, isUnitScoped } =
+  const { metrics, upcomingReservations, recentReservations, recentAnnouncements, unreadAnnouncementIds, isUnitScoped } =
     result.data;
+  const unreadAnnouncementSet = new Set(unreadAnnouncementIds);
+  const unreadAnnouncementCount = unreadAnnouncementIds.length;
   const pendingCount = metrics.reservationsByStatus[RESERVATION_STATUS.PENDING];
 
   const quickActions = [
@@ -317,27 +319,50 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
+            {unreadAnnouncementCount > 0 && (
+              <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950">
+                <span className="font-medium">
+                  {unreadAnnouncementCount} nova(s) mensagem(ns)
+                </span>{" "}
+                aguardando leitura.
+              </div>
+            )}
             {recentAnnouncements.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhum aviso publicado.</p>
             ) : (
-              recentAnnouncements.map((announcement) => (
-                <div key={announcement.id} className="rounded-lg border p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium">{announcement.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatDateTime(announcement.published_at)}
-                      </p>
+              recentAnnouncements.map((announcement) => {
+                const isUnread = unreadAnnouncementSet.has(announcement.id);
+
+                return (
+                  <Link
+                    key={announcement.id}
+                    href={`${base}/announcements/${announcement.id}`}
+                    className={`block rounded-lg border p-3 transition-colors hover:bg-muted/40 ${
+                      isUnread ? "border-sky-300 bg-sky-50/50" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{announcement.title}</p>
+                          {isUnread && (
+                            <Badge className="bg-sky-600 text-white hover:bg-sky-600">Nova</Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(announcement.published_at)}
+                        </p>
+                      </div>
+                      <Badge className={getAnnouncementPriorityBadgeClass(announcement.priority)}>
+                        {getAnnouncementPriorityLabel(announcement.priority)}
+                      </Badge>
                     </div>
-                    <Badge className={getAnnouncementPriorityBadgeClass(announcement.priority)}>
-                      {getAnnouncementPriorityLabel(announcement.priority)}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
-                    {announcement.body}
-                  </p>
-                </div>
-              ))
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {announcement.body}
+                    </p>
+                  </Link>
+                );
+              })
             )}
           </CardContent>
         </Card>
