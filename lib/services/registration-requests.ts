@@ -82,7 +82,7 @@ function mapProfileTypeToMembershipRole(profileType: RegistrationProfileType): R
     case "syndic":
       return ROLES.SYNDIC;
     case "staff":
-      return ROLES.DOORMAN;
+      return ROLES.STAFF;
     default:
       return ROLES.RESIDENT;
   }

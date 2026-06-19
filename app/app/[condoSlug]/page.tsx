@@ -2,6 +2,11 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import {
+  getAssignableMemberRoles,
+  getMemberRoleLabel,
+  isGranjaOnlyMemberRole,
+} from "@/lib/auth/member-roles";
 import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
@@ -130,21 +135,20 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       href: `${base}/areas/new`,
       allowed: access.permissions.canManageAreas,
     },
-    {
-      label: "Cadastrar síndico",
-      href: `${base}/settings/members?role=${ROLES.SYNDIC}`,
-      allowed: access.permissions.canManageMembers,
-    },
-    {
-      label: "Cadastrar portaria",
-      href: `${base}/settings/members?role=${ROLES.DOORMAN}`,
-      allowed: access.permissions.canManageMembers,
-    },
-    {
-      label: "Cadastrar administrador",
-      href: `${base}/settings/members?role=${ROLES.ADMIN}`,
-      allowed: access.permissions.canManageMembers,
-    },
+    ...getAssignableMemberRoles(access.role)
+      .filter((role) => !isGranjaOnlyMemberRole(role) && role !== ROLES.RESIDENT)
+      .map((role) => ({
+        label: `Cadastrar ${getMemberRoleLabel(role).toLowerCase()}`,
+        href: `${base}/settings/members?role=${role}`,
+        allowed: access.permissions.canManageMembers,
+      })),
+    ...getAssignableMemberRoles(access.role)
+      .filter((role) => isGranjaOnlyMemberRole(role))
+      .map((role) => ({
+        label: `Cadastrar ${getMemberRoleLabel(role).toLowerCase()}`,
+        href: `${base}/settings/members?role=${role}`,
+        allowed: access.permissions.canManageMembers && access.role === ROLES.SUPER_ADMIN,
+      })),
   ].filter((action) => action.allowed);
 
   return (

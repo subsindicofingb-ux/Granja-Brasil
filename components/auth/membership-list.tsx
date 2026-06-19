@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
+import { getMemberRoleLabel } from "@/lib/auth/member-roles";
 import { removeMembershipAction } from "@/lib/auth/actions";
-import { getRolePermissions } from "@/lib/auth/roles";
 import type { Role } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
@@ -62,7 +62,7 @@ export function MembershipList({
                   )}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {getRolePermissions(member.role).label}
+                  {getMemberRoleLabel(member.role)}
                 </td>
                 {canManage && (
                   <td className="px-4 py-3 text-right">

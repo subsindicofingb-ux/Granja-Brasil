@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
-import { getRolePermissions } from "@/lib/auth/roles";
+import {
+  getAssignableMemberRoles,
+  getMemberRoleLabel,
+} from "@/lib/auth/member-roles";
 import { AddMembershipForm } from "@/components/auth/add-membership-form";
 import { MembershipList } from "@/components/auth/membership-list";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -9,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import type { Role } from "@/lib/constants";
-import { ROLES } from "@/lib/constants";
 
 interface MembersPageProps {
   params: Promise<{ condoSlug: string }>;
@@ -22,10 +24,11 @@ type MemberRow = {
   profile: { id: string; full_name: string } | null;
 };
 
-const STAFF_ROLES = new Set<Role>([ROLES.SYNDIC, ROLES.DOORMAN, ROLES.ADMIN, ROLES.RESIDENT]);
-
-function resolveDefaultRole(roleParam: string | undefined): Role | undefined {
-  if (!roleParam || !STAFF_ROLES.has(roleParam as Role)) {
+function resolveDefaultRole(
+  roleParam: string | undefined,
+  assignableRoles: Role[],
+): Role | undefined {
+  if (!roleParam || !assignableRoles.includes(roleParam as Role)) {
     return undefined;
   }
 
@@ -41,8 +44,9 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
     notFound();
   }
 
-  const defaultRole = resolveDefaultRole(roleParam);
-  const roleLabel = defaultRole ? getRolePermissions(defaultRole).label : null;
+  const assignableRoles = getAssignableMemberRoles(access.role);
+  const defaultRole = resolveDefaultRole(roleParam, assignableRoles);
+  const roleLabel = defaultRole ? getMemberRoleLabel(defaultRole) : null;
 
   const supabase = await createClient();
   const { data: members } = await supabase
@@ -86,7 +90,11 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <AddMembershipForm condoSlug={condoSlug} defaultRole={defaultRole} />
+          <AddMembershipForm
+            condoSlug={condoSlug}
+            assignableRoles={assignableRoles}
+            defaultRole={defaultRole}
+          />
         </CardContent>
       </Card>
 

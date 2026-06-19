@@ -2,8 +2,10 @@ export const ROLES = {
   SUPER_ADMIN: "super_admin",
   ADMIN: "admin",
   SYNDIC: "syndic",
+  SUB_SYNDIC: "sub_syndic",
   RESIDENT: "resident",
   DOORMAN: "doorman",
+  STAFF: "staff",
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];

@@ -10,8 +10,10 @@ export type MembershipRole =
   | "super_admin"
   | "admin"
   | "syndic"
+  | "sub_syndic"
   | "resident"
-  | "doorman";
+  | "doorman"
+  | "staff";
 
 export type ResidentType = "owner" | "tenant" | "dependent" | "responsible";
 

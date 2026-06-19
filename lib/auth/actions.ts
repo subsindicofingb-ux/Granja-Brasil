@@ -3,10 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
+import { ROLES } from "@/lib/constants";
 import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
 import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { getUserMemberships, requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
+import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
@@ -547,6 +549,14 @@ export async function addMembershipAction(
     return { error: "Sem permissão para gerenciar membros." };
   }
 
+  if (!canAssignMemberRole(access.role, role)) {
+    if (isGranjaOnlyMemberRole(role)) {
+      return { error: "Síndico e administrador só podem ser cadastrados pela Granja." };
+    }
+
+    return { error: "Você não pode vincular este papel." };
+  }
+
   const admin = createAdminClient();
   const { data: listed, error: listError } = await admin.auth.admin.listUsers({
     page: 1,
@@ -626,6 +636,13 @@ export async function removeMembershipAction(
 
   if (!membership) {
     return { error: "Vínculo não encontrado." };
+  }
+
+  if (
+    isGranjaOnlyMemberRole(membership.role as Role) &&
+    access.role !== ROLES.SUPER_ADMIN
+  ) {
+    return { error: "Somente a Granja pode remover síndico ou administrador." };
   }
 
   if (membership.profile_id === currentUser?.id) {
