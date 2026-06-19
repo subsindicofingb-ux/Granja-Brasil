@@ -3,7 +3,6 @@ import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import {
   formatAllowedDays,
   formatDays,
-  formatMinutes,
 } from "@/lib/common-areas/labels";
 import { formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -37,16 +36,18 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
 
       <div className="space-y-3">
         <Row label="Capacidade" value={`${area.capacity} pessoas`} />
-        <Row label="Descrição" value={area.description ?? "—"} />
+        <Row label="Regras" value={area.description ?? "—"} />
       </div>
 
       <div className="space-y-3">
         <p className="font-medium">Regras de reserva</p>
-        <Row label="Duração máxima" value={formatMinutes(area.max_duration_minutes)} />
-        <Row label="Buffer entre reservas" value={formatMinutes(area.buffer_minutes, "0 min")} />
+        <Row
+          label="Buffer entre reservas"
+          value={formatDays(area.buffer_days, "0 dias")}
+        />
         <Row
           label="Antecedência mínima"
-          value={formatMinutes(area.min_advance_minutes, "0 min")}
+          value={formatDays(area.min_advance_days, "0 dias")}
         />
         <Row label="Antecedência máxima" value={formatDays(area.max_advance_days)} />
         <Row
@@ -57,14 +58,14 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
               : "Sem limite"
           }
         />
+        <Row
+          label="Horário de funcionamento"
+          value={`${area.operating_hours.start} – ${area.operating_hours.end}`}
+        />
       </div>
 
       <div className="space-y-3">
         <p className="font-medium">Disponibilidade</p>
-        <Row
-          label="Horário"
-          value={`${area.operating_hours.start} – ${area.operating_hours.end}`}
-        />
         <Row label="Dias permitidos" value={formatAllowedDays(area.allowed_days)} />
       </div>
 

@@ -182,14 +182,14 @@ export function CommonAreaFormFields({
           <Input id="name" name="name" defaultValue={defaults.name} required />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="description">Descrição</Label>
+          <Label htmlFor="description">Regras</Label>
           <textarea
             id="description"
             name="description"
             rows={3}
             defaultValue={defaults.description ?? ""}
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
-            placeholder="Descreva o espaço e observações gerais..."
+            placeholder="Informe as regras de uso do espaço..."
           />
         </div>
         <div className="space-y-2">
@@ -232,38 +232,27 @@ export function CommonAreaFormFields({
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Regras de reserva</h3>
         <p className="text-xs text-muted-foreground">
-          Usadas pelo módulo de reservas (em breve). Deixe em branco campos opcionais para sem limite.
+          A duração máxima segue o horário de funcionamento. Deixe em branco campos opcionais para sem limite.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="max_duration_minutes">Duração máxima (minutos)</Label>
+            <Label htmlFor="buffer_days">Buffer entre reservas (dias)</Label>
             <Input
-              id="max_duration_minutes"
-              name="max_duration_minutes"
+              id="buffer_days"
+              name="buffer_days"
               type="number"
-              min={1}
-              placeholder="Ex: 360"
-              defaultValue={defaults.max_duration_minutes ?? ""}
+              min={0}
+              defaultValue={defaults.buffer_days}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="buffer_minutes">Buffer entre reservas (minutos)</Label>
+            <Label htmlFor="min_advance_days">Antecedência mínima (dias)</Label>
             <Input
-              id="buffer_minutes"
-              name="buffer_minutes"
+              id="min_advance_days"
+              name="min_advance_days"
               type="number"
               min={0}
-              defaultValue={defaults.buffer_minutes}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="min_advance_minutes">Antecedência mínima (minutos)</Label>
-            <Input
-              id="min_advance_minutes"
-              name="min_advance_minutes"
-              type="number"
-              min={0}
-              defaultValue={defaults.min_advance_minutes}
+              defaultValue={defaults.min_advance_days}
             />
           </div>
           <div className="space-y-2">

@@ -3,14 +3,14 @@ import { ALLOWED_DAYS } from "@/lib/common-areas/types";
 
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-const optionalDescription = z
+const optionalRules = z
   .union([z.string(), z.null(), z.undefined()])
   .transform((value) => {
     if (value == null) return null;
     const trimmed = String(value).trim();
     return trimmed === "" ? null : trimmed;
   })
-  .refine((value) => value === null || value.length <= 2000, "Descrição muito longa.");
+  .refine((value) => value === null || value.length <= 2000, "Regras muito longas.");
 
 const optionalPositiveInt = z
   .union([z.string(), z.number(), z.null(), z.undefined()])
@@ -41,15 +41,14 @@ const maintenanceBlockSchema = z.object({
 export const commonAreaFormSchema = z
   .object({
     name: z.string().trim().min(1, "Informe o nome do espaço.").max(100, "Nome muito longo."),
-    description: optionalDescription,
+    description: optionalRules,
     capacity: z.coerce
       .number({ invalid_type_error: "Capacidade inválida." })
       .int("Capacidade deve ser inteira.")
       .min(1, "Capacidade mínima: 1."),
     is_active: z.boolean(),
     requires_approval: z.boolean(),
-    max_duration_minutes: optionalPositiveInt,
-    min_advance_minutes: z.coerce
+    min_advance_days: z.coerce
       .number({ invalid_type_error: "Antecedência mínima inválida." })
       .int()
       .min(0, "Não pode ser negativa."),
@@ -59,7 +58,7 @@ export const commonAreaFormSchema = z
       .number({ invalid_type_error: "Período inválido." })
       .int()
       .min(1, "Período mínimo: 1 dia."),
-    buffer_minutes: z.coerce
+    buffer_days: z.coerce
       .number({ invalid_type_error: "Buffer inválido." })
       .int()
       .min(0, "Buffer não pode ser negativo."),
@@ -112,12 +111,11 @@ export function parseCommonAreaFormData(formData: FormData) {
     capacity: formData.get("capacity"),
     is_active: parseBoolean(formData.get("is_active")),
     requires_approval: parseBoolean(formData.get("requires_approval")),
-    max_duration_minutes: formData.get("max_duration_minutes"),
-    min_advance_minutes: formData.get("min_advance_minutes"),
+    min_advance_days: formData.get("min_advance_days"),
     max_advance_days: formData.get("max_advance_days"),
     max_reservations_per_unit: formData.get("max_reservations_per_unit"),
     reservation_period_days: formData.get("reservation_period_days"),
-    buffer_minutes: formData.get("buffer_minutes"),
+    buffer_days: formData.get("buffer_days"),
     operating_hours_start: formData.get("operating_hours_start"),
     operating_hours_end: formData.get("operating_hours_end"),
     allowed_days: allowedDays,
@@ -134,12 +132,12 @@ export function toCommonAreaPayload(
     capacity: data.capacity,
     is_active: data.is_active,
     requires_approval: data.requires_approval,
-    max_duration_minutes: data.max_duration_minutes,
-    min_advance_minutes: data.min_advance_minutes,
+    max_duration_minutes: null,
+    min_advance_days: data.min_advance_days,
     max_advance_days: data.max_advance_days,
     max_reservations_per_unit: data.max_reservations_per_unit,
     reservation_period_days: data.reservation_period_days,
-    buffer_minutes: data.buffer_minutes,
+    buffer_days: data.buffer_days,
     operating_hours: {
       start: data.operating_hours_start,
       end: data.operating_hours_end,

@@ -274,10 +274,12 @@ export interface Database {
           requires_approval: boolean;
           max_duration_minutes: number | null;
           min_advance_minutes: number;
+          min_advance_days: number;
           max_advance_days: number | null;
           max_reservations_per_unit: number | null;
           reservation_period_days: number;
           buffer_minutes: number;
+          buffer_days: number;
           operating_hours: Json;
           allowed_days: Json;
           maintenance_blocks: Json;
@@ -295,10 +297,12 @@ export interface Database {
           requires_approval?: boolean;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
+          min_advance_days?: number;
           max_advance_days?: number | null;
           max_reservations_per_unit?: number | null;
           reservation_period_days?: number;
           buffer_minutes?: number;
+          buffer_days?: number;
           operating_hours?: Json;
           allowed_days?: Json;
           maintenance_blocks?: Json;
@@ -316,10 +320,12 @@ export interface Database {
           requires_approval?: boolean;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
+          min_advance_days?: number;
           max_advance_days?: number | null;
           max_reservations_per_unit?: number | null;
           reservation_period_days?: number;
           buffer_minutes?: number;
+          buffer_days?: number;
           operating_hours?: Json;
           allowed_days?: Json;
           maintenance_blocks?: Json;

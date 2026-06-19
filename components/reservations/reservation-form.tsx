@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { createReservationAction } from "@/lib/actions/reservations";
 import { formatUnitOptionLabel } from "@/lib/residents/labels";
+import { ReservationDateCalendar } from "@/components/reservations/reservation-date-calendar";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ export function ReservationForm({
 }: ReservationFormProps) {
   const [state, formAction, pending] = useActionState(createReservationAction, {});
   const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [reservationDate, setReservationDate] = useState(todayDateValue());
   const selectedArea = useMemo(
     () => areas.find((area) => area.id === selectedAreaId),
     [areas, selectedAreaId],
@@ -134,17 +136,20 @@ export function ReservationForm({
 
       {isResident ? (
         <>
-          <div className="space-y-2">
-            <Label htmlFor="reservation_date">Data</Label>
-            <Input
-              id="reservation_date"
-              name="reservation_date"
-              type="date"
-              required
-              min={todayDateValue()}
-              defaultValue={todayDateValue()}
+          {selectedAreaId ? (
+            <ReservationDateCalendar
+              condoSlug={condoSlug}
+              areaId={selectedAreaId}
+              value={reservationDate}
+              onChange={setReservationDate}
             />
-          </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Selecione um espaço comum para ver o calendário de disponibilidade.
+            </p>
+          )}
+
+          <input type="hidden" name="reservation_date" value={reservationDate} />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

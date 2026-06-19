@@ -6,6 +6,10 @@ import type {
 } from "@/lib/reservations/types";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/reservations/types";
 import {
+  addDaysToDateKey,
+  dateKeyTouchesRange,
+} from "@/lib/reservations/calendar-availability";
+import {
   DEFAULT_CONDO_TIMEZONE,
   getAllowedDayInTimezone,
   getLocalDateKey,
@@ -17,11 +21,14 @@ function rangesOverlap(startA: Date, endA: Date, startB: Date, endB: Date): bool
   return startA < endB && startB < endA;
 }
 
-function expandWithBuffer(start: Date, end: Date, bufferMinutes: number): [Date, Date] {
-  return [
-    new Date(start.getTime() - bufferMinutes * 60_000),
-    new Date(end.getTime() + bufferMinutes * 60_000),
-  ];
+function parseDateKey(dateKey: string): Date {
+  return new Date(`${dateKey}T12:00:00`);
+}
+
+function daysBetweenDateKeys(fromKey: string, toKey: string): number {
+  const from = parseDateKey(fromKey);
+  const to = parseDateKey(toKey);
+  return Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60_000));
 }
 
 function isBlockingReservation(reservation: ReservationRecord, excludeId?: string): boolean {
@@ -39,6 +46,8 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
     excludeReservationId,
   } = input;
   const timeZone = DEFAULT_CONDO_TIMEZONE;
+  const todayKey = getLocalDateKey(now, timeZone);
+  const startDateKey = getLocalDateKey(startAt, timeZone);
 
   if (!(startAt instanceof Date) || Number.isNaN(startAt.getTime())) {
     return { valid: false, error: "Data/hora de início inválida." };
@@ -84,25 +93,16 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
     };
   }
 
-  const durationMinutes = Math.round((endAt.getTime() - startAt.getTime()) / 60_000);
-  if (area.max_duration_minutes != null && durationMinutes > area.max_duration_minutes) {
+  const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
+  if (daysUntilStart < area.min_advance_days) {
     return {
       valid: false,
-      error: `Duração máxima permitida: ${area.max_duration_minutes} minutos.`,
-    };
-  }
-
-  const minutesUntilStart = (startAt.getTime() - now.getTime()) / 60_000;
-  if (minutesUntilStart < area.min_advance_minutes) {
-    return {
-      valid: false,
-      error: `Antecedência mínima: ${area.min_advance_minutes} minutos.`,
+      error: `Antecedência mínima: ${area.min_advance_days} dia(s).`,
     };
   }
 
   if (area.max_advance_days != null) {
-    const maxAdvanceMs = area.max_advance_days * 24 * 60 * 60_000;
-    if (startAt.getTime() - now.getTime() > maxAdvanceMs) {
+    if (daysUntilStart > area.max_advance_days) {
       return {
         valid: false,
         error: `Antecedência máxima: ${area.max_advance_days} dias.`,
@@ -133,17 +133,18 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
       return { valid: false, error: "Conflito de horário com outra reserva." };
     }
 
-    const [bufferStart, bufferEnd] = expandWithBuffer(
-      existingStart,
-      existingEnd,
-      area.buffer_minutes,
-    );
+    if (area.buffer_days > 0) {
+      const existingStartKey = getLocalDateKey(existingStart, timeZone);
+      const existingEndKey = getLocalDateKey(existingEnd, timeZone);
+      const bufferStartKey = addDaysToDateKey(existingStartKey, -area.buffer_days);
+      const bufferEndKey = addDaysToDateKey(existingEndKey, area.buffer_days);
 
-    if (rangesOverlap(startAt, endAt, bufferStart, bufferEnd)) {
-      return {
-        valid: false,
-        error: `Intervalo mínimo entre reservas: ${area.buffer_minutes} minutos.`,
-      };
+      if (dateKeyTouchesRange(startDateKey, bufferStartKey, bufferEndKey)) {
+        return {
+          valid: false,
+          error: `Intervalo mínimo entre reservas: ${area.buffer_days} dia(s).`,
+        };
+      }
     }
   }
 

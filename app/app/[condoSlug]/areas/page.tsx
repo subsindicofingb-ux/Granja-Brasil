@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
-import { formatAllowedDays, formatMinutes } from "@/lib/common-areas/labels";
+import { formatAllowedDays } from "@/lib/common-areas/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { AreaStatusFilter } from "@/components/common-areas/area-status-filter";
@@ -108,18 +108,12 @@ async function AreasContent({
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="line-clamp-2 text-sm text-muted-foreground">
-                  {area.description ?? "Sem descrição."}
+                  {area.description ?? "Sem regras."}
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>{area.operating_hours.start}–{area.operating_hours.end}</span>
                   <span>·</span>
                   <span>{formatAllowedDays(area.allowed_days)}</span>
-                  {area.max_duration_minutes && (
-                    <>
-                      <span>·</span>
-                      <span>Máx. {formatMinutes(area.max_duration_minutes)}</span>
-                    </>
-                  )}
                 </div>
                 {area.requires_approval && (
                   <Badge className="border-amber-200 bg-amber-50 text-amber-700">

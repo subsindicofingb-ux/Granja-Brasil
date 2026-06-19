@@ -55,7 +55,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     const areaOptions = await buildReservationAreaOptions(areas);
 
     return (
-      <div className="mx-auto max-w-lg space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6">
         <PageHeader
           title="Nova reserva"
           description="Agende um espaço comum respeitando as regras configuradas."
@@ -97,7 +97,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Nova reserva"
         description="Agende um espaço comum respeitando as regras configuradas."

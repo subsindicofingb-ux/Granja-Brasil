@@ -1,11 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import { ALLOWED_DAYS } from "@/lib/common-areas/types";
 import type {
   AllowedDay,
   CommonAreaRecord,
   MaintenanceBlock,
   OperatingHours,
 } from "@/lib/common-areas/types";
-import { ALLOWED_DAYS } from "@/lib/common-areas/types";
+import {
+  resolveBufferDays,
+  resolveMinAdvanceDays,
+} from "@/lib/common-areas/defaults";
 import {
   getGranjaCondominiumId,
   isEligibleForGranjaSharedCommonAreas,
@@ -24,10 +28,12 @@ type CommonAreaRow = {
   requires_approval: boolean;
   max_duration_minutes: number | null;
   min_advance_minutes: number;
+  min_advance_days?: number | null;
   max_advance_days: number | null;
   max_reservations_per_unit: number | null;
   reservation_period_days: number;
   buffer_minutes: number;
+  buffer_days?: number | null;
   operating_hours: OperatingHours | string;
   allowed_days: AllowedDay[] | string;
   maintenance_blocks: MaintenanceBlock[] | string;
@@ -82,12 +88,11 @@ function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
     description: row.description,
     is_active: row.is_active,
     requires_approval: row.requires_approval,
-    max_duration_minutes: row.max_duration_minutes,
-    min_advance_minutes: row.min_advance_minutes,
+    min_advance_days: resolveMinAdvanceDays(row.min_advance_days, row.min_advance_minutes),
     max_advance_days: row.max_advance_days,
     max_reservations_per_unit: row.max_reservations_per_unit,
     reservation_period_days: row.reservation_period_days,
-    buffer_minutes: row.buffer_minutes,
+    buffer_days: resolveBufferDays(row.buffer_days, row.buffer_minutes),
     operating_hours: parseOperatingHours(row.operating_hours),
     allowed_days: parseAllowedDays(row.allowed_days),
     maintenance_blocks: parseMaintenanceBlocks(row.maintenance_blocks),
@@ -105,12 +110,11 @@ const COMMON_AREA_SELECT = `
   description,
   is_active,
   requires_approval,
-  max_duration_minutes,
-  min_advance_minutes,
+  min_advance_days,
   max_advance_days,
   max_reservations_per_unit,
   reservation_period_days,
-  buffer_minutes,
+  buffer_days,
   operating_hours,
   allowed_days,
   maintenance_blocks,
@@ -250,12 +254,14 @@ function toDbPayload(input: CommonAreaWriteInput) {
     capacity: input.capacity,
     is_active: input.is_active,
     requires_approval: input.requires_approval,
-    max_duration_minutes: input.max_duration_minutes,
-    min_advance_minutes: input.min_advance_minutes,
+    max_duration_minutes: null,
+    min_advance_minutes: 0,
+    min_advance_days: input.min_advance_days,
     max_advance_days: input.max_advance_days,
     max_reservations_per_unit: input.max_reservations_per_unit,
     reservation_period_days: input.reservation_period_days,
-    buffer_minutes: input.buffer_minutes,
+    buffer_minutes: 0,
+    buffer_days: input.buffer_days,
     operating_hours: input.operating_hours,
     allowed_days: input.allowed_days,
     maintenance_blocks: input.maintenance_blocks,
