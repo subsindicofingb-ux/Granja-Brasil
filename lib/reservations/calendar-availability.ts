@@ -6,7 +6,12 @@ import {
   getLocalDateKey,
 } from "@/lib/reservations/timezone";
 
-export type CalendarDayStatus = "available" | "unavailable" | "confirmed" | "maintenance";
+export type CalendarDayStatus =
+  | "available"
+  | "unavailable"
+  | "confirmed"
+  | "prereserva"
+  | "maintenance";
 
 export type ReservationCalendarDay = {
   date: string;
@@ -100,6 +105,13 @@ export function buildReservationCalendarDays(input: {
   const approvedReservations = input.reservations.filter(
     (reservation) => reservation.status === "approved",
   );
+  const prereservationStatuses = new Set<ReservationRecord["status"]>([
+    "pending",
+    "awaiting_receipt",
+  ]);
+  const prereservations = input.reservations.filter((reservation) =>
+    prereservationStatuses.has(reservation.status),
+  );
 
   return getDaysInMonth(input.month).map((dateKey) => {
     const allowedDay = getAllowedDayInTimezone(parseDateKey(dateKey), DEFAULT_CONDO_TIMEZONE);
@@ -135,6 +147,19 @@ export function buildReservationCalendarDays(input: {
         status: "confirmed",
         label: "Confirmado",
         selectable: true,
+      };
+    }
+
+    const hasPrereservation = prereservations.some((reservation) =>
+      reservationTouchesDay(reservation, dateKey),
+    );
+
+    if (hasPrereservation) {
+      return {
+        date: dateKey,
+        status: "prereserva",
+        label: "Pré-reserva",
+        selectable: false,
       };
     }
 

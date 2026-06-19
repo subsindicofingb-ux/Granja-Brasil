@@ -137,6 +137,8 @@ export function ReservationDateCalendar({
                     day.selectable &&
                     !isSelected &&
                     "border-amber-200 bg-amber-50 text-amber-900",
+                  day.status === "prereserva" &&
+                    "border-blue-200 bg-blue-50 text-blue-900",
                   day.status === "maintenance" && "border-red-200 bg-red-50 text-red-700",
                 )}
               >
@@ -153,6 +155,7 @@ export function ReservationDateCalendar({
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>Disponível</span>
         <span className="text-amber-800">Confirmado — reserva já existente no dia</span>
+        <span className="text-blue-800">Pré-reserva — aguardando aprovação ou recibo</span>
         <span className="text-red-700">Manutenção — bloqueio da administração</span>
       </div>
     </div>
