@@ -54,11 +54,18 @@ async function AnnouncementsContent({
   const [towersResult, condominiumsResult, announcementsResult] = await Promise.all([
     listTowersByCondominium(access.condominium.id),
     isGranja ? listCondominiums() : Promise.resolve(null),
-    listAnnouncementsByCondominium(access.condominium.id, {
-      towerId,
-      targetCondominiumId,
-      includeCondominiumWide: towerId ? true : undefined,
-    }),
+    listAnnouncementsByCondominium(
+      {
+        condominiumId: access.condominium.id,
+        profileId: access.profile.id,
+        isStaff: access.permissions.canManageAnnouncements,
+      },
+      {
+        towerId,
+        targetCondominiumId,
+        includeCondominiumWide: towerId ? true : undefined,
+      },
+    ),
   ]);
 
   if (!towersResult.ok) {

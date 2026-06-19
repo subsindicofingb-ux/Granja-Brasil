@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
 import type { UnitListFilter } from "@/lib/auth/unit-scope";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
-import { listRecentAnnouncementsByCondominium } from "@/lib/services/announcements";
+import { listRecentAnnouncementsByCondominium, type AnnouncementViewContext } from "@/lib/services/announcements";
 import {
   countReservationsByStatusForCondominium,
   listRecentReservationsByCondominium,
@@ -198,9 +198,15 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 export async function getDashboardData(
   condominiumId: string,
   scope: UnitListFilter | "none" | null = null,
+  announcementViewContext?: AnnouncementViewContext,
 ): Promise<ServiceResult<DashboardData>> {
   const unitFilter = scope ?? {};
   const isUnitScoped = scope !== null && scope !== "none";
+  const viewContext: AnnouncementViewContext = announcementViewContext ?? {
+    condominiumId,
+    profileId: "",
+    isStaff: true,
+  };
 
   const reservationOptions =
     unitFilter === "none"
@@ -226,7 +232,7 @@ export async function getDashboardData(
     countReservationsByStatusForCondominium(condominiumId, reservationOptions),
     listUpcomingReservationsByCondominium(condominiumId, 5, reservationOptions),
     listRecentReservationsByCondominium(condominiumId, 5, reservationOptions),
-    listRecentAnnouncementsByCondominium(condominiumId, 5),
+    listRecentAnnouncementsByCondominium(viewContext, 5),
   ]);
 
   if (!unitsResult.ok) {

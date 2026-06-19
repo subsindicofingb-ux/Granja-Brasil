@@ -1,4 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  filterAnnouncementsForContext,
+  type AnnouncementViewContext,
+} from "@/lib/announcements/context-visibility";
 import { matchesAnnouncementCondominiumFilter } from "@/lib/announcements/targeting";
 import { getTowerById } from "@/lib/services/towers";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
@@ -207,8 +211,10 @@ async function validateTargetProfile(
   return serviceOk(null);
 }
 
+export type { AnnouncementViewContext } from "@/lib/announcements/context-visibility";
+
 export async function listAnnouncementsByCondominium(
-  condominiumId: string,
+  viewContext: AnnouncementViewContext,
   options?: AnnouncementListOptions,
 ): Promise<ServiceResult<AnnouncementWithDetails[]>> {
   const supabase = await createClient();
@@ -223,20 +229,23 @@ export async function listAnnouncementsByCondominium(
     return serviceError(mapSupabaseError(error));
   }
 
-  const announcements = applyAnnouncementListFilters(
+  const inContext = filterAnnouncementsForContext(
     ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
-    options,
+    viewContext,
     granjaCondominiumId,
   );
+
+  const announcements = applyAnnouncementListFilters(inContext, options, granjaCondominiumId);
 
   return serviceOk(announcements);
 }
 
 export async function listRecentAnnouncementsByCondominium(
-  _condominiumId: string,
+  viewContext: AnnouncementViewContext,
   limit = 5,
 ): Promise<ServiceResult<AnnouncementWithDetails[]>> {
   const supabase = await createClient();
+  const granjaCondominiumId = await getGranjaCondominiumId();
   const filters = getMemberVisibleAnnouncementFilters();
 
   const { data, error } = await supabase
@@ -246,17 +255,21 @@ export async function listRecentAnnouncementsByCondominium(
     .lte("published_at", filters.nowIso)
     .or(filters.expires_or)
     .order("published_at", { ascending: false })
-    .limit(limit);
+    .limit(limit * 4);
 
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
 
-  const announcements = ((data as AnnouncementDetailRow[] | null) ?? []).map(
-    mapAnnouncementDetail,
-  );
+  const announcements = filterAnnouncementsForContext(
+    filterAnnouncementsVisibleToMembers(
+      ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+    ),
+    viewContext,
+    granjaCondominiumId,
+  ).slice(0, limit);
 
-  return serviceOk(filterAnnouncementsVisibleToMembers(announcements));
+  return serviceOk(announcements);
 }
 
 export async function getAnnouncementById(

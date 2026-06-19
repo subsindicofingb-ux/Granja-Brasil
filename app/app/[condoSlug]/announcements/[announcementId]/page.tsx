@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
   getAnnouncementById,
   listAnnouncementReadReceipts,
@@ -67,6 +69,18 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   }
 
   const announcement = announcementResult.data;
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const viewContext = {
+    condominiumId: access.condominium.id,
+    profileId: access.profile.id,
+    isStaff: access.permissions.canManageAnnouncements,
+  };
+
+  if (!isAnnouncementVisibleInContext(announcement, viewContext, granjaCondominiumId)) {
+    notFound();
+  }
+
   const canManage = access.permissions.canManageAnnouncements;
   const isSender = canManage && announcement.condominium_id === access.condominium.id;
   const displayStatus = getAnnouncementDisplayStatus(announcement);

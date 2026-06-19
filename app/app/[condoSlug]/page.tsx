@@ -69,7 +69,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const scope = access.permissions.canManageStructure ? null : unitFilter;
   const isGeneralCondoDashboard = isGeneralCondominium(condoSlug);
   const [result, generalOverviewResult] = await Promise.all([
-    getDashboardData(access.condominium.id, scope),
+    getDashboardData(access.condominium.id, scope, {
+      condominiumId: access.condominium.id,
+      profileId: access.profile.id,
+      isStaff: access.permissions.canManageAnnouncements,
+    }),
     isGeneralCondoDashboard ? getGeneralCondominiumOverviewMetrics() : Promise.resolve(null),
   ]);
   const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;

@@ -50,6 +50,7 @@ export {
   countAnnouncementReads,
   type AnnouncementListOptions,
   type AnnouncementReadReceipt,
+  type AnnouncementViewContext,
 } from "./announcements";
 export {
   listVisitorAuthorizationsByCondominium,
