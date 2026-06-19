@@ -17,6 +17,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
+    canSendAnnouncements: true,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -36,6 +37,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
+    canSendAnnouncements: true,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -55,6 +57,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
+    canSendAnnouncements: true,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -74,6 +77,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: false,
     canManageReservations: true,
     canManageAnnouncements: false,
+    canSendAnnouncements: true,
     canApproveReservations: false,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: false,
@@ -93,6 +97,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: false,
     canManageReservations: false,
     canManageAnnouncements: false,
+    canSendAnnouncements: false,
     canApproveReservations: false,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: false,
@@ -114,6 +119,7 @@ export const ROLE_PERMISSIONS = {
     canManageAreas: boolean;
     canManageReservations: boolean;
     canManageAnnouncements: boolean;
+    canSendAnnouncements: boolean;
     canApproveReservations: boolean;
     canViewVisitorAuthorizations: boolean;
     canManageVisitorAuthorizations: boolean;

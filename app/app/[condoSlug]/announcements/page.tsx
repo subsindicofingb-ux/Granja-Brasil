@@ -20,17 +20,18 @@ interface AnnouncementsPageProps {
 
 async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
+  const canCreate = access.permissions.canManageAnnouncements || access.permissions.canSendAnnouncements;
 
   return (
     <PageHeader
       title="Avisos"
       description="Comunicados do condomínio para moradores e portaria."
       action={
-        access.permissions.canManageAnnouncements ? (
+        canCreate ? (
           <Button asChild>
             <Link href={`/app/${condoSlug}/announcements/new`}>
               <Plus className="h-4 w-4" />
-              Novo aviso
+              {access.permissions.canManageAnnouncements ? "Novo aviso" : "Nova mensagem"}
             </Link>
           </Button>
         ) : undefined
@@ -112,9 +113,11 @@ async function AnnouncementsContent({
               : "Publique o primeiro comunicado do condomínio."
           }
           action={
-            access.permissions.canManageAnnouncements ? (
+            access.permissions.canManageAnnouncements || access.permissions.canSendAnnouncements ? (
               <Button asChild>
-                <Link href={`/app/${condoSlug}/announcements/new`}>Novo aviso</Link>
+                <Link href={`/app/${condoSlug}/announcements/new`}>
+                  {access.permissions.canManageAnnouncements ? "Novo aviso" : "Nova mensagem"}
+                </Link>
               </Button>
             ) : undefined
           }

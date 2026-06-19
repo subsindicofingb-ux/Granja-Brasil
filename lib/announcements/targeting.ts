@@ -21,12 +21,22 @@ export function resolveAnnouncementAudienceScope(
 export function formatAnnouncementAudienceLabel(input: {
   announcement: Pick<
     AnnouncementWithDetails,
-    "target_condominium_id" | "target_profile_id" | "tower"
+    "target_condominium_id" | "target_profile_id" | "tower" | "staff_only"
   >;
   targetCondominiumName?: string | null;
   targetProfileName?: string | null;
   isGranjaSource?: boolean;
 }): string {
+  if (input.announcement.staff_only) {
+    if (input.announcement.target_condominium_id && input.isGranjaSource) {
+      return input.targetCondominiumName
+        ? `Granja Brasil · ${input.targetCondominiumName}`
+        : "Granja Brasil";
+    }
+
+    return "Síndico / administração";
+  }
+
   if (input.announcement.target_profile_id) {
     return input.targetProfileName
       ? `Morador: ${input.targetProfileName}`

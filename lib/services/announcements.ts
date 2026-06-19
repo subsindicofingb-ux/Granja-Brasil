@@ -29,6 +29,10 @@ const ANNOUNCEMENT_SELECT = `
   tower_id,
   target_condominium_id,
   target_profile_id,
+  parent_id,
+  attachment_url,
+  attachment_name,
+  staff_only,
   title,
   body,
   priority,
@@ -59,6 +63,10 @@ function mapAnnouncement(row: AnnouncementRow): AnnouncementRecord {
     tower_id: row.tower_id,
     target_condominium_id: row.target_condominium_id,
     target_profile_id: row.target_profile_id,
+    parent_id: row.parent_id,
+    attachment_url: row.attachment_url,
+    attachment_name: row.attachment_name,
+    staff_only: row.staff_only,
     title: row.title,
     body: row.body,
     priority: row.priority,
@@ -305,6 +313,8 @@ type AnnouncementWriteInput = {
   publication_status: AnnouncementRecord["publication_status"];
   published_at: string;
   expires_at: string | null;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
 };
 
 function toDbPayload(input: AnnouncementWriteInput) {
@@ -318,6 +328,8 @@ function toDbPayload(input: AnnouncementWriteInput) {
     publication_status: input.publication_status,
     published_at: input.published_at,
     expires_at: input.expires_at,
+    attachment_url: input.attachment_url ?? null,
+    attachment_name: input.attachment_name ?? null,
   };
 }
 
@@ -403,9 +415,15 @@ export async function updateAnnouncement(input: {
 
   const supabase = await createClient();
 
+  const updatePayload = toDbPayload(input.data);
+  if (input.data.attachment_url) {
+    updatePayload.attachment_url = input.data.attachment_url;
+    updatePayload.attachment_name = input.data.attachment_name ?? null;
+  }
+
   const { data, error } = await supabase
     .from("announcements")
-    .update(toDbPayload(input.data))
+    .update(updatePayload)
     .eq("id", input.announcementId)
     .eq("condominium_id", input.condominiumId)
     .select(ANNOUNCEMENT_DETAIL_SELECT)
@@ -534,4 +552,131 @@ export async function countAnnouncementReads(
   }
 
   return serviceOk(count ?? 0);
+}
+
+export async function listAnnouncementReplies(
+  parentAnnouncementId: string,
+): Promise<ServiceResult<AnnouncementWithDetails[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .select(ANNOUNCEMENT_DETAIL_SELECT)
+    .eq("parent_id", parentAnnouncementId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail));
+}
+
+export async function createResidentAnnouncement(input: {
+  contextCondominiumId: string;
+  createdBy: string;
+  destination: "condominium" | "granja";
+  title: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+}): Promise<ServiceResult<AnnouncementWithDetails>> {
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (input.destination === "granja") {
+    if (!granjaCondominiumId) {
+      return serviceError("Administração Granja Brasil não configurada.");
+    }
+
+    if (input.contextCondominiumId === granjaCondominiumId) {
+      return serviceError("Moradores devem enviar mensagens a partir do condomínio de residência.");
+    }
+  }
+
+  const supabase = await createClient();
+  const publishedAt = new Date().toISOString();
+  const payload = {
+    condominium_id:
+      input.destination === "granja" ? granjaCondominiumId! : input.contextCondominiumId,
+    created_by: input.createdBy,
+    staff_only: true,
+    title: input.title,
+    body: input.body,
+    priority: "normal" as const,
+    publication_status: "published" as const,
+    published_at: publishedAt,
+    expires_at: null,
+    target_profile_id: null,
+    target_condominium_id:
+      input.destination === "granja" ? input.contextCondominiumId : null,
+    tower_id: null,
+    parent_id: null,
+    attachment_url: input.attachmentUrl ?? null,
+    attachment_name: input.attachmentName ?? null,
+  };
+
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert(payload)
+    .select(ANNOUNCEMENT_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+}
+
+export async function createAnnouncementReply(input: {
+  parentAnnouncementId: string;
+  createdBy: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+}): Promise<ServiceResult<AnnouncementWithDetails>> {
+  const supabase = await createClient();
+
+  const { data: parent, error: parentError } = await supabase
+    .from("announcements")
+    .select("id, condominium_id, staff_only, target_condominium_id, target_profile_id, parent_id")
+    .eq("id", input.parentAnnouncementId)
+    .maybeSingle();
+
+  if (parentError) {
+    return serviceError(mapSupabaseError(parentError));
+  }
+
+  if (!parent || parent.parent_id) {
+    return serviceError("Conversa não encontrada para resposta.");
+  }
+
+  const publishedAt = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert({
+      condominium_id: parent.condominium_id,
+      created_by: input.createdBy,
+      parent_id: parent.id,
+      staff_only: parent.staff_only,
+      target_condominium_id: parent.target_condominium_id,
+      target_profile_id: parent.target_profile_id,
+      title: "Resposta",
+      body: input.body,
+      priority: "normal",
+      publication_status: "published",
+      published_at: publishedAt,
+      expires_at: null,
+      tower_id: null,
+      attachment_url: input.attachmentUrl ?? null,
+      attachment_name: input.attachmentName ?? null,
+    })
+    .select(ANNOUNCEMENT_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
 }

@@ -7,6 +7,7 @@ import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
   getAnnouncementById,
   listAnnouncementReadReceipts,
+  listAnnouncementReplies,
   markAnnouncementAsRead,
   type AnnouncementReadReceipt,
 } from "@/lib/services/announcements";
@@ -20,9 +21,11 @@ import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
 } from "@/lib/announcements/labels";
+import { AnnouncementAttachmentLink } from "@/components/announcements/announcement-attachment-link";
 import { AnnouncementDisplayStatusBadge } from "@/components/announcements/announcement-display-status-badge";
 import { AnnouncementForm } from "@/components/announcements/announcement-form";
 import { AnnouncementReadReceipts } from "@/components/announcements/announcement-read-receipts";
+import { AnnouncementReplyForm } from "@/components/announcements/announcement-reply-form";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -39,9 +42,10 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   const access = await requireCondoAccess(condoSlug);
   const isGranjaSource = isGeneralCondominium(condoSlug);
 
-  const [announcementResult, towersResult, condominiumsResult, residentsResult] =
+  const [announcementResult, repliesResult, towersResult, condominiumsResult, residentsResult] =
     await Promise.all([
       getAnnouncementById(announcementId, access.condominium.id),
+      listAnnouncementReplies(announcementId),
       listTowersByCondominium(access.condominium.id),
       isGranjaSource ? listCondominiums() : Promise.resolve(null),
       listResidentsWithProfileForAnnouncement(
@@ -81,14 +85,19 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     notFound();
   }
 
-  const canManage = access.permissions.canManageAnnouncements;
-  const isSender = canManage && announcement.condominium_id === access.condominium.id;
+  const isAuthor = announcement.created_by === access.profile.id;
+  const showEditForm =
+    access.permissions.canManageAnnouncements &&
+    !announcement.staff_only &&
+    !announcement.parent_id &&
+    announcement.condominium_id === access.condominium.id;
   const displayStatus = getAnnouncementDisplayStatus(announcement);
   const towers = towersResult.ok ? towersResult.data : [];
   const condominiums = (
     condominiumsResult?.ok ? condominiumsResult.data : []
   ).filter((condominium) => condominium.id !== access.condominium.id);
   const residents = residentsResult.ok ? residentsResult.data : [];
+  const replies = repliesResult.ok ? repliesResult.data : [];
 
   const targetCondominiumName = announcement.target_condominium_id
     ? condominiums.find((condominium) => condominium.id === announcement.target_condominium_id)
@@ -108,7 +117,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   let readAt: string | null = null;
   let readReceipts: AnnouncementReadReceipt[] = [];
 
-  if (!isSender) {
+  if (!isAuthor) {
     const readResult = await markAnnouncementAsRead({
       announcementId,
       profileId: access.profile.id,
@@ -124,13 +133,13 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
       <PageHeader
         title={announcement.title}
         description={
-          isSender
+          showEditForm
             ? "Edite o comunicado ou revise as confirmações de leitura."
             : "Comunicado do condomínio."
         }
       />
 
-      {!isSender && (
+      {!showEditForm && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
             <div className="space-y-1">
@@ -154,23 +163,70 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
                 Expira em {formatDateTime(announcement.expires_at)}
               </p>
             )}
-            {readAt && (
+            {!isAuthor && readAt && (
               <p className="text-muted-foreground">
                 Leitura confirmada em {formatDateTime(readAt)}
               </p>
             )}
             <p className="whitespace-pre-wrap">{announcement.body}</p>
+            {announcement.attachment_url && (
+              <AnnouncementAttachmentLink
+                url={announcement.attachment_url}
+                name={announcement.attachment_name}
+              />
+            )}
           </CardContent>
         </Card>
       )}
 
-      {isSender && (
+      {isAuthor && readReceipts.length >= 0 && (
+        <AnnouncementReadReceipts receipts={readReceipts} />
+      )}
+
+      {replies.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Respostas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {replies.map((reply) => (
+              <div key={reply.id} className="rounded-lg border p-3 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  {formatDateTime(reply.created_at)}
+                  {reply.author && ` · ${reply.author.full_name}`}
+                </p>
+                <p className="mt-2 whitespace-pre-wrap">{reply.body}</p>
+                {reply.attachment_url && (
+                  <div className="mt-2">
+                    <AnnouncementAttachmentLink
+                      url={reply.attachment_url}
+                      name={reply.attachment_name}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {!announcement.parent_id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Responder</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AnnouncementReplyForm condoSlug={condoSlug} parentAnnouncementId={announcementId} />
+          </CardContent>
+        </Card>
+      )}
+
+      {showEditForm && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Editar aviso</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <AnnouncementReadReceipts receipts={readReceipts} />
+          <CardContent>
             <AnnouncementForm
               condoSlug={condoSlug}
               mode="edit"

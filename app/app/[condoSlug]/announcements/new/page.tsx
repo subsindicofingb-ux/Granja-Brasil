@@ -1,4 +1,5 @@
-import { requireCondoPermission } from "@/lib/auth/access";
+import { redirect } from "next/navigation";
+import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listResidentsWithProfileForAnnouncement } from "@/lib/services/residents";
@@ -7,6 +8,7 @@ import { createDefaultAnnouncementForm } from "@/lib/announcements/defaults";
 import { toDatetimeLocalValue } from "@/lib/reservations/timezone";
 import { PageHeader } from "@/components/shared/page-shell";
 import { AnnouncementForm } from "@/components/announcements/announcement-form";
+import { ResidentAnnouncementForm } from "@/components/announcements/resident-announcement-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface NewAnnouncementPageProps {
@@ -15,12 +17,38 @@ interface NewAnnouncementPageProps {
 
 export default async function NewAnnouncementPage({ params }: NewAnnouncementPageProps) {
   const { condoSlug } = await params;
+  const access = await requireCondoAccess(condoSlug);
 
-  const access = await requireCondoPermission(
-    condoSlug,
-    (ctx) => ctx.permissions.canManageAnnouncements,
-    { redirectTo: `/app/${condoSlug}/announcements` },
-  );
+  const canManage = access.permissions.canManageAnnouncements;
+  const canSend = access.permissions.canSendAnnouncements;
+
+  if (!canManage && !canSend) {
+    redirect(`/app/${condoSlug}/announcements`);
+  }
+
+  if (canSend && !canManage && isGeneralCondominium(condoSlug)) {
+    redirect(`/app/${condoSlug}/announcements`);
+  }
+
+  if (canSend && !canManage) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <PageHeader
+          title="Nova mensagem"
+          description="Envie uma mensagem para o síndico do seu condomínio ou para a Granja Brasil."
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Sua mensagem</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResidentAnnouncementForm condoSlug={condoSlug} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const isGranjaSource = isGeneralCondominium(condoSlug);
 

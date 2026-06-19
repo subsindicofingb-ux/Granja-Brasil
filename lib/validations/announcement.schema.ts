@@ -101,3 +101,34 @@ export function toAnnouncementPayload(data: z.infer<typeof announcementFormSchem
     expires_at: data.expires_at,
   };
 }
+
+export const residentAnnouncementFormSchema = z.object({
+  title: z.string().trim().min(1, "Informe o assunto.").max(200, "Assunto muito longo."),
+  body: z.string().trim().min(1, "Informe a mensagem.").max(10000, "Mensagem muito longa."),
+  destination: z.enum(["condominium", "granja"]),
+});
+
+export const announcementReplySchema = z.object({
+  body: z.string().trim().min(1, "Informe a resposta.").max(10000, "Resposta muito longa."),
+  parent_announcement_id: z.string().uuid("Aviso inválido."),
+});
+
+export function parseResidentAnnouncementFormData(formData: FormData) {
+  return residentAnnouncementFormSchema.safeParse({
+    title: formData.get("title"),
+    body: formData.get("body"),
+    destination: formData.get("destination"),
+  });
+}
+
+export function parseAnnouncementReplyFormData(formData: FormData) {
+  return announcementReplySchema.safeParse({
+    body: formData.get("body"),
+    parent_announcement_id: formData.get("parent_announcement_id"),
+  });
+}
+
+export function getAnnouncementAttachmentFromForm(formData: FormData): File | null {
+  const file = formData.get("attachment");
+  return file instanceof File && file.size > 0 ? file : null;
+}

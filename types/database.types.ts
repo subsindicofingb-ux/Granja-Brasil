@@ -412,6 +412,10 @@ export interface Database {
           tower_id: string | null;
           target_condominium_id: string | null;
           target_profile_id: string | null;
+          parent_id: string | null;
+          attachment_url: string | null;
+          attachment_name: string | null;
+          staff_only: boolean;
           title: string;
           body: string;
           priority: AnnouncementPriority;
@@ -428,6 +432,10 @@ export interface Database {
           tower_id?: string | null;
           target_condominium_id?: string | null;
           target_profile_id?: string | null;
+          parent_id?: string | null;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          staff_only?: boolean;
           title: string;
           body: string;
           priority?: AnnouncementPriority;
@@ -444,6 +452,10 @@ export interface Database {
           tower_id?: string | null;
           target_condominium_id?: string | null;
           target_profile_id?: string | null;
+          parent_id?: string | null;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          staff_only?: boolean;
           title?: string;
           body?: string;
           priority?: AnnouncementPriority;
@@ -488,6 +500,13 @@ export interface Database {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "announcements_parent_id_fkey";
+            columns: ["parent_id"];
+            isOneToOne: false;
+            referencedRelation: "announcements";
             referencedColumns: ["id"];
           },
         ];
@@ -797,6 +816,14 @@ export interface Database {
       is_announcement_visible_to_profile: {
         Args: { p_announcement_id: string };
         Returns: boolean;
+      };
+      can_access_announcement: {
+        Args: { p_announcement_id: string };
+        Returns: boolean;
+      };
+      announcement_thread_root_id: {
+        Args: { p_announcement_id: string };
+        Returns: string;
       };
     };
     Enums: {

@@ -9,6 +9,10 @@ export type AnnouncementRecord = {
   tower_id: string | null;
   target_condominium_id: string | null;
   target_profile_id: string | null;
+  parent_id: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  staff_only: boolean;
   title: string;
   body: string;
   priority: AnnouncementPriority;
@@ -39,6 +43,8 @@ export type AnnouncementResidentOption = {
   condominium_name?: string;
 };
 
+export type ResidentAnnouncementDestination = "condominium" | "granja";
+
 export type AnnouncementFormInput = {
   title: string;
   body: string;
@@ -49,4 +55,10 @@ export type AnnouncementFormInput = {
   publication_status: AnnouncementPublicationStatus;
   published_at: string;
   expires_at: string | null;
+};
+
+export type ResidentAnnouncementFormInput = {
+  title: string;
+  body: string;
+  destination: ResidentAnnouncementDestination;
 };

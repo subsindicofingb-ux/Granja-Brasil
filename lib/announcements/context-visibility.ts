@@ -8,7 +8,6 @@ export type AnnouncementViewContext = {
 
 /**
  * Defesa em profundidade: restringe avisos ao condomínio/contexto atual.
- * Espelha as regras de audiência (geral, síndico, morador específico).
  */
 export function isAnnouncementVisibleInContext(
   announcement: Pick<
@@ -16,6 +15,8 @@ export function isAnnouncementVisibleInContext(
     | "condominium_id"
     | "target_condominium_id"
     | "target_profile_id"
+    | "staff_only"
+    | "created_by"
   >,
   context: AnnouncementViewContext,
   granjaCondominiumId: string | null,
@@ -24,6 +25,26 @@ export function isAnnouncementVisibleInContext(
     granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
   const isLocalToContext = announcement.condominium_id === context.condominiumId;
   const isGranjaContext = granjaCondominiumId !== null && context.condominiumId === granjaCondominiumId;
+
+  if (announcement.staff_only) {
+    if (announcement.created_by === context.profileId) {
+      return true;
+    }
+
+    if (!context.isStaff) {
+      return false;
+    }
+
+    if (isGranjaSource && announcement.target_condominium_id && !isGranjaContext) {
+      return false;
+    }
+
+    if (isLocalToContext || isGranjaContext) {
+      return true;
+    }
+
+    return false;
+  }
 
   if (announcement.target_profile_id) {
     if (announcement.target_profile_id === context.profileId) {
@@ -69,12 +90,17 @@ export function filterAnnouncementsForContext<T extends Pick<
   | "condominium_id"
   | "target_condominium_id"
   | "target_profile_id"
+  | "staff_only"
+  | "created_by"
+  | "parent_id"
 >>(
   announcements: T[],
   context: AnnouncementViewContext,
   granjaCondominiumId: string | null,
 ): T[] {
-  return announcements.filter((announcement) =>
+  const roots = announcements.filter((announcement) => !announcement.parent_id);
+
+  return roots.filter((announcement) =>
     isAnnouncementVisibleInContext(announcement, context, granjaCondominiumId),
   );
 }

@@ -39,7 +39,7 @@ export function AnnouncementForm({
   const [state, formAction, pending] = useActionState(action, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" encType="multipart/form-data">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       {mode === "edit" && defaultValues.announcementId && (
         <input type="hidden" name="announcement_id" value={defaultValues.announcementId} />
@@ -193,6 +193,17 @@ export function AnnouncementForm({
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
           required
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="attachment">Anexo (opcional)</Label>
+        <Input
+          id="attachment"
+          name="attachment"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+        />
+        <p className="text-xs text-muted-foreground">JPG, PNG, WebP ou PDF (máx. 5 MB).</p>
       </div>
 
       <p className="text-xs text-muted-foreground">
