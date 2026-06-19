@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import {
   filterAnnouncementsForContext,
   type AnnouncementViewContext,
@@ -11,6 +13,7 @@ import type {
   AnnouncementRecord,
   AnnouncementWithDetails,
 } from "@/lib/announcements/types";
+import type { Database } from "@/types/database.types";
 import {
   filterAnnouncementsVisibleToMembers,
   getMemberVisibleAnnouncementFilters,
@@ -317,6 +320,26 @@ type AnnouncementWriteInput = {
   attachment_name?: string | null;
 };
 
+type AnnouncementInsert = Database["public"]["Tables"]["announcements"]["Insert"];
+
+async function insertAnnouncementRecord(
+  payload: AnnouncementInsert,
+): Promise<ServiceResult<AnnouncementWithDetails>> {
+  const writeClient = getSupabaseServiceRoleKey() ? createAdminClient() : await createClient();
+
+  const { data, error } = await writeClient
+    .from("announcements")
+    .insert(payload)
+    .select(ANNOUNCEMENT_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+}
+
 function toDbPayload(input: AnnouncementWriteInput) {
   return {
     title: input.title,
@@ -383,23 +406,11 @@ export async function createAnnouncement(input: {
     return serviceError(validation.error);
   }
 
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("announcements")
-    .insert({
-      condominium_id: input.condominiumId,
-      created_by: input.createdBy,
-      ...toDbPayload(input.data),
-    })
-    .select(ANNOUNCEMENT_DETAIL_SELECT)
-    .single();
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+  return insertAnnouncementRecord({
+    condominium_id: input.condominiumId,
+    created_by: input.createdBy,
+    ...toDbPayload(input.data),
+  });
 }
 
 export async function updateAnnouncement(input: {
@@ -593,17 +604,17 @@ export async function createResidentAnnouncement(input: {
     }
   }
 
-  const supabase = await createClient();
   const publishedAt = new Date().toISOString();
-  const payload = {
+
+  return insertAnnouncementRecord({
     condominium_id:
       input.destination === "granja" ? granjaCondominiumId! : input.contextCondominiumId,
     created_by: input.createdBy,
     staff_only: true,
     title: input.title,
     body: input.body,
-    priority: "normal" as const,
-    publication_status: "published" as const,
+    priority: "normal",
+    publication_status: "published",
     published_at: publishedAt,
     expires_at: null,
     target_profile_id: null,
@@ -613,19 +624,7 @@ export async function createResidentAnnouncement(input: {
     parent_id: null,
     attachment_url: input.attachmentUrl ?? null,
     attachment_name: input.attachmentName ?? null,
-  };
-
-  const { data, error } = await supabase
-    .from("announcements")
-    .insert(payload)
-    .select(ANNOUNCEMENT_DETAIL_SELECT)
-    .single();
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+  });
 }
 
 export async function createAnnouncementReply(input: {
@@ -652,31 +651,22 @@ export async function createAnnouncementReply(input: {
   }
 
   const publishedAt = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("announcements")
-    .insert({
-      condominium_id: parent.condominium_id,
-      created_by: input.createdBy,
-      parent_id: parent.id,
-      staff_only: parent.staff_only,
-      target_condominium_id: parent.target_condominium_id,
-      target_profile_id: parent.target_profile_id,
-      title: "Resposta",
-      body: input.body,
-      priority: "normal",
-      publication_status: "published",
-      published_at: publishedAt,
-      expires_at: null,
-      tower_id: null,
-      attachment_url: input.attachmentUrl ?? null,
-      attachment_name: input.attachmentName ?? null,
-    })
-    .select(ANNOUNCEMENT_DETAIL_SELECT)
-    .single();
 
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+  return insertAnnouncementRecord({
+    condominium_id: parent.condominium_id,
+    created_by: input.createdBy,
+    parent_id: parent.id,
+    staff_only: parent.staff_only,
+    target_condominium_id: parent.target_condominium_id,
+    target_profile_id: parent.target_profile_id,
+    title: "Resposta",
+    body: input.body,
+    priority: "normal",
+    publication_status: "published",
+    published_at: publishedAt,
+    expires_at: null,
+    tower_id: null,
+    attachment_url: input.attachmentUrl ?? null,
+    attachment_name: input.attachmentName ?? null,
+  });
 }
