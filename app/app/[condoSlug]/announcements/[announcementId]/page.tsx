@@ -17,6 +17,7 @@ import { listTowersByCondominium } from "@/lib/services/towers";
 import { toAnnouncementFormInput } from "@/lib/announcements/mappers";
 import { getAnnouncementDisplayStatus } from "@/lib/announcements/status";
 import { formatAnnouncementAudienceLabel } from "@/lib/announcements/targeting";
+import { formatAnnouncementResidentLabel } from "@/lib/announcements/resident-labels";
 import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
@@ -103,9 +104,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     ? condominiums.find((condominium) => condominium.id === announcement.target_condominium_id)
         ?.name
     : null;
-  const targetProfileName = announcement.target_profile_id
+  const targetResident = announcement.target_profile_id
     ? residents.find((resident) => resident.profile_id === announcement.target_profile_id)
-        ?.full_name
+    : null;
+  const targetProfileName = targetResident
+    ? formatAnnouncementResidentLabel(targetResident)
     : null;
   const audienceLabel = formatAnnouncementAudienceLabel({
     announcement,

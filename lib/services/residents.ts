@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { buildAnnouncementResidentUnitLabel } from "@/lib/announcements/resident-labels";
 import type { Resident, ResidentType } from "@/types";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -238,6 +239,7 @@ export async function updateResident(input: {
 export type AnnouncementResidentTarget = {
   profile_id: string;
   full_name: string;
+  unit_label: string;
   condominium_name?: string;
 };
 
@@ -295,9 +297,29 @@ export async function listResidentsWithProfileForAnnouncement(input: {
     targets.push({
       profile_id: resident.profile_id,
       full_name: resident.full_name,
+      unit_label: buildAnnouncementResidentUnitLabel(resident),
       condominium_name: condoNameById.get(condoId),
     });
   }
 
-  return serviceOk(targets.sort((a, b) => a.full_name.localeCompare(b.full_name, "pt-BR")));
+  return serviceOk(
+    targets.sort((a, b) => {
+      const condoCompare = (a.condominium_name ?? "").localeCompare(
+        b.condominium_name ?? "",
+        "pt-BR",
+      );
+
+      if (condoCompare !== 0) {
+        return condoCompare;
+      }
+
+      const unitCompare = a.unit_label.localeCompare(b.unit_label, "pt-BR", { numeric: true });
+
+      if (unitCompare !== 0) {
+        return unitCompare;
+      }
+
+      return a.full_name.localeCompare(b.full_name, "pt-BR");
+    }),
+  );
 }

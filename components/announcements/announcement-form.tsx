@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import type { AnnouncementFormInput, AnnouncementResidentOption } from "@/lib/announcements/types";
+import { formatAnnouncementResidentLabel } from "@/lib/announcements/resident-labels";
 import {
   createAnnouncementAction,
   updateAnnouncementAction,
@@ -147,9 +148,7 @@ export function AnnouncementForm({
             <option value="">Nenhum — usar destino do condomínio acima</option>
             {residents.map((resident) => (
               <option key={resident.profile_id} value={resident.profile_id}>
-                {resident.condominium_name
-                  ? `${resident.full_name} · ${resident.condominium_name}`
-                  : resident.full_name}
+                {formatAnnouncementResidentLabel(resident)}
               </option>
             ))}
           </select>

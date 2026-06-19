@@ -40,6 +40,7 @@ export type AnnouncementWithDetails = AnnouncementRecord & {
 export type AnnouncementResidentOption = {
   profile_id: string;
   full_name: string;
+  unit_label: string;
   condominium_name?: string;
 };
 
