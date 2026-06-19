@@ -58,16 +58,36 @@ export function localDateTimeToIso(dateKey: string, time: string, timeZone = DEF
   return new Date(provisional.getTime() + offset).toISOString();
 }
 
-export function fromDatetimeLocalValue(value: string): string {
+export function fromDatetimeLocalValue(
+  value: string,
+  timeZone = DEFAULT_CONDO_TIMEZONE,
+): string {
   if (!value) return "";
-  return new Date(value).toISOString();
+
+  const [datePart, timePart] = value.split("T");
+  if (!datePart || !timePart) {
+    return new Date(value).toISOString();
+  }
+
+  return localDateTimeToIso(datePart, timePart.slice(0, 5), timeZone);
 }
 
-export function toDatetimeLocalValue(iso: string): string {
+export function toDatetimeLocalValue(iso: string, timeZone = DEFAULT_CONDO_TIMEZONE): string {
   if (!iso) return "";
+
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso.slice(0, 16);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
+
+  return `${getLocalDateKey(date, timeZone)}T${getLocalTimeString(date, timeZone)}`;
+}
+
+export function formatInCondoTimezone(
+  date: string | Date,
+  options: Intl.DateTimeFormatOptions,
+  timeZone = DEFAULT_CONDO_TIMEZONE,
+): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    ...options,
+    timeZone,
+  }).format(typeof date === "string" ? new Date(date) : date);
 }

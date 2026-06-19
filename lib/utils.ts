@@ -1,26 +1,35 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { DEFAULT_CONDO_TIMEZONE, formatInCondoTimezone } from "@/lib/reservations/timezone";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export function formatDate(date: string | Date): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(typeof date === "string" ? new Date(date) : date);
+  return formatInCondoTimezone(
+    date,
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
+    DEFAULT_CONDO_TIMEZONE,
+  );
 }
 
 export function formatDateTime(date: string | Date): string {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(typeof date === "string" ? new Date(date) : date);
+  return formatInCondoTimezone(
+    date,
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    },
+    DEFAULT_CONDO_TIMEZONE,
+  );
 }
 
 const UUID_REGEX =
