@@ -17,6 +17,7 @@ import {
   createRegistrationRequestAsAdmin,
   listPublicCondominiums,
 } from "@/lib/services/registration-requests";
+import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
@@ -68,6 +69,18 @@ function formatAuthError(message: unknown): string {
   }
 
   return text;
+}
+
+const PASSWORD_RESET_SUCCESS_MESSAGE =
+  "Se existir uma conta com este e-mail, enviamos um link para redefinir a senha. Verifique a caixa de entrada e o spam.";
+
+function formatPasswordResetError(message: unknown): string {
+  const text = message instanceof Error ? message.message : String(message);
+  return formatAuthError(text);
+}
+
+function getPasswordResetRedirectUrl(): string {
+  return `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
 }
 
 async function findAuthUserByEmail(
@@ -159,28 +172,88 @@ export async function requestPasswordResetAction(
     };
   }
 
-  let supabase;
+  const redirectTo = getPasswordResetRedirectUrl();
 
   try {
-    supabase = await createClient();
-  } catch {
-    return { error: "Não foi possível conectar ao Supabase. Verifique as variáveis de ambiente." };
-  }
+    if (!getSupabaseServiceRoleKey()) {
+      const supabase = await createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
-  try {
-    const redirectTo = `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) {
+        const lower = error.message.toLowerCase();
+        if (
+          lower.includes("not found") ||
+          lower.includes("não encontrado")
+        ) {
+          return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
+        }
 
-    if (error) {
-      return { error: formatAuthError(error.message) };
+        return { error: formatPasswordResetError(error.message) };
+      }
+
+      return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
     }
 
-    return {
-      success:
-        "Se existir uma conta com este e-mail, enviamos um link para redefinir a senha. Verifique a caixa de entrada e o spam.",
-    };
+    const admin = createAdminClient();
+    const existingUser = await findAuthUserByEmail(admin, email);
+
+    if (!existingUser?.email) {
+      return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
+    }
+
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email: existingUser.email,
+      options: { redirectTo },
+    });
+
+    if (linkError) {
+      return { error: formatPasswordResetError(linkError.message) };
+    }
+
+    const recoveryLink = linkData.properties?.action_link;
+
+    if (recoveryLink && isEmailConfigured()) {
+      const sent = await sendEmail({
+        to: [existingUser.email],
+        subject: "Redefinir senha — Granja Brasil",
+        text: `Recebemos uma solicitação para redefinir sua senha.\n\nAcesse o link abaixo (válido por tempo limitado):\n${recoveryLink}\n\nSe você não solicitou, ignore este e-mail.`,
+        html: `
+          <p>Recebemos uma solicitação para redefinir sua senha.</p>
+          <p><a href="${recoveryLink}">Redefinir senha</a></p>
+          <p>Se você não solicitou, ignore este e-mail.</p>
+        `,
+      });
+
+      if (sent.ok) {
+        return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
+      }
+    }
+
+    const supabase = await createClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(existingUser.email, {
+      redirectTo,
+    });
+
+    if (error) {
+      const lower = error.message.toLowerCase();
+      if (lower.includes("not found") || lower.includes("não encontrado")) {
+        return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
+      }
+
+      if (recoveryLink) {
+        return {
+          error:
+            "Conta encontrada, mas não foi possível enviar o e-mail. Configure RESEND_API_KEY ou o SMTP do Supabase.",
+        };
+      }
+
+      return { error: formatPasswordResetError(error.message) };
+    }
+
+    return { success: PASSWORD_RESET_SUCCESS_MESSAGE };
   } catch (err) {
-    return { error: formatAuthError(err) };
+    return { error: formatPasswordResetError(err) };
   }
 }
 
