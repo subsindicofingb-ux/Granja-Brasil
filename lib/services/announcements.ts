@@ -458,28 +458,16 @@ export async function markAnnouncementAsRead(input: {
   const readClient = await getAnnouncementWriteClient();
   const readAt = new Date().toISOString();
 
-  const { data: existing, error: existingError } = await readClient
-    .from("announcement_reads")
-    .select("read_at")
-    .eq("announcement_id", input.announcementId)
-    .eq("profile_id", input.profileId)
-    .maybeSingle();
-
-  if (existingError) {
-    return serviceError(mapSupabaseError(existingError));
-  }
-
-  if (existing?.read_at) {
-    return serviceOk({ read_at: existing.read_at });
-  }
-
   const { data, error } = await readClient
     .from("announcement_reads")
-    .insert({
-      announcement_id: input.announcementId,
-      profile_id: input.profileId,
-      read_at: readAt,
-    })
+    .upsert(
+      {
+        announcement_id: input.announcementId,
+        profile_id: input.profileId,
+        read_at: readAt,
+      },
+      { onConflict: "announcement_id,profile_id" },
+    )
     .select("read_at")
     .single();
 
@@ -514,16 +502,18 @@ export async function getAnnouncementUnreadState(
 
   const { data: readRows, error: readError } = await readClient
     .from("announcement_reads")
-    .select("announcement_id")
+    .select("announcement_id, read_at")
     .eq("profile_id", profileId)
     .in("announcement_id", announcementIds);
 
-  const readIds = readError
-    ? new Set<string>()
-    : new Set((readRows ?? []).map((row) => row.announcement_id));
+  const readAtByAnnouncementId = readError
+    ? new Map<string, string>()
+    : new Map(
+        (readRows ?? []).map((row) => [row.announcement_id, row.read_at as string]),
+      );
 
   const unreadIncomingIds = incomingCandidates
-    .filter((announcement) => !readIds.has(announcement.id))
+    .filter((announcement) => !readAtByAnnouncementId.has(announcement.id))
     .map((announcement) => announcement.id);
 
   let unreadReplyThreadIds: string[] = [];
@@ -531,7 +521,7 @@ export async function getAnnouncementUnreadState(
   if (ownThreads.length > 0) {
     const { data: replyRows, error: replyError } = await readClient
       .from("announcements")
-      .select("parent_id")
+      .select("parent_id, published_at")
       .in(
         "parent_id",
         ownThreads.map((announcement) => announcement.id),
@@ -539,15 +529,32 @@ export async function getAnnouncementUnreadState(
       .neq("created_by", profileId);
 
     if (!replyError) {
-      const threadsWithReplies = new Set(
-        (replyRows ?? []).map((row) => row.parent_id as string),
-      );
+      const latestReplyAtByParentId = new Map<string, string>();
+
+      for (const row of replyRows ?? []) {
+        const parentId = row.parent_id as string;
+        const publishedAt = row.published_at as string;
+        const currentLatest = latestReplyAtByParentId.get(parentId);
+
+        if (!currentLatest || publishedAt > currentLatest) {
+          latestReplyAtByParentId.set(parentId, publishedAt);
+        }
+      }
 
       unreadReplyThreadIds = ownThreads
-        .filter(
-          (announcement) =>
-            threadsWithReplies.has(announcement.id) && !readIds.has(announcement.id),
-        )
+        .filter((announcement) => {
+          const latestReplyAt = latestReplyAtByParentId.get(announcement.id);
+          if (!latestReplyAt) {
+            return false;
+          }
+
+          const readAt = readAtByAnnouncementId.get(announcement.id);
+          if (!readAt) {
+            return true;
+          }
+
+          return latestReplyAt > readAt;
+        })
         .map((announcement) => announcement.id);
     }
   }
@@ -567,14 +574,41 @@ export async function getUnreadAnnouncementIds(
 async function clearAnnouncementReadsForOthers(
   announcementId: string,
   excludeProfileId: string,
+  preserveProfileId?: string | null,
 ): Promise<void> {
   const writeClient = await getAnnouncementWriteClient();
 
-  await writeClient
+  let query = writeClient
     .from("announcement_reads")
     .delete()
     .eq("announcement_id", announcementId)
     .neq("profile_id", excludeProfileId);
+
+  if (preserveProfileId) {
+    query = query.neq("profile_id", preserveProfileId);
+  }
+
+  await query;
+}
+
+async function markAnnouncementReplyUnreadForAuthor(input: {
+  announcementId: string;
+  profileId: string;
+  replyPublishedAt: string;
+}): Promise<void> {
+  const writeClient = await getAnnouncementWriteClient();
+  const unreadCursorAt = new Date(
+    new Date(input.replyPublishedAt).getTime() - 1000,
+  ).toISOString();
+
+  await writeClient.from("announcement_reads").upsert(
+    {
+      announcement_id: input.announcementId,
+      profile_id: input.profileId,
+      read_at: unreadCursorAt,
+    },
+    { onConflict: "announcement_id,profile_id" },
+  );
 }
 
 export async function getAnnouncementReadStatus(input: {
@@ -729,7 +763,7 @@ export async function createAnnouncementReply(input: {
 
   const { data: parent, error: parentError } = await supabase
     .from("announcements")
-    .select("id, condominium_id, staff_only, target_condominium_id, target_profile_id, parent_id")
+    .select("id, condominium_id, staff_only, target_condominium_id, target_profile_id, parent_id, created_by")
     .eq("id", input.parentAnnouncementId)
     .maybeSingle();
 
@@ -761,7 +795,15 @@ export async function createAnnouncementReply(input: {
   });
 
   if (result.ok) {
-    await clearAnnouncementReadsForOthers(parent.id, input.createdBy);
+    await clearAnnouncementReadsForOthers(parent.id, input.createdBy, parent.created_by);
+
+    if (parent.created_by && parent.created_by !== input.createdBy) {
+      await markAnnouncementReplyUnreadForAuthor({
+        announcementId: parent.id,
+        profileId: parent.created_by,
+        replyPublishedAt: result.data.published_at,
+      });
+    }
   }
 
   return result;
