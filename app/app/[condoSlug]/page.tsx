@@ -5,10 +5,10 @@ import {
   getMemberRoleLabel,
   isGranjaOnlyMemberRole,
 } from "@/lib/auth/member-roles";
-import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
+import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
-import { countVehicles } from "@/lib/services/vehicles";
+import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
 import {
   countAllPendingRegistrationRequests,
@@ -16,7 +16,10 @@ import {
   listAllPendingRegistrationRequests,
   listRegistrationRequestsByCondominium,
 } from "@/lib/services/registration-requests";
-import { ResidentDashboard } from "@/components/dashboard/resident-dashboard";
+import {
+  ResidentDashboard,
+  type ResidentVehicleRequest,
+} from "@/components/dashboard/resident-dashboard";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -94,6 +97,31 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   } = result.data;
 
   if (access.role === ROLES.RESIDENT) {
+    let vehicleRequests: ResidentVehicleRequest[] = [];
+
+    if (access.permissions.canViewUnitVehicles && unitFilter !== "none") {
+      const unitQuery = unitFilterToQueryOptions(unitFilter);
+      if (unitQuery !== "none") {
+        const vehiclesResult = await listVehiclesByCondominium(access.condominium.id, unitQuery);
+        if (vehiclesResult.ok) {
+          vehicleRequests = vehiclesResult.data
+            .filter(
+              (vehicle) =>
+                vehicle.status === VEHICLE_STATUS.PENDING ||
+                vehicle.status === VEHICLE_STATUS.REJECTED,
+            )
+            .map((vehicle) => ({
+              id: vehicle.id,
+              brand: vehicle.brand,
+              model: vehicle.model,
+              license_plate: vehicle.license_plate,
+              status: vehicle.status,
+              review_notes: vehicle.review_notes,
+            }));
+        }
+      }
+    }
+
     return (
       <ResidentDashboard
         condoSlug={condoSlug}
@@ -106,6 +134,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         unreadAnnouncementIds={unreadAnnouncementIds}
         unreadReplyThreadIds={unreadReplyThreadIds}
         reservationsByStatus={metrics.reservationsByStatus}
+        vehicleRequests={vehicleRequests}
       />
     );
   }

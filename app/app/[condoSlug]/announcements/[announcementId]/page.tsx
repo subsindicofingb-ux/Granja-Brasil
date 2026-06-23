@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
@@ -120,6 +121,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   let readAt: string | null = null;
   let readError: string | null = null;
   let readReceipts: AnnouncementReadReceipt[] = [];
+  let didMarkAsRead = false;
 
   if (!isAuthor) {
     const readResult = await markAnnouncementAsRead({
@@ -128,6 +130,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     });
     if (readResult.ok) {
       readAt = readResult.data.read_at;
+      didMarkAsRead = true;
     } else {
       readError = readResult.error;
     }
@@ -144,6 +147,7 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
 
       if (readResult.ok) {
         readAt = readResult.data.read_at;
+        didMarkAsRead = true;
       } else {
         readError = readResult.error;
       }
@@ -151,6 +155,12 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
 
     const receiptsResult = await listAnnouncementReadReceipts(announcementId);
     readReceipts = receiptsResult.ok ? receiptsResult.data : [];
+  }
+
+  if (didMarkAsRead) {
+    revalidatePath(`/app/${condoSlug}/announcements`);
+    revalidatePath(`/app/${condoSlug}`);
+    revalidatePath(`/app/${condoSlug}/announcements/${announcementId}`);
   }
 
   return (

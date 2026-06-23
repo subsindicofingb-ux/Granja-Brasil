@@ -12,7 +12,7 @@ import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
 } from "@/lib/announcements/labels";
-import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
+import { RESERVATION_STATUS, VEHICLE_STATUS, type ReservationStatus, type VehicleStatus } from "@/lib/constants";
 import type { getRolePermissions } from "@/lib/auth/roles";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
 import { DashboardReservationItem } from "@/components/dashboard/dashboard-reservation-item";
@@ -20,8 +20,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import {
+  formatVehicleSummary,
+  getVehicleStatusBadgeClass,
+  VEHICLE_STATUS_LABELS,
+} from "@/lib/vehicles/labels";
 
 type ResidentPermissions = ReturnType<typeof getRolePermissions>;
+
+export type ResidentVehicleRequest = {
+  id: string;
+  brand: string;
+  model: string;
+  license_plate: string;
+  status: VehicleStatus;
+  review_notes: string | null;
+};
 
 export type ResidentDashboardProps = {
   condoSlug: string;
@@ -34,6 +48,7 @@ export type ResidentDashboardProps = {
   unreadAnnouncementIds: string[];
   unreadReplyThreadIds: string[];
   reservationsByStatus: Record<ReservationStatus, number>;
+  vehicleRequests: ResidentVehicleRequest[];
 };
 
 function getFirstName(fullName: string): string {
@@ -61,6 +76,7 @@ export function ResidentDashboard({
   unreadAnnouncementIds,
   unreadReplyThreadIds,
   reservationsByStatus,
+  vehicleRequests,
 }: ResidentDashboardProps) {
   const base = `/app/${condoSlug}`;
   const firstName = getFirstName(residentName);
@@ -71,6 +87,13 @@ export function ResidentDashboard({
   const awaitingReceiptCount =
     reservationsByStatus[RESERVATION_STATUS.AWAITING_RECEIPT];
   const pendingCount = reservationsByStatus[RESERVATION_STATUS.PENDING];
+
+  const pendingVehicleCount = vehicleRequests.filter(
+    (vehicle) => vehicle.status === VEHICLE_STATUS.PENDING,
+  ).length;
+  const rejectedVehicleCount = vehicleRequests.filter(
+    (vehicle) => vehicle.status === VEHICLE_STATUS.REJECTED,
+  ).length;
 
   const quickActions: QuickAction[] = [];
 
@@ -107,7 +130,7 @@ export function ResidentDashboard({
 
   if (permissions.canSendAnnouncements) {
     quickActions.push({
-      title: "Falar com a administração",
+      title: "Falar com o condomínio",
       description: "Envie uma mensagem ao síndico",
       href: `${base}/announcements/new`,
       icon: MessageSquarePlus,
@@ -156,6 +179,24 @@ export function ResidentDashboard({
       href: `${base}/announcements`,
       cta: "Ler avisos",
       tone: "border-sky-200 bg-sky-50 text-sky-950",
+    });
+  }
+
+  if (pendingVehicleCount > 0) {
+    attentionItems.push({
+      message: `${pendingVehicleCount} cadastro(s) de veículo aguardando aprovação.`,
+      href: `${base}/vehicles`,
+      cta: "Acompanhar",
+      tone: "border-amber-200 bg-amber-50 text-amber-950",
+    });
+  }
+
+  if (rejectedVehicleCount > 0) {
+    attentionItems.push({
+      message: `${rejectedVehicleCount} cadastro(s) de veículo recusado(s).`,
+      href: `${base}/vehicles`,
+      cta: "Ver detalhes",
+      tone: "border-red-200 bg-red-50 text-red-950",
     });
   }
 
@@ -257,6 +298,46 @@ export function ResidentDashboard({
           })}
         </div>
       </section>
+
+      {vehicleRequests.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Meus pedidos</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`${base}/vehicles`}>Ver veículos</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {vehicleRequests.map((vehicle) => (
+              <Link
+                key={vehicle.id}
+                href={`${base}/vehicles`}
+                className="block rounded-lg border p-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">
+                      {formatVehicleSummary({
+                        brand: vehicle.brand,
+                        model: vehicle.model,
+                        license_plate: vehicle.license_plate,
+                      })}
+                    </p>
+                    {vehicle.status === VEHICLE_STATUS.REJECTED && vehicle.review_notes && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Motivo: {vehicle.review_notes}
+                      </p>
+                    )}
+                  </div>
+                  <Badge className={getVehicleStatusBadgeClass(vehicle.status)}>
+                    {VEHICLE_STATUS_LABELS[vehicle.status]}
+                  </Badge>
+                </div>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

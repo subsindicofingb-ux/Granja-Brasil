@@ -2,7 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
 import type { UnitListFilter } from "@/lib/auth/unit-scope";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
-import { listRecentAnnouncementsByCondominium, getAnnouncementUnreadState, type AnnouncementViewContext } from "@/lib/services/announcements";
+import {
+  getAnnouncementUnreadState,
+  listAnnouncementsByCondominium,
+  listRecentAnnouncementsByCondominium,
+  type AnnouncementViewContext,
+} from "@/lib/services/announcements";
 import {
   countReservationsByStatusForCondominium,
   listRecentReservationsByCondominium,
@@ -245,6 +250,7 @@ export async function getDashboardData(
     upcomingResult,
     recentResult,
     announcementsResult,
+    allAnnouncementsResult,
   ] = await Promise.all([
     countUnits(condominiumId, unitFilter),
     countResidents(condominiumId, unitFilter),
@@ -253,6 +259,7 @@ export async function getDashboardData(
     listUpcomingReservationsByCondominium(condominiumId, 5, reservationOptions),
     listRecentReservationsByCondominium(condominiumId, 5, reservationOptions),
     listRecentAnnouncementsByCondominium(viewContext, 5),
+    listAnnouncementsByCondominium(viewContext),
   ]);
 
   if (!unitsResult.ok) {
@@ -283,9 +290,16 @@ export async function getDashboardData(
     return serviceError(announcementsResult.error);
   }
 
+  if (!allAnnouncementsResult.ok) {
+    return serviceError(allAnnouncementsResult.error);
+  }
+
   const unreadState = await getAnnouncementUnreadState(
     viewContext.profileId,
-    announcementsResult.data,
+    allAnnouncementsResult.data.map((announcement) => ({
+      id: announcement.id,
+      created_by: announcement.created_by,
+    })),
   );
 
   return serviceOk({
