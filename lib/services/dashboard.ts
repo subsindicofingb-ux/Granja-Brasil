@@ -20,6 +20,7 @@ export type GeneralCondominiumOverviewMetrics = {
   residentialUnits: number;
   commercialUnits: number;
   totalResidents: number;
+  totalVehicles: number;
 };
 
 export type DashboardMetrics = {
@@ -115,12 +116,13 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 > {
   const supabase = await createClient();
 
-  const [condominiumsResult, unitsResult, residentsResult] = await Promise.all([
+  const [condominiumsResult, unitsResult, residentsResult, vehiclesResult] = await Promise.all([
     supabase.from("condominiums").select("id, is_commercial"),
     supabase
       .from("units")
       .select("id, block, towers!inner(name, condominium_id)"),
     supabase.from("residents").select("id", { count: "exact", head: true }),
+    supabase.from("vehicles").select("id", { count: "exact", head: true }),
   ]);
 
   if (unitsResult.error) {
@@ -129,6 +131,10 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 
   if (residentsResult.error) {
     return serviceError(mapSupabaseError(residentsResult.error));
+  }
+
+  if (vehiclesResult.error) {
+    return serviceError(mapSupabaseError(vehiclesResult.error));
   }
 
   let residentialCondominiums = 0;
@@ -194,6 +200,7 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     residentialUnits,
     commercialUnits,
     totalResidents: residentsResult.count ?? 0,
+    totalVehicles: vehiclesResult.count ?? 0,
   });
 }
 

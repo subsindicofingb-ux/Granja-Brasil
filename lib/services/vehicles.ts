@@ -21,6 +21,14 @@ export type VehicleWithUnit = Vehicle & {
   } | null;
 };
 
+export type VehicleWithUnitAndCondominium = VehicleWithUnit & {
+  condominium: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+};
+
 type VehicleRow = {
   id: string;
   condominium_id: string;
@@ -106,6 +114,34 @@ const VEHICLE_SELECT = `
   )
 `;
 
+const VEHICLE_CONSULT_SELECT = `
+  ${VEHICLE_SELECT.trim()},
+  condominiums!inner (
+    id,
+    name,
+    slug
+  )
+`;
+
+type VehicleConsultRow = VehicleRow & {
+  condominiums: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+};
+
+function normalizeLicensePlateQuery(plate: string): string {
+  return plate.replace(/[\s-]/g, "").trim().toUpperCase();
+}
+
+function mapVehicleConsultRow(row: VehicleConsultRow): VehicleWithUnitAndCondominium {
+  return {
+    ...mapVehicleRow(row),
+    condominium: row.condominiums,
+  };
+}
+
 async function assertUnitInCondominium(
   unitId: string,
   scopeCondominiumId?: string,
@@ -178,6 +214,48 @@ export async function listVehiclesByCondominium(
   }
 
   return serviceOk(((data as VehicleRow[] | null) ?? []).map(mapVehicleRow));
+}
+
+export async function searchVehiclesForConsult(options?: {
+  condominiumId?: string;
+  plate?: string;
+  unitId?: string;
+  unitIds?: string[];
+}): Promise<ServiceResult<VehicleWithUnitAndCondominium[]>> {
+  const plateQuery = options?.plate ? normalizeLicensePlateQuery(options.plate) : "";
+
+  if (!plateQuery) {
+    return serviceOk([]);
+  }
+
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("vehicles")
+    .select(VEHICLE_CONSULT_SELECT)
+    .ilike("license_plate", `%${plateQuery}%`)
+    .order("license_plate", { ascending: true })
+    .limit(50);
+
+  if (options?.condominiumId) {
+    query = query.eq("condominium_id", options.condominiumId);
+  }
+
+  if (options?.unitId) {
+    query = query.eq("unit_id", options.unitId);
+  } else if (options?.unitIds) {
+    query = query.in("unit_id", options.unitIds);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(
+    ((data as unknown as VehicleConsultRow[] | null) ?? []).map(mapVehicleConsultRow),
+  );
 }
 
 export async function getVehicleById(

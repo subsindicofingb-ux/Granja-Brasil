@@ -3,7 +3,9 @@ import {
   ArrowRight,
   Building2,
   CalendarDays,
+  Car,
   ClipboardList,
+  Home,
   Inbox,
   Megaphone,
   Plus,
@@ -51,6 +53,15 @@ type QuickActionTile = {
   description: string;
   href: string;
   icon: typeof CalendarDays;
+  accent: string;
+};
+
+type GranjaOverviewCard = {
+  label: string;
+  value: number;
+  description: string;
+  href: string;
+  icon: typeof Building2;
   accent: string;
 };
 
@@ -194,6 +205,39 @@ export function StaffDashboard({
     });
   }
 
+  const granjaOverviewCards: GranjaOverviewCard[] =
+    isGeneralCondo && generalOverview
+      ? [
+          {
+            label: "Unidades residenciais",
+            value: generalOverview.residentialUnits,
+            description: `${generalOverview.residentialUnits - generalOverview.houses} em condomínios + ${generalOverview.houses} casas`,
+            href: `${base}/admin/condominiums`,
+            icon: Home,
+            accent:
+              "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+          },
+          {
+            label: "Moradores no sistema",
+            value: generalOverview.totalResidents,
+            description: "Cadastro geral de moradores",
+            href: `${base}/residents`,
+            icon: Users,
+            accent:
+              "border-indigo-200 bg-indigo-50 text-indigo-900 hover:border-indigo-300 hover:bg-indigo-100/80",
+          },
+          {
+            label: "Veículos cadastrados",
+            value: generalOverview.totalVehicles,
+            description: "Buscar responsável pela placa",
+            href: `${base}/vehicles/consult`,
+            icon: Car,
+            accent:
+              "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100/80",
+          },
+        ]
+      : [];
+
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-sky-50 p-6 shadow-sm">
@@ -229,21 +273,35 @@ export function StaffDashboard({
         </div>
       </section>
 
-      {isGeneralCondo && generalOverview && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Condomínios residenciais</p>
-            <p className="mt-1 text-xl font-bold">{generalOverview.residentialCondominiums}</p>
+      {granjaOverviewCards.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">Visão geral Granja</h3>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {granjaOverviewCards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className={`group flex items-start gap-3 rounded-xl border p-4 transition-colors ${card.accent}`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-medium opacity-80">{card.label}</span>
+                    <span className="mt-1 block text-2xl font-bold">{card.value}</span>
+                    <span className="mt-1 flex items-center gap-2 text-sm opacity-80">
+                      {card.description}
+                      <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </span>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
-          <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Casas cadastradas</p>
-            <p className="mt-1 text-xl font-bold">{generalOverview.houses}</p>
-          </div>
-          <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Moradores no sistema</p>
-            <p className="mt-1 text-xl font-bold">{generalOverview.totalResidents}</p>
-          </div>
-        </div>
+        </section>
       )}
 
       {attentionItems.length > 0 && (
