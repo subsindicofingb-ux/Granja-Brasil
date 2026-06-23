@@ -455,19 +455,37 @@ export async function markAnnouncementAsRead(input: {
   announcementId: string;
   profileId: string;
 }): Promise<ServiceResult<{ read_at: string }>> {
-  const readClient = await getAnnouncementWriteClient();
   const readAt = new Date().toISOString();
+  const sessionClient = await createClient();
+
+  const { data: rpcReadAt, error: rpcError } = await sessionClient.rpc("mark_announcement_read", {
+    p_announcement_id: input.announcementId,
+  });
+
+  if (!rpcError && rpcReadAt) {
+    return serviceOk({ read_at: rpcReadAt as string });
+  }
+
+  const readClient = await getAnnouncementWriteClient();
+
+  const { data: updatedRows, error: updateError } = await readClient
+    .from("announcement_reads")
+    .update({ read_at: readAt })
+    .eq("announcement_id", input.announcementId)
+    .eq("profile_id", input.profileId)
+    .select("read_at");
+
+  if (!updateError && updatedRows && updatedRows.length > 0) {
+    return serviceOk({ read_at: updatedRows[0].read_at as string });
+  }
 
   const { data, error } = await readClient
     .from("announcement_reads")
-    .upsert(
-      {
-        announcement_id: input.announcementId,
-        profile_id: input.profileId,
-        read_at: readAt,
-      },
-      { onConflict: "announcement_id,profile_id" },
-    )
+    .insert({
+      announcement_id: input.announcementId,
+      profile_id: input.profileId,
+      read_at: readAt,
+    })
     .select("read_at")
     .single();
 

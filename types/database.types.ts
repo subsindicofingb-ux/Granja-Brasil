@@ -883,6 +883,10 @@ export interface Database {
         Args: { p_announcement_id: string };
         Returns: string;
       };
+      mark_announcement_read: {
+        Args: { p_announcement_id: string };
+        Returns: string;
+      };
       granja_condominium_id: { Args: Record<string, never>; Returns: string | null };
     };
     Enums: {

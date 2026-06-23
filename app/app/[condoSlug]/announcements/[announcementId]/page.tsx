@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
@@ -27,6 +26,7 @@ import { AnnouncementAttachmentLink } from "@/components/announcements/announcem
 import { AnnouncementDisplayStatusBadge } from "@/components/announcements/announcement-display-status-badge";
 import { AnnouncementForm } from "@/components/announcements/announcement-form";
 import { AnnouncementReadReceipts } from "@/components/announcements/announcement-read-receipts";
+import { AnnouncementReadTracker } from "@/components/announcements/announcement-read-tracker";
 import { AnnouncementReplyForm } from "@/components/announcements/announcement-reply-form";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -121,7 +121,10 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
   let readAt: string | null = null;
   let readError: string | null = null;
   let readReceipts: AnnouncementReadReceipt[] = [];
-  let didMarkAsRead = false;
+  const hasReplyFromOthers = replies.some(
+    (reply) => reply.created_by !== access.profile.id,
+  );
+  const shouldTrackRead = !isAuthor || hasReplyFromOthers;
 
   if (!isAuthor) {
     const readResult = await markAnnouncementAsRead({
@@ -130,15 +133,10 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     });
     if (readResult.ok) {
       readAt = readResult.data.read_at;
-      didMarkAsRead = true;
     } else {
       readError = readResult.error;
     }
   } else {
-    const hasReplyFromOthers = replies.some(
-      (reply) => reply.created_by !== access.profile.id,
-    );
-
     if (hasReplyFromOthers) {
       const readResult = await markAnnouncementAsRead({
         announcementId,
@@ -147,7 +145,6 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
 
       if (readResult.ok) {
         readAt = readResult.data.read_at;
-        didMarkAsRead = true;
       } else {
         readError = readResult.error;
       }
@@ -157,14 +154,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
     readReceipts = receiptsResult.ok ? receiptsResult.data : [];
   }
 
-  if (didMarkAsRead) {
-    revalidatePath(`/app/${condoSlug}/announcements`);
-    revalidatePath(`/app/${condoSlug}`);
-    revalidatePath(`/app/${condoSlug}/announcements/${announcementId}`);
-  }
-
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {shouldTrackRead && (
+        <AnnouncementReadTracker condoSlug={condoSlug} announcementId={announcementId} />
+      )}
       <PageHeader
         title={announcement.title}
         description={
@@ -206,6 +200,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
             {isAuthor && readAt && (
               <p className="text-muted-foreground">
                 Resposta visualizada em {formatDateTime(readAt)}
+              </p>
+            )}
+            {isAuthor && readError && (
+              <p className="text-amber-700">
+                Não foi possível registrar a visualização da resposta. Tente abrir novamente.
               </p>
             )}
             {!isAuthor && readError && (

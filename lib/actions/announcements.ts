@@ -15,6 +15,8 @@ import {
   createAnnouncementReply,
   createResidentAnnouncement,
   getAnnouncementById,
+  listAnnouncementReplies,
+  markAnnouncementAsRead,
   updateAnnouncement,
 } from "@/lib/services/announcements";
 import {
@@ -245,4 +247,38 @@ export async function updateAnnouncementAction(
 
   revalidateAnnouncementPaths(condoSlug, announcementId);
   return { success: "Aviso atualizado com sucesso." };
+}
+
+export async function markAnnouncementViewedAction(
+  condoSlug: string,
+  announcementId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const access = await requireCondoAccess(condoSlug);
+  const announcementResult = await getAnnouncementById(announcementId, access.condominium.id);
+
+  if (!announcementResult.ok) {
+    return { ok: false, error: announcementResult.error ?? "Aviso não encontrado." };
+  }
+
+  const announcement = announcementResult.data;
+  const isAuthor = announcement.created_by === access.profile.id;
+  const repliesResult = await listAnnouncementReplies(announcementId);
+  const hasReplyFromOthers =
+    repliesResult.ok &&
+    repliesResult.data.some((reply) => reply.created_by !== access.profile.id);
+  const shouldMarkAsRead = !isAuthor || hasReplyFromOthers;
+
+  if (shouldMarkAsRead) {
+    const readResult = await markAnnouncementAsRead({
+      announcementId,
+      profileId: access.profile.id,
+    });
+
+    if (!readResult.ok) {
+      return { ok: false, error: readResult.error ?? "Não foi possível registrar a leitura." };
+    }
+  }
+
+  revalidateAnnouncementPaths(condoSlug, announcementId);
+  return { ok: true };
 }
