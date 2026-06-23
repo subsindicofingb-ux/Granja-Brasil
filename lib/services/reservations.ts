@@ -95,7 +95,7 @@ const RESERVATION_DETAIL_SELECT = `
       condominium_id
     )
   ),
-  profiles (
+  profiles!reservations_requested_by_fkey (
     id,
     full_name
   )

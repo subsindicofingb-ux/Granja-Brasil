@@ -1,4 +1,8 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import { ALLOWED_DAYS } from "@/lib/common-areas/types";
 import type {
   AllowedDay,
@@ -127,12 +131,11 @@ export type CommonAreaListOptions = {
   isActive?: boolean;
 };
 
-export async function listCommonAreasByCondominium(
+async function listCommonAreasWithClient(
+  supabase: SupabaseClient<Database>,
   condominiumId: string,
   options?: CommonAreaListOptions,
 ): Promise<ServiceResult<CommonAreaRecord[]>> {
-  const supabase = await createClient();
-
   let query = supabase
     .from("common_areas")
     .select(COMMON_AREA_SELECT)
@@ -150,6 +153,14 @@ export async function listCommonAreasByCondominium(
   }
 
   return serviceOk(((data as CommonAreaRow[] | null) ?? []).map(mapCommonArea));
+}
+
+export async function listCommonAreasByCondominium(
+  condominiumId: string,
+  options?: CommonAreaListOptions,
+): Promise<ServiceResult<CommonAreaRecord[]>> {
+  const supabase = await createClient();
+  return listCommonAreasWithClient(supabase, condominiumId, options);
 }
 
 function mergeCommonAreas(primary: CommonAreaRecord[], secondary: CommonAreaRecord[]) {
@@ -186,10 +197,25 @@ export async function listReservableCommonAreasForContext(
     return ownResult;
   }
 
-  const granjaResult = await listCommonAreasByCondominium(granjaCondominiumId, options);
+  const granjaSupabase = getSupabaseServiceRoleKey()
+    ? createAdminClient()
+    : await createClient();
+  const granjaResult = await listCommonAreasWithClient(
+    granjaSupabase,
+    granjaCondominiumId,
+    options,
+  );
 
-  if (!granjaResult.ok) {
-    return ownResult;
+  if (!granjaResult.ok || granjaResult.data.length === 0) {
+    const fallbackResult = await listCommonAreasByCondominium(granjaCondominiumId, options);
+
+    if (fallbackResult.ok && fallbackResult.data.length > 0) {
+      return serviceOk(mergeCommonAreas(ownResult.data, fallbackResult.data));
+    }
+
+    if (!granjaResult.ok) {
+      return ownResult;
+    }
   }
 
   return serviceOk(mergeCommonAreas(ownResult.data, granjaResult.data));

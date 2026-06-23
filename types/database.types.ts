@@ -423,6 +423,20 @@ export interface Database {
             referencedRelation: "profiles",
             referencedColumns: ["id"],
           },
+          {
+            foreignKeyName: "reservations_handover_signed_by_fkey",
+            columns: ["handover_signed_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
+          {
+            foreignKeyName: "reservations_handover_collected_by_fkey",
+            columns: ["handover_collected_by"],
+            isOneToOne: false,
+            referencedRelation: "profiles",
+            referencedColumns: ["id"],
+          },
         ];
       };
       announcements: {
@@ -845,6 +859,7 @@ export interface Database {
         Args: { p_announcement_id: string };
         Returns: string;
       };
+      granja_condominium_id: { Args: Record<string, never>; Returns: string | null };
     };
     Enums: {
       membership_role: MembershipRole;

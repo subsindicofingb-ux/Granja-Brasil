@@ -575,7 +575,7 @@ export async function listAnnouncementReadReceipts(
       `
       profile_id,
       read_at,
-      profiles (
+      profiles!announcement_reads_profile_id_fkey (
         full_name
       )
     `,

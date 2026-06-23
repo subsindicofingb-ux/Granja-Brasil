@@ -83,6 +83,10 @@ export type RegistrationUnitKind =
 
 export const DEMO_CONDO_SLUG = "residencial-exemplo";
 
+export function getGranjaCondoSlug(): string {
+  return process.env.NEXT_PUBLIC_GRANJA_CONDO_SLUG?.trim() || DEMO_CONDO_SLUG;
+}
+
 export const REGISTRATION_PROFILE_TYPES = {
   RESIDENT: "resident",
   SYNDIC: "syndic",
