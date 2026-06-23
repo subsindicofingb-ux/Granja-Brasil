@@ -132,6 +132,23 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
       readError = readResult.error;
     }
   } else {
+    const hasReplyFromOthers = replies.some(
+      (reply) => reply.created_by !== access.profile.id,
+    );
+
+    if (hasReplyFromOthers) {
+      const readResult = await markAnnouncementAsRead({
+        announcementId,
+        profileId: access.profile.id,
+      });
+
+      if (readResult.ok) {
+        readAt = readResult.data.read_at;
+      } else {
+        readError = readResult.error;
+      }
+    }
+
     const receiptsResult = await listAnnouncementReadReceipts(announcementId);
     readReceipts = receiptsResult.ok ? receiptsResult.data : [];
   }
@@ -174,6 +191,11 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
             {!isAuthor && readAt && (
               <p className="text-muted-foreground">
                 Leitura confirmada em {formatDateTime(readAt)}
+              </p>
+            )}
+            {isAuthor && readAt && (
+              <p className="text-muted-foreground">
+                Resposta visualizada em {formatDateTime(readAt)}
               </p>
             )}
             {!isAuthor && readError && (

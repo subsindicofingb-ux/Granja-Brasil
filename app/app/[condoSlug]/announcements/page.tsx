@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { listAnnouncementsByCondominium } from "@/lib/services/announcements";
+import { listAnnouncementsByCondominium, getAnnouncementUnreadState } from "@/lib/services/announcements";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { isValidUuid } from "@/lib/utils";
@@ -86,10 +86,43 @@ async function AnnouncementsContent({
     (condominium) => condominium.id !== access.condominium.id,
   );
   const announcements = announcementsResult.data ?? [];
+  const unreadState = announcementsResult.ok
+    ? await getAnnouncementUnreadState(
+        access.profile.id,
+        announcements.map((announcement) => ({
+          id: announcement.id,
+          created_by: announcement.created_by,
+        })),
+      )
+    : { unreadIncomingIds: [], unreadReplyThreadIds: [] };
+  const unreadIncomingSet = new Set(unreadState.unreadIncomingIds);
+  const unreadReplySet = new Set(unreadState.unreadReplyThreadIds);
   const showFilter = isGranja ? condominiums.length > 0 : towers.length > 0;
 
   return (
     <div className="space-y-4">
+      {(unreadState.unreadIncomingIds.length > 0 ||
+        unreadState.unreadReplyThreadIds.length > 0) && (
+        <div className="space-y-2">
+          {unreadState.unreadIncomingIds.length > 0 && (
+            <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-sm text-sky-950">
+              <span className="font-medium">
+                {unreadState.unreadIncomingIds.length} nova(s) mensagem(ns)
+              </span>{" "}
+              aguardando leitura.
+            </div>
+          )}
+          {unreadState.unreadReplyThreadIds.length > 0 && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/80 px-3 py-2 text-sm text-purple-950">
+              <span className="font-medium">
+                {unreadState.unreadReplyThreadIds.length} conversa(s) com nova resposta
+              </span>{" "}
+              aguardando seu retorno.
+            </div>
+          )}
+        </div>
+      )}
+
       {showFilter && (
         <AnnouncementCondominiumFilter
           condoSlug={condoSlug}
@@ -130,6 +163,8 @@ async function AnnouncementsContent({
               condoSlug={condoSlug}
               announcement={announcement}
               canManage={access.permissions.canManageAnnouncements}
+              isUnreadIncoming={unreadIncomingSet.has(announcement.id)}
+              hasUnreadReply={unreadReplySet.has(announcement.id)}
             />
           ))}
         </div>

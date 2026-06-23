@@ -32,6 +32,7 @@ export type ResidentDashboardProps = {
   upcomingReservations: ReservationWithDetails[];
   recentAnnouncements: AnnouncementWithDetails[];
   unreadAnnouncementIds: string[];
+  unreadReplyThreadIds: string[];
   reservationsByStatus: Record<ReservationStatus, number>;
 };
 
@@ -58,18 +59,18 @@ export function ResidentDashboard({
   upcomingReservations,
   recentAnnouncements,
   unreadAnnouncementIds,
+  unreadReplyThreadIds,
   reservationsByStatus,
 }: ResidentDashboardProps) {
   const base = `/app/${condoSlug}`;
   const firstName = getFirstName(residentName);
-  const unreadAnnouncementSet = new Set(unreadAnnouncementIds);
+  const unreadIncomingSet = new Set(unreadAnnouncementIds);
+  const unreadReplySet = new Set(unreadReplyThreadIds);
   const unreadAnnouncementCount = unreadAnnouncementIds.length;
+  const unreadReplyCount = unreadReplyThreadIds.length;
   const awaitingReceiptCount =
     reservationsByStatus[RESERVATION_STATUS.AWAITING_RECEIPT];
   const pendingCount = reservationsByStatus[RESERVATION_STATUS.PENDING];
-  const approvedUpcomingCount = upcomingReservations.filter(
-    (reservation) => reservation.status === RESERVATION_STATUS.APPROVED,
-  ).length;
 
   const quickActions: QuickAction[] = [];
 
@@ -140,6 +141,15 @@ export function ResidentDashboard({
     });
   }
 
+  if (unreadReplyCount > 0) {
+    attentionItems.push({
+      message: `${unreadReplyCount} mensagem(ns) sua(s) recebeu(ram) resposta.`,
+      href: `${base}/announcements/${unreadReplyThreadIds[0]}`,
+      cta: "Ver resposta",
+      tone: "border-purple-200 bg-purple-50 text-purple-950",
+    });
+  }
+
   if (unreadAnnouncementCount > 0) {
     attentionItems.push({
       message: `${unreadAnnouncementCount} aviso(s) aguardando leitura.`,
@@ -189,8 +199,8 @@ export function ResidentDashboard({
             <p className="mt-1 text-2xl font-bold">{unreadAnnouncementCount}</p>
           </div>
           <div className="rounded-xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Reservas confirmadas</p>
-            <p className="mt-1 text-2xl font-bold">{approvedUpcomingCount}</p>
+            <p className="text-xs font-medium text-muted-foreground">Respostas novas</p>
+            <p className="mt-1 text-2xl font-bold">{unreadReplyCount}</p>
           </div>
         </div>
       </section>
@@ -298,21 +308,27 @@ export function ResidentDashboard({
               </div>
             ) : (
               recentAnnouncements.map((announcement) => {
-                const isUnread = unreadAnnouncementSet.has(announcement.id);
+                const isUnreadIncoming = unreadIncomingSet.has(announcement.id);
+                const hasUnreadReply = unreadReplySet.has(announcement.id);
 
                 return (
                   <Link
                     key={announcement.id}
                     href={`${base}/announcements/${announcement.id}`}
                     className={`block rounded-lg border p-3 transition-colors hover:bg-muted/40 ${
-                      isUnread ? "border-sky-300 bg-sky-50/50" : ""
+                      isUnreadIncoming || hasUnreadReply ? "border-sky-300 bg-sky-50/50" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{announcement.title}</p>
-                          {isUnread && (
+                          {hasUnreadReply && (
+                            <Badge className="bg-purple-600 text-white hover:bg-purple-600">
+                              Nova resposta
+                            </Badge>
+                          )}
+                          {isUnreadIncoming && !hasUnreadReply && (
                             <Badge className="bg-sky-600 text-white hover:bg-sky-600">
                               Nova
                             </Badge>

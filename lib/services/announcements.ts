@@ -490,39 +490,78 @@ export async function markAnnouncementAsRead(input: {
   return serviceOk({ read_at: data.read_at });
 }
 
+export type AnnouncementUnreadState = {
+  unreadIncomingIds: string[];
+  unreadReplyThreadIds: string[];
+};
+
+export async function getAnnouncementUnreadState(
+  profileId: string,
+  announcements: Pick<AnnouncementRecord, "id" | "created_by">[],
+): Promise<AnnouncementUnreadState> {
+  if (announcements.length === 0) {
+    return { unreadIncomingIds: [], unreadReplyThreadIds: [] };
+  }
+
+  const readClient = await getAnnouncementWriteClient();
+  const announcementIds = announcements.map((announcement) => announcement.id);
+  const incomingCandidates = announcements.filter(
+    (announcement) => announcement.created_by !== profileId,
+  );
+  const ownThreads = announcements.filter(
+    (announcement) => announcement.created_by === profileId,
+  );
+
+  const { data: readRows, error: readError } = await readClient
+    .from("announcement_reads")
+    .select("announcement_id")
+    .eq("profile_id", profileId)
+    .in("announcement_id", announcementIds);
+
+  const readIds = readError
+    ? new Set<string>()
+    : new Set((readRows ?? []).map((row) => row.announcement_id));
+
+  const unreadIncomingIds = incomingCandidates
+    .filter((announcement) => !readIds.has(announcement.id))
+    .map((announcement) => announcement.id);
+
+  let unreadReplyThreadIds: string[] = [];
+
+  if (ownThreads.length > 0) {
+    const { data: replyRows, error: replyError } = await readClient
+      .from("announcements")
+      .select("parent_id")
+      .in(
+        "parent_id",
+        ownThreads.map((announcement) => announcement.id),
+      )
+      .neq("created_by", profileId);
+
+    if (!replyError) {
+      const threadsWithReplies = new Set(
+        (replyRows ?? []).map((row) => row.parent_id as string),
+      );
+
+      unreadReplyThreadIds = ownThreads
+        .filter(
+          (announcement) =>
+            threadsWithReplies.has(announcement.id) && !readIds.has(announcement.id),
+        )
+        .map((announcement) => announcement.id);
+    }
+  }
+
+  return { unreadIncomingIds, unreadReplyThreadIds };
+}
+
 export async function getUnreadAnnouncementIds(
   profileId: string,
   announcements: Pick<AnnouncementRecord, "id" | "created_by">[],
 ): Promise<Set<string>> {
-  const unreadCandidates = announcements.filter(
-    (announcement) => announcement.created_by !== profileId,
-  );
+  const state = await getAnnouncementUnreadState(profileId, announcements);
 
-  if (unreadCandidates.length === 0) {
-    return new Set();
-  }
-
-  const readClient = await getAnnouncementWriteClient();
-  const { data, error } = await readClient
-    .from("announcement_reads")
-    .select("announcement_id")
-    .eq("profile_id", profileId)
-    .in(
-      "announcement_id",
-      unreadCandidates.map((announcement) => announcement.id),
-    );
-
-  if (error) {
-    return new Set(unreadCandidates.map((announcement) => announcement.id));
-  }
-
-  const readIds = new Set((data ?? []).map((row) => row.announcement_id));
-
-  return new Set(
-    unreadCandidates
-      .filter((announcement) => !readIds.has(announcement.id))
-      .map((announcement) => announcement.id),
-  );
+  return new Set([...state.unreadIncomingIds, ...state.unreadReplyThreadIds]);
 }
 
 async function clearAnnouncementReadsForOthers(

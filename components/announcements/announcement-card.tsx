@@ -15,13 +15,21 @@ interface AnnouncementCardProps {
   condoSlug: string;
   announcement: AnnouncementWithDetails;
   canManage: boolean;
+  isUnreadIncoming?: boolean;
+  hasUnreadReply?: boolean;
 }
 
-export function AnnouncementCard({ condoSlug, announcement, canManage }: AnnouncementCardProps) {
+export function AnnouncementCard({
+  condoSlug,
+  announcement,
+  canManage,
+  isUnreadIncoming = false,
+  hasUnreadReply = false,
+}: AnnouncementCardProps) {
   const displayStatus = getAnnouncementDisplayStatus(announcement);
 
   return (
-    <Card>
+    <Card className={isUnreadIncoming || hasUnreadReply ? "border-sky-300" : undefined}>
       <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
         <div className="space-y-1">
           <CardTitle className="text-base">
@@ -32,6 +40,16 @@ export function AnnouncementCard({ condoSlug, announcement, canManage }: Announc
               {announcement.title}
             </Link>
           </CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            {hasUnreadReply && (
+              <Badge className="bg-purple-600 text-white hover:bg-purple-600">
+                Nova resposta
+              </Badge>
+            )}
+            {isUnreadIncoming && !hasUnreadReply && (
+              <Badge className="bg-sky-600 text-white hover:bg-sky-600">Nova</Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Publicado em {formatDateTime(announcement.published_at)}
             {announcement.author && ` · ${announcement.author.full_name}`}
