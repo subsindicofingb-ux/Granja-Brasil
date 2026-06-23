@@ -203,7 +203,7 @@ async function assertResidentInUnit(
 
 export async function listVehiclesByCondominium(
   condominiumId: string,
-  options?: { unitId?: string; unitIds?: string[] },
+  options?: { unitId?: string; unitIds?: string[]; status?: VehicleStatus },
 ): Promise<ServiceResult<VehicleWithUnit[]>> {
   const supabase = await createClient();
 
@@ -220,6 +220,10 @@ export async function listVehiclesByCondominium(
     query = query.in("unit_id", options.unitIds);
   }
 
+  if (options?.status) {
+    query = query.eq("status", options.status);
+  }
+
   const { data, error } = await query;
 
   if (error) {
@@ -229,11 +233,37 @@ export async function listVehiclesByCondominium(
   return serviceOk(((data as VehicleRow[] | null) ?? []).map(mapVehicleRow));
 }
 
+export async function countVehicles(options?: {
+  condominiumId?: string;
+  status?: VehicleStatus;
+}): Promise<ServiceResult<number>> {
+  const supabase = await createClient();
+
+  let query = supabase.from("vehicles").select("id", { count: "exact", head: true });
+
+  if (options?.condominiumId) {
+    query = query.eq("condominium_id", options.condominiumId);
+  }
+
+  if (options?.status) {
+    query = query.eq("status", options.status);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(count ?? 0);
+}
+
 export async function searchVehiclesForConsult(options?: {
   condominiumId?: string;
   plate?: string;
   unitId?: string;
   unitIds?: string[];
+  includeUnapproved?: boolean;
 }): Promise<ServiceResult<VehicleWithUnitAndCondominium[]>> {
   const plateQuery = options?.plate ? normalizeLicensePlateQuery(options.plate) : "";
 
@@ -246,10 +276,13 @@ export async function searchVehiclesForConsult(options?: {
   let query = supabase
     .from("vehicles")
     .select(VEHICLE_CONSULT_SELECT)
-    .eq("status", VEHICLE_STATUS.APPROVED)
     .ilike("license_plate", `%${plateQuery}%`)
     .order("license_plate", { ascending: true })
     .limit(50);
+
+  if (!options?.includeUnapproved) {
+    query = query.eq("status", VEHICLE_STATUS.APPROVED);
+  }
 
   if (options?.condominiumId) {
     query = query.eq("condominium_id", options.condominiumId);

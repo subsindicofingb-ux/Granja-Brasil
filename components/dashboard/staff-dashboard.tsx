@@ -17,7 +17,7 @@ import {
   getAnnouncementPriorityLabel,
 } from "@/lib/announcements/labels";
 import type { getRolePermissions } from "@/lib/auth/roles";
-import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
+import { RESERVATION_STATUS, VEHICLE_STATUS, type ReservationStatus } from "@/lib/constants";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
 import type { GeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
@@ -44,6 +44,8 @@ export type StaffDashboardProps = {
   reservationsByStatus: Record<ReservationStatus, number>;
   pendingRegistrationCount: number;
   pendingRegistrationRequests: RegistrationRequestRecord[];
+  totalVehicleCount: number;
+  pendingVehicleCount: number;
   isGlobalRegistrationView: boolean;
   quickActions: Array<{ label: string; href: string }>;
 };
@@ -79,6 +81,8 @@ export function StaffDashboard({
   reservationsByStatus,
   pendingRegistrationCount,
   pendingRegistrationRequests,
+  totalVehicleCount,
+  pendingVehicleCount,
   isGlobalRegistrationView,
   quickActions,
 }: StaffDashboardProps) {
@@ -205,6 +209,27 @@ export function StaffDashboard({
     });
   }
 
+  const granjaPendingVehicles = generalOverview?.pendingVehicles ?? 0;
+  const syndicPendingVehicles = pendingVehicleCount;
+
+  if (permissions.canManageVehicles && syndicPendingVehicles > 0 && !isGeneralCondo) {
+    attentionItems.push({
+      message: `${syndicPendingVehicles} veículo(s) aguardando autorização do síndico.`,
+      href: `${base}/vehicles?status=${VEHICLE_STATUS.PENDING}`,
+      cta: "Revisar veículos",
+      tone: "border-amber-200 bg-amber-50 text-amber-950",
+    });
+  }
+
+  if (permissions.canManageVehicles && granjaPendingVehicles > 0 && isGeneralCondo) {
+    attentionItems.push({
+      message: `${granjaPendingVehicles} veículo(s) aguardando aprovação nos condomínios.`,
+      href: `${base}/vehicles/consult`,
+      cta: "Consultar placas",
+      tone: "border-amber-200 bg-amber-50 text-amber-950",
+    });
+  }
+
   const granjaOverviewCards: GranjaOverviewCard[] =
     isGeneralCondo && generalOverview
       ? [
@@ -229,11 +254,39 @@ export function StaffDashboard({
           {
             label: "Veículos cadastrados",
             value: generalOverview.totalVehicles,
-            description: "Buscar responsável pela placa",
+            description:
+              granjaPendingVehicles > 0
+                ? `${granjaPendingVehicles} aguardando aprovação · consulta inclui pendentes`
+                : "Consulta por placa inclui cadastros pendentes",
             href: `${base}/vehicles/consult`,
             icon: Car,
             accent:
-              "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100/80",
+              granjaPendingVehicles > 0
+                ? "border-amber-300 bg-amber-50 text-amber-950 hover:border-amber-400 hover:bg-amber-100/80"
+                : "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100/80",
+          },
+        ]
+      : [];
+
+  const syndicOverviewCards: GranjaOverviewCard[] =
+    !isGeneralCondo && permissions.canManageVehicles
+      ? [
+          {
+            label: "Veículos",
+            value: totalVehicleCount,
+            description:
+              syndicPendingVehicles > 0
+                ? `${syndicPendingVehicles} nova(s) solicitação(ões) de autorização`
+                : "Cadastro e autorizações de veículos",
+            href:
+              syndicPendingVehicles > 0
+                ? `${base}/vehicles?status=${VEHICLE_STATUS.PENDING}`
+                : `${base}/vehicles`,
+            icon: Car,
+            accent:
+              syndicPendingVehicles > 0
+                ? "border-amber-300 bg-amber-50 text-amber-950 hover:border-amber-400 hover:bg-amber-100/80"
+                : "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100/80",
           },
         ]
       : [];
@@ -272,6 +325,37 @@ export function StaffDashboard({
           </div>
         </div>
       </section>
+
+      {syndicOverviewCards.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">Visão geral</h3>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {syndicOverviewCards.map((card) => {
+              const Icon = card.icon;
+
+              return (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className={`group flex items-start gap-3 rounded-xl border p-4 transition-colors ${card.accent}`}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-medium opacity-80">{card.label}</span>
+                    <span className="mt-1 block text-2xl font-bold">{card.value}</span>
+                    <span className="mt-1 flex items-center gap-2 text-sm opacity-80">
+                      {card.description}
+                      <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    </span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {granjaOverviewCards.length > 0 && (
         <section className="space-y-3">

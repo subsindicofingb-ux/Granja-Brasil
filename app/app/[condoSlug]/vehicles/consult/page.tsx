@@ -9,7 +9,9 @@ import {
 } from "@/lib/condominiums/display";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { searchVehiclesForConsult } from "@/lib/services/vehicles";
-import { formatLicensePlate } from "@/lib/vehicles/labels";
+import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
+import { VEHICLE_STATUS } from "@/lib/constants";
+import { Badge } from "@/components/ui/badge";
 import { VehiclePlateSearch } from "@/components/vehicles/vehicle-plate-search";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
@@ -33,6 +35,7 @@ async function ConsultContent({
     (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
   );
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
+  const includeUnapproved = isGeneralCondoPage && access.permissions.canManageVehicles;
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
   const normalizedPlate = plate?.trim() ?? "";
 
@@ -49,6 +52,7 @@ async function ConsultContent({
     ? await searchVehiclesForConsult({
         condominiumId: isGeneralCondoPage ? undefined : access.condominium.id,
         plate: normalizedPlate,
+        includeUnapproved,
         ...(unitQuery === "none"
           ? {}
           : unitQuery.unitId
@@ -67,6 +71,12 @@ async function ConsultContent({
 
   return (
     <div className="space-y-4">
+      {includeUnapproved && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          A consulta da Granja inclui veículos pendentes de aprovação do síndico.
+        </p>
+      )}
+
       <VehiclePlateSearch plate={normalizedPlate} />
 
       {!normalizedPlate ? (
@@ -88,6 +98,9 @@ async function ConsultContent({
                 <th className="px-4 py-3 text-left font-medium">Veículo</th>
                 <th className="px-4 py-3 text-left font-medium">Unidade</th>
                 <th className="px-4 py-3 text-left font-medium">Responsável</th>
+                {includeUnapproved && (
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                )}
                 {isGeneralCondoPage && (
                   <th className="px-4 py-3 text-left font-medium">Condomínio</th>
                 )}
@@ -131,6 +144,17 @@ async function ConsultContent({
                   <td className="px-4 py-3 text-muted-foreground">
                     {vehicle.resident?.full_name ?? "—"}
                   </td>
+                  {includeUnapproved && (
+                    <td className="px-4 py-3">
+                      <Badge
+                        className={getVehicleStatusBadgeClass(
+                          vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                        )}
+                      >
+                        {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                      </Badge>
+                    </td>
+                  )}
                   {isGeneralCondoPage && (
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatCondominiumDisplayName(

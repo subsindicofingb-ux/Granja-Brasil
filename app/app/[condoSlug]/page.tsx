@@ -8,7 +8,8 @@ import {
 import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
-import { ROLES } from "@/lib/constants";
+import { countVehicles } from "@/lib/services/vehicles";
+import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
 import {
   countAllPendingRegistrationRequests,
   countPendingRegistrationRequests,
@@ -120,6 +121,20 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   const generalOverview = generalOverviewResult?.ok ? generalOverviewResult.data : null;
 
+  const [totalVehicleCount, pendingVehicleCount] =
+    !isGeneralCondoDashboard && access.permissions.canManageVehicles
+      ? await Promise.all([
+          countVehicles({ condominiumId: access.condominium.id }),
+          countVehicles({
+            condominiumId: access.condominium.id,
+            status: VEHICLE_STATUS.PENDING,
+          }),
+        ]).then(([totalResult, pendingResult]) => [
+          totalResult.ok ? (totalResult.data ?? 0) : 0,
+          pendingResult.ok ? (pendingResult.data ?? 0) : 0,
+        ])
+      : [0, 0];
+
   const quickActions = [
     {
       label: "Cadastrar unidade",
@@ -169,6 +184,8 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       reservationsByStatus={metrics.reservationsByStatus}
       pendingRegistrationCount={pendingRegistrationCount}
       pendingRegistrationRequests={pendingRegistrationRequests}
+      totalVehicleCount={totalVehicleCount}
+      pendingVehicleCount={pendingVehicleCount}
       isGlobalRegistrationView={isGlobalRegistrationView}
       quickActions={quickActions}
     />

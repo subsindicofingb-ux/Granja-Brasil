@@ -21,6 +21,7 @@ export type GeneralCondominiumOverviewMetrics = {
   commercialUnits: number;
   totalResidents: number;
   totalVehicles: number;
+  pendingVehicles: number;
 };
 
 export type DashboardMetrics = {
@@ -116,13 +117,18 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 > {
   const supabase = await createClient();
 
-  const [condominiumsResult, unitsResult, residentsResult, vehiclesResult] = await Promise.all([
+  const [condominiumsResult, unitsResult, residentsResult, vehiclesResult, pendingVehiclesResult] =
+    await Promise.all([
     supabase.from("condominiums").select("id, is_commercial"),
     supabase
       .from("units")
       .select("id, block, towers!inner(name, condominium_id)"),
     supabase.from("residents").select("id", { count: "exact", head: true }),
     supabase.from("vehicles").select("id", { count: "exact", head: true }),
+    supabase
+      .from("vehicles")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending"),
   ]);
 
   if (unitsResult.error) {
@@ -135,6 +141,10 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
 
   if (vehiclesResult.error) {
     return serviceError(mapSupabaseError(vehiclesResult.error));
+  }
+
+  if (pendingVehiclesResult.error) {
+    return serviceError(mapSupabaseError(pendingVehiclesResult.error));
   }
 
   let residentialCondominiums = 0;
@@ -201,6 +211,7 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     commercialUnits,
     totalResidents: residentsResult.count ?? 0,
     totalVehicles: vehiclesResult.count ?? 0,
+    pendingVehicles: pendingVehiclesResult.count ?? 0,
   });
 }
 
