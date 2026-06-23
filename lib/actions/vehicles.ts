@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
+import { getUnitListFilterForAccess, getScopedUnitIds } from "@/lib/auth/unit-scope";
 import type { AuthActionState } from "@/lib/auth/types";
 import { VEHICLE_STATUS } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
@@ -61,12 +61,17 @@ export async function createVehicleAction(
 
   if (isResidentRegistration) {
     const unitFilter = await getUnitListFilterForAccess(access);
+    const scopedUnitIds = getScopedUnitIds(unitFilter);
 
-    if (unitFilter === "none" || unitFilter.unitIds?.length !== 1) {
+    if (scopedUnitIds.length === 0) {
       return { error: "Seu cadastro precisa estar vinculado a uma unidade para cadastrar veículos." };
     }
 
-    unitId = unitFilter.unitIds[0] ?? unitId;
+    unitId = parsed.data.unit_id;
+
+    if (!scopedUnitIds.includes(unitId)) {
+      return { error: "Unidade inválida para o seu cadastro." };
+    }
 
     const linkedResident = await getLinkedResidentForProfile({
       profileId: access.profile.id,

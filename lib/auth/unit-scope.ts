@@ -89,6 +89,18 @@ export function getUnitListFilter(scope: UnitScope): UnitListFilter | "none" {
   return { unitIds: scope.unitIds };
 }
 
+export function getScopedUnitIds(filter: UnitListFilter | "none"): string[] {
+  if (filter === "none") {
+    return [];
+  }
+
+  if (filter.unitId) {
+    return [filter.unitId];
+  }
+
+  return filter.unitIds ?? [];
+}
+
 export async function getUnitListFilterForAccess(
   access: CondoAccess,
 ): Promise<UnitListFilter | "none"> {

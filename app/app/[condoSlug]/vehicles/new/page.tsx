@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
+import { getUnitListFilterForAccess, getScopedUnitIds } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listResidentsByCondominium } from "@/lib/services/residents";
@@ -29,8 +29,9 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
 
   if (isResidentSubmission) {
     const unitFilter = await getUnitListFilterForAccess(access);
+    const scopedUnitIds = getScopedUnitIds(unitFilter);
 
-    if (unitFilter === "none" || !unitFilter.unitIds?.length) {
+    if (scopedUnitIds.length === 0) {
       return (
         <div className="mx-auto max-w-lg space-y-6">
           <PageHeader
@@ -48,7 +49,7 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
     const unitsResult = await listUnitsByCondominium(access.condominium.id);
     const residentUnits =
       unitsResult.ok && unitsResult.data
-        ? unitsResult.data.filter((unit) => unitFilter.unitIds?.includes(unit.id))
+        ? unitsResult.data.filter((unit) => scopedUnitIds.includes(unit.id))
         : [];
 
     if (residentUnits.length === 0) {
