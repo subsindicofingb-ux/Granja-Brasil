@@ -15,6 +15,7 @@ const TS = "2025-01-01T00:00:00Z";
 const mockCommonAreaDefaults = {
   is_active: true,
   requires_approval: false,
+  requires_payment: false,
   max_duration_minutes: null as number | null,
   min_advance_minutes: 0,
   min_advance_days: 0,
@@ -148,6 +149,7 @@ export const mockCommonAreas: CommonArea[] = [
     capacity: 20,
     description: "Área externa com churrasqueira e mesas.",
     ...mockCommonAreaDefaults,
+    requires_payment: true,
     max_duration_minutes: 480,
     min_advance_minutes: 60,
     max_advance_days: 60,

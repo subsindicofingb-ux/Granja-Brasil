@@ -30,6 +30,7 @@ type CommonAreaRow = {
   description: string | null;
   is_active: boolean;
   requires_approval: boolean;
+  requires_payment?: boolean;
   max_duration_minutes: number | null;
   min_advance_minutes: number;
   min_advance_days?: number | null;
@@ -92,6 +93,7 @@ function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
     description: row.description,
     is_active: row.is_active,
     requires_approval: row.requires_approval,
+    requires_payment: row.requires_payment ?? false,
     min_advance_days: resolveMinAdvanceDays(row.min_advance_days, row.min_advance_minutes),
     max_advance_days: row.max_advance_days,
     max_reservations_per_unit: row.max_reservations_per_unit,
@@ -114,6 +116,7 @@ const COMMON_AREA_SELECT = `
   description,
   is_active,
   requires_approval,
+  requires_payment,
   min_advance_days,
   max_advance_days,
   max_reservations_per_unit,
@@ -280,6 +283,7 @@ function toDbPayload(input: CommonAreaWriteInput) {
     capacity: input.capacity,
     is_active: input.is_active,
     requires_approval: input.requires_approval,
+    requires_payment: input.requires_payment,
     max_duration_minutes: null,
     min_advance_minutes: 0,
     min_advance_days: input.min_advance_days,

@@ -28,6 +28,7 @@ export type CommonAreaRecord = {
   description: string | null;
   is_active: boolean;
   requires_approval: boolean;
+  requires_payment: boolean;
   min_advance_days: number;
   max_advance_days: number | null;
   max_reservations_per_unit: number | null;
@@ -47,6 +48,7 @@ export type CommonAreaFormInput = {
   capacity: number;
   is_active: boolean;
   requires_approval: boolean;
+  requires_payment: boolean;
   min_advance_days: number;
   max_advance_days: number | null;
   max_reservations_per_unit: number | null;

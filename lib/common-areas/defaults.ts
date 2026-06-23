@@ -21,6 +21,7 @@ export const DEFAULT_COMMON_AREA_FORM: CommonAreaFormInput = {
   capacity: 10,
   is_active: true,
   requires_approval: false,
+  requires_payment: false,
   max_advance_days: 90,
   max_reservations_per_unit: 2,
   reservation_period_days: 30,

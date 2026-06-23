@@ -227,6 +227,16 @@ export function CommonAreaFormFields({
           />
           Exige aprovação do síndico/administrador
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="requires_payment"
+            value="true"
+            defaultChecked={defaults.requires_payment}
+            className="rounded border-input"
+          />
+          Exige cobrança (recibo antes da aprovação)
+        </label>
       </section>
 
       <section className="space-y-4">

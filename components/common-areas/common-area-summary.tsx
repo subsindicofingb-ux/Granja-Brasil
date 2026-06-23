@@ -32,6 +32,11 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
             Exige aprovação
           </Badge>
         )}
+        {area.requires_payment && (
+          <Badge className="border-purple-200 bg-purple-50 text-purple-700">
+            Exige cobrança
+          </Badge>
+        )}
       </div>
 
       <div className="space-y-3">

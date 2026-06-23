@@ -25,6 +25,7 @@ export type ReservationWithDetails = ReservationRecord & {
     id: string;
     name: string;
     requires_approval: boolean;
+    requires_payment: boolean;
     condominium_id: string;
     description: string | null;
     operating_hours: {

@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import type { ReservationStatus } from "@/lib/constants";
 import {
   getBookableCommonAreaById,
@@ -24,7 +27,7 @@ import {
   validateBooking,
 } from "@/lib/reservations/validate-booking";
 import {
-  requiresGranjaPaymentReceipt,
+  requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
 
@@ -35,6 +38,7 @@ type ReservationDetailRow = ReservationRow & {
     id: string;
     name: string;
     requires_approval: boolean;
+    requires_payment: boolean;
     condominium_id: string;
     description: string | null;
     operating_hours: { start: string; end: string } | string;
@@ -81,6 +85,7 @@ const RESERVATION_DETAIL_SELECT = `
     id,
     name,
     requires_approval,
+    requires_payment,
     condominium_id,
     description,
     operating_hours
@@ -141,6 +146,7 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       id: row.common_areas.id,
       name: row.common_areas.name,
       requires_approval: row.common_areas.requires_approval,
+      requires_payment: row.common_areas.requires_payment,
       condominium_id: row.common_areas.condominium_id,
       description: row.common_areas.description,
       operating_hours: parseAreaOperatingHours(row.common_areas.operating_hours),
@@ -388,19 +394,27 @@ export async function listReservationsForArea(
 export async function listBlockingReservationsForArea(
   commonAreaId: string,
 ): Promise<ServiceResult<ReservationRecord[]>> {
-  const supabase = await createClient();
+  async function runQuery(
+    supabase: SupabaseClient<Database>,
+  ): Promise<ServiceResult<ReservationRecord[]>> {
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(RESERVATION_SELECT)
+      .eq("common_area_id", commonAreaId)
+      .in("status", ["pending", "approved", "awaiting_receipt"]);
 
-  const { data, error } = await supabase
-    .from("reservations")
-    .select(RESERVATION_SELECT)
-    .eq("common_area_id", commonAreaId)
-    .in("status", ["pending", "approved", "awaiting_receipt"]);
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
 
-  if (error) {
-    return serviceError(mapSupabaseError(error));
+    return serviceOk(((data as ReservationRow[] | null) ?? []).map(mapReservation));
   }
 
-  return serviceOk(((data as ReservationRow[] | null) ?? []).map(mapReservation));
+  if (getSupabaseServiceRoleKey()) {
+    return runQuery(createAdminClient());
+  }
+
+  return runQuery(await createClient());
 }
 
 export async function getReservationById(
@@ -515,8 +529,9 @@ export async function createReservation(input: {
   const area = areaResult.data;
   const notificationCondominiumId = area.condominium_id;
   const granjaCondominiumId = await getGranjaCondominiumId();
-  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
-    areaName: area.name,
+  const paymentReceiptRequired = requiresPaymentReceipt({
+    requires_payment: area.requires_payment,
+    name: area.name,
     areaCondominiumId: area.condominium_id,
     granjaCondominiumId,
   });
@@ -604,8 +619,9 @@ export async function submitReservationReceipt(input: {
   }
 
   const granjaCondominiumId = await getGranjaCondominiumId();
-  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
-    areaName: current.data.common_area.name,
+  const paymentReceiptRequired = requiresPaymentReceipt({
+    requires_payment: current.data.common_area.requires_payment,
+    name: current.data.common_area.name,
     areaCondominiumId: current.data.common_area.condominium_id,
     granjaCondominiumId,
   });
@@ -677,8 +693,9 @@ async function updateReservationStatus(input: {
   }
 
   const granjaCondominiumId = await getGranjaCondominiumId();
-  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
-    areaName: current.data.common_area.name,
+  const paymentReceiptRequired = requiresPaymentReceipt({
+    requires_payment: current.data.common_area.requires_payment,
+    name: current.data.common_area.name,
     areaCondominiumId: current.data.common_area.condominium_id,
     granjaCondominiumId,
   });

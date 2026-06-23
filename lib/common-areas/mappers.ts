@@ -7,6 +7,7 @@ export function toCommonAreaFormInput(area: CommonAreaRecord): CommonAreaFormInp
     capacity: area.capacity,
     is_active: area.is_active,
     requires_approval: area.requires_approval,
+    requires_payment: area.requires_payment,
     min_advance_days: area.min_advance_days,
     max_advance_days: area.max_advance_days,
     max_reservations_per_unit: area.max_reservations_per_unit,

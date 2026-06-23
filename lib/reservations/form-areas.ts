@@ -1,7 +1,7 @@
 import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
-  requiresGranjaPaymentReceipt,
+  requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
 import type { ReservationAreaOption } from "@/components/reservations/reservation-form";
@@ -16,8 +16,9 @@ export async function buildReservationAreaOptions(
     name: area.name,
     requiresApproval: area.requires_approval,
     requiresGuestCount: requiresGuestCount(area.name),
-    requiresPaymentReceipt: requiresGranjaPaymentReceipt({
-      areaName: area.name,
+    requiresPaymentReceipt: requiresPaymentReceipt({
+      requires_payment: area.requires_payment,
+      name: area.name,
       areaCondominiumId: area.condominium_id,
       granjaCondominiumId,
     }),

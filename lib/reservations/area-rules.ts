@@ -16,11 +16,16 @@ export function requiresGuestCount(areaName: string): boolean {
   );
 }
 
-export function requiresGranjaPaymentReceipt(input: {
-  areaName: string;
+export function requiresPaymentReceipt(input: {
+  requires_payment: boolean;
+  name: string;
   areaCondominiumId: string;
   granjaCondominiumId: string | null;
 }): boolean {
+  if (input.requires_payment) {
+    return true;
+  }
+
   if (!input.granjaCondominiumId) {
     return false;
   }
@@ -29,7 +34,7 @@ export function requiresGranjaPaymentReceipt(input: {
     return false;
   }
 
-  return normalizeAreaName(input.areaName).includes("churrasqueira");
+  return normalizeAreaName(input.name).includes("churrasqueira");
 }
 
 export function isGranjaCondominiumSlug(slug: string): boolean {

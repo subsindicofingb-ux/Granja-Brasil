@@ -48,6 +48,7 @@ export const commonAreaFormSchema = z
       .min(1, "Capacidade mínima: 1."),
     is_active: z.boolean(),
     requires_approval: z.boolean(),
+    requires_payment: z.boolean(),
     min_advance_days: z.coerce
       .number({ invalid_type_error: "Antecedência mínima inválida." })
       .int()
@@ -111,6 +112,7 @@ export function parseCommonAreaFormData(formData: FormData) {
     capacity: formData.get("capacity"),
     is_active: parseBoolean(formData.get("is_active")),
     requires_approval: parseBoolean(formData.get("requires_approval")),
+    requires_payment: parseBoolean(formData.get("requires_payment")),
     min_advance_days: formData.get("min_advance_days"),
     max_advance_days: formData.get("max_advance_days"),
     max_reservations_per_unit: formData.get("max_reservations_per_unit"),
@@ -132,6 +134,7 @@ export function toCommonAreaPayload(
     capacity: data.capacity,
     is_active: data.is_active,
     requires_approval: data.requires_approval,
+    requires_payment: data.requires_payment,
     max_duration_minutes: null,
     min_advance_days: data.min_advance_days,
     max_advance_days: data.max_advance_days,

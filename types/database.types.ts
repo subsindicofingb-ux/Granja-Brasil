@@ -272,6 +272,7 @@ export interface Database {
           description: string | null;
           is_active: boolean;
           requires_approval: boolean;
+          requires_payment: boolean;
           max_duration_minutes: number | null;
           min_advance_minutes: number;
           min_advance_days: number;
@@ -295,6 +296,7 @@ export interface Database {
           description?: string | null;
           is_active?: boolean;
           requires_approval?: boolean;
+          requires_payment?: boolean;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
           min_advance_days?: number;
@@ -318,6 +320,7 @@ export interface Database {
           description?: string | null;
           is_active?: boolean;
           requires_approval?: boolean;
+          requires_payment?: boolean;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
           min_advance_days?: number;

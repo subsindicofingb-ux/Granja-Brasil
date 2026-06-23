@@ -4,7 +4,7 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
-  requiresGranjaPaymentReceipt,
+  requiresPaymentReceipt,
 } from "@/lib/reservations/area-rules";
 import {
   canShowReservationHandoverCollection,
@@ -62,8 +62,9 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   const reservation = result.data;
   const isStaff = access.permissions.canApproveReservations;
   const granjaCondominiumId = await getGranjaCondominiumId();
-  const paymentReceiptRequired = requiresGranjaPaymentReceipt({
-    areaName: reservation.common_area.name,
+  const paymentReceiptRequired = requiresPaymentReceipt({
+    requires_payment: reservation.common_area.requires_payment,
+    name: reservation.common_area.name,
     areaCondominiumId: reservation.common_area.condominium_id,
     granjaCondominiumId,
   });
