@@ -12,6 +12,10 @@ export type ReservationRecord = {
   guest_count: number | null;
   payment_receipt_url: string | null;
   payment_receipt_submitted_at: string | null;
+  handover_signature_data: string | null;
+  handover_signed_at: string | null;
+  handover_signed_by: string | null;
+  handover_collected_by: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -22,6 +26,11 @@ export type ReservationWithDetails = ReservationRecord & {
     name: string;
     requires_approval: boolean;
     condominium_id: string;
+    description: string | null;
+    operating_hours: {
+      start: string;
+      end: string;
+    };
   };
   unit: {
     id: string;

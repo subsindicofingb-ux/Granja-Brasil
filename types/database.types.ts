@@ -356,6 +356,10 @@ export interface Database {
           guest_count: number | null;
           payment_receipt_url: string | null;
           payment_receipt_submitted_at: string | null;
+          handover_signature_data: string | null;
+          handover_signed_at: string | null;
+          handover_signed_by: string | null;
+          handover_collected_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -371,6 +375,10 @@ export interface Database {
           guest_count?: number | null;
           payment_receipt_url?: string | null;
           payment_receipt_submitted_at?: string | null;
+          handover_signature_data?: string | null;
+          handover_signed_at?: string | null;
+          handover_signed_by?: string | null;
+          handover_collected_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -386,6 +394,10 @@ export interface Database {
           guest_count?: number | null;
           payment_receipt_url?: string | null;
           payment_receipt_submitted_at?: string | null;
+          handover_signature_data?: string | null;
+          handover_signed_at?: string | null;
+          handover_signed_by?: string | null;
+          handover_collected_by?: string | null;
           created_at?: string;
           updated_at?: string;
         };

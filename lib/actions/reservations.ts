@@ -8,14 +8,18 @@ import type { CondominiumContext } from "@/lib/condominiums/granja-shared-areas"
 import {
   approveReservation,
   cancelReservation,
+  collectReservationHandover,
   createReservation,
   getReservationByIdForContext,
   listUnitIdsForProfile,
   rejectReservation,
   submitReservationReceipt,
 } from "@/lib/services/reservations";
+import { getBookableCommonAreaById } from "@/lib/services/common-areas";
+import { canCollectReservationHandover } from "@/lib/reservations/handover";
+import { localDateTimeToIso } from "@/lib/reservations/timezone";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
-import { parseReservationFormData } from "@/lib/validations/reservation.schema";
+import { parseReservationFormData, reservationHandoverSchema } from "@/lib/validations/reservation.schema";
 
 function toBookingContext(input: { id: string; slug: string }): CondominiumContext {
   return {
@@ -68,16 +72,54 @@ export async function createReservationAction(
 
   const parsed = parseReservationFormData(formData);
 
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  if (!("success" in parsed) || !parsed.success) {
+    if ("error" in parsed) {
+      return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+    }
+
+    return { error: "Dados inválidos." };
   }
 
   const isStaff = access.permissions.canApproveReservations;
   const isResidentForm = String(formData.get("form_mode") ?? "staff") === "resident";
+  const bookingContext = toBookingContext(access.condominium);
+
+  let startAt: string;
+  let endAt: string;
+  let unitId: string;
+  let commonAreaId: string;
+  let notes: string | null;
+  let guestCount: number | null | undefined;
+
+  if ("reservation_date" in parsed.data) {
+    unitId = parsed.data.unit_id;
+    commonAreaId = parsed.data.common_area_id;
+    notes = parsed.data.notes;
+    guestCount = parsed.data.guest_count;
+
+    const areaResult = await getBookableCommonAreaById(commonAreaId, bookingContext);
+
+    if (!areaResult.ok) {
+      return { error: areaResult.error };
+    }
+
+    startAt = localDateTimeToIso(
+      parsed.data.reservation_date,
+      areaResult.data.operating_hours.start,
+    );
+    endAt = localDateTimeToIso(parsed.data.reservation_date, areaResult.data.operating_hours.end);
+  } else {
+    unitId = parsed.data.unit_id;
+    commonAreaId = parsed.data.common_area_id;
+    startAt = parsed.data.start_at;
+    endAt = parsed.data.end_at;
+    notes = parsed.data.notes;
+    guestCount = parsed.data.guest_count;
+  }
 
   const unitCheck = await assertCanBookForUnit(
     condoSlug,
-    parsed.data.unit_id,
+    unitId,
     isStaff,
     access.profile.id,
     access.condominium.id,
@@ -89,15 +131,15 @@ export async function createReservationAction(
 
   const result = await createReservation({
     condominiumId: access.condominium.id,
-    commonAreaId: parsed.data.common_area_id,
-    unitId: parsed.data.unit_id,
-    startAt: parsed.data.start_at,
-    endAt: parsed.data.end_at,
-    notes: parsed.data.notes,
-    guestCount: parsed.data.guest_count,
+    commonAreaId,
+    unitId,
+    startAt,
+    endAt,
+    notes,
+    guestCount,
     enforceGuestCount: isResidentForm,
     requestedBy: access.profile.id,
-    bookingContext: toBookingContext(access.condominium),
+    bookingContext,
   });
 
   if (!result.ok) {
@@ -289,4 +331,41 @@ export async function submitReservationReceiptAction(
     success:
       "Recibo enviado com sucesso. Aguarde a autorização do administrador da Granja.",
   };
+}
+
+export async function collectReservationHandoverAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const access = await requireCondoAccess(condoSlug);
+
+  if (!canCollectReservationHandover(access)) {
+    return { error: "Sem permissão para coletar aceite do morador." };
+  }
+
+  const parsed = reservationHandoverSchema.safeParse({
+    reservation_id: formData.get("reservation_id"),
+    resident_profile_id: formData.get("resident_profile_id"),
+    signature_data: formData.get("signature_data"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const result = await collectReservationHandover({
+    reservationId: parsed.data.reservation_id,
+    bookingContext: toBookingContext(access.condominium),
+    residentProfileId: parsed.data.resident_profile_id,
+    signatureData: parsed.data.signature_data,
+    collectedByProfileId: access.profile.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateReservationPaths(condoSlug, parsed.data.reservation_id);
+  return { success: "Aceite do morador registrado com sucesso." };
 }

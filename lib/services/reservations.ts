@@ -1,3 +1,4 @@
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ReservationStatus } from "@/lib/constants";
 import {
@@ -35,6 +36,8 @@ type ReservationDetailRow = ReservationRow & {
     name: string;
     requires_approval: boolean;
     condominium_id: string;
+    description: string | null;
+    operating_hours: { start: string; end: string } | string;
   };
   units: {
     id: string;
@@ -64,6 +67,10 @@ const RESERVATION_SELECT = `
   guest_count,
   payment_receipt_url,
   payment_receipt_submitted_at,
+  handover_signature_data,
+  handover_signed_at,
+  handover_signed_by,
+  handover_collected_by,
   created_at,
   updated_at
 `;
@@ -74,7 +81,9 @@ const RESERVATION_DETAIL_SELECT = `
     id,
     name,
     requires_approval,
-    condominium_id
+    condominium_id,
+    description,
+    operating_hours
   ),
   units!inner (
     id,
@@ -92,6 +101,17 @@ const RESERVATION_DETAIL_SELECT = `
   )
 `;
 
+function parseAreaOperatingHours(value: unknown): { start: string; end: string } {
+  if (typeof value === "object" && value !== null && "start" in value && "end" in value) {
+    return {
+      start: String((value as { start: string }).start),
+      end: String((value as { end: string }).end),
+    };
+  }
+
+  return { start: "08:00", end: "22:00" };
+}
+
 function mapReservation(row: ReservationRow): ReservationRecord {
   return {
     id: row.id,
@@ -105,6 +125,10 @@ function mapReservation(row: ReservationRow): ReservationRecord {
     guest_count: row.guest_count ?? null,
     payment_receipt_url: row.payment_receipt_url ?? null,
     payment_receipt_submitted_at: row.payment_receipt_submitted_at ?? null,
+    handover_signature_data: row.handover_signature_data ?? null,
+    handover_signed_at: row.handover_signed_at ?? null,
+    handover_signed_by: row.handover_signed_by ?? null,
+    handover_collected_by: row.handover_collected_by ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -118,6 +142,8 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       name: row.common_areas.name,
       requires_approval: row.common_areas.requires_approval,
       condominium_id: row.common_areas.condominium_id,
+      description: row.common_areas.description,
+      operating_hours: parseAreaOperatingHours(row.common_areas.operating_hours),
     },
     unit: {
       id: row.units.id,
@@ -766,4 +792,64 @@ export async function cancelReservation(
         ? null
         : "Esta reserva não pode ser cancelada.",
   });
+}
+
+export async function collectReservationHandover(input: {
+  reservationId: string;
+  bookingContext: CondominiumContext;
+  residentProfileId: string;
+  signatureData: string;
+  collectedByProfileId: string;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const current = await getReservationByIdForContext(input.reservationId, input.bookingContext);
+
+  if (!current.ok) {
+    return serviceError(current.error);
+  }
+
+  if (current.data.status !== "approved") {
+    return serviceError("O aceite só pode ser coletado em reservas aprovadas.");
+  }
+
+  if (current.data.handover_signed_at) {
+    return serviceError("Esta reserva já possui aceite registrado.");
+  }
+
+  const admin = createAdminClient();
+  const { data: residents, error: residentsError } = await admin
+    .from("residents")
+    .select("profile_id")
+    .eq("unit_id", current.data.unit_id)
+    .eq("profile_id", input.residentProfileId)
+    .limit(1);
+
+  if (residentsError) {
+    return serviceError(mapSupabaseError(residentsError));
+  }
+
+  const isRequester = current.data.requested_by === input.residentProfileId;
+  const belongsToUnit = (residents?.length ?? 0) > 0;
+
+  if (!isRequester && !belongsToUnit) {
+    return serviceError("O morador selecionado não pertence à unidade desta reserva.");
+  }
+
+  const signedAt = new Date().toISOString();
+  const { data, error } = await admin
+    .from("reservations")
+    .update({
+      handover_signature_data: input.signatureData,
+      handover_signed_at: signedAt,
+      handover_signed_by: input.residentProfileId,
+      handover_collected_by: input.collectedByProfileId,
+    })
+    .eq("id", input.reservationId)
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapReservationDetail(data as ReservationDetailRow));
 }

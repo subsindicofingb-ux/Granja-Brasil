@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { RESERVATION_STATUS } from "@/lib/constants";
-import { fromDatetimeLocalValue, localDateTimeToIso } from "@/lib/reservations/timezone";
+import { fromDatetimeLocalValue } from "@/lib/reservations/timezone";
 
-const optionalNotes = z
+const optionalPartyDescription = z
   .union([z.string(), z.null(), z.undefined()])
   .transform((value) => {
     if (value == null) return null;
     const trimmed = String(value).trim();
     return trimmed === "" ? null : trimmed;
   })
-  .refine((value) => value === null || value.length <= 2000, "Observação muito longa.");
+  .refine((value) => value === null || value.length <= 2000, "Relato muito longo.");
 
 const optionalGuestCount = z
   .union([z.string(), z.number(), z.null(), z.undefined()])
@@ -36,7 +36,7 @@ export const staffReservationFormSchema = z.object({
     .refine((value) => Boolean(value) && !Number.isNaN(new Date(value).getTime()), {
       message: "Data/hora de fim inválida.",
     }),
-  notes: optionalNotes,
+  notes: optionalPartyDescription,
   guest_count: optionalGuestCount,
 });
 
@@ -46,17 +46,9 @@ export const residentReservationFormSchema = z.object({
   reservation_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data da reserva."),
-  start_time: z.string().regex(/^\d{2}:\d{2}$/, "Informe o horário de início."),
-  end_time: z.string().regex(/^\d{2}:\d{2}$/, "Informe o horário de fim."),
-  notes: optionalNotes,
+  notes: optionalPartyDescription,
   guest_count: optionalGuestCount,
 });
-
-function buildResidentDateTimes(data: z.infer<typeof residentReservationFormSchema>) {
-  const start_at = localDateTimeToIso(data.reservation_date, data.start_time);
-  const end_at = localDateTimeToIso(data.reservation_date, data.end_time);
-  return { start_at, end_at };
-}
 
 export function parseReservationFormData(formData: FormData) {
   const mode = String(formData.get("form_mode") ?? "staff");
@@ -66,8 +58,6 @@ export function parseReservationFormData(formData: FormData) {
       common_area_id: formData.get("common_area_id"),
       unit_id: formData.get("unit_id"),
       reservation_date: formData.get("reservation_date"),
-      start_time: formData.get("start_time"),
-      end_time: formData.get("end_time"),
       notes: formData.get("notes") ?? "",
       guest_count: formData.get("guest_count"),
     });
@@ -76,15 +66,12 @@ export function parseReservationFormData(formData: FormData) {
       return parsed;
     }
 
-    const { start_at, end_at } = buildResidentDateTimes(parsed.data);
-
     return {
       success: true as const,
       data: {
         common_area_id: parsed.data.common_area_id,
         unit_id: parsed.data.unit_id,
-        start_at,
-        end_at,
+        reservation_date: parsed.data.reservation_date,
         notes: parsed.data.notes,
         guest_count: parsed.data.guest_count,
       },
@@ -100,6 +87,16 @@ export function parseReservationFormData(formData: FormData) {
     guest_count: formData.get("guest_count"),
   });
 }
+
+export const reservationHandoverSchema = z.object({
+  reservation_id: z.string().uuid("Reserva inválida."),
+  resident_profile_id: z.string().uuid("Selecione o morador que assina."),
+  signature_data: z
+    .string()
+    .min(32, "Colete a assinatura do morador.")
+    .refine((value) => value.startsWith("data:image/png;base64,"), "Assinatura inválida.")
+    .refine((value) => value.length <= 500_000, "Assinatura muito grande."),
+});
 
 export const reservationListFiltersSchema = z.object({
   area: z.string().uuid().optional(),

@@ -17,6 +17,11 @@ export type ReservationAreaOption = {
   requiresGuestCount: boolean;
   requiresPaymentReceipt: boolean;
   capacity: number;
+  operatingHours: {
+    start: string;
+    end: string;
+  };
+  rules: string | null;
 };
 
 interface ReservationFormProps {
@@ -151,16 +156,12 @@ export function ReservationForm({
 
           <input type="hidden" name="reservation_date" value={reservationDate} />
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="start_time">Horário de início</Label>
-              <Input id="start_time" name="start_time" type="time" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="end_time">Horário de fim</Label>
-              <Input id="end_time" name="end_time" type="time" required />
-            </div>
-          </div>
+          {selectedArea && (
+            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+              Horário da reserva: {selectedArea.operatingHours.start} –{" "}
+              {selectedArea.operatingHours.end} (conforme regras do espaço).
+            </p>
+          )}
         </>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -191,20 +192,36 @@ export function ReservationForm({
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="notes">Observações</Label>
+        <Label htmlFor="notes">Breve relato da festa</Label>
         <textarea
           id="notes"
           name="notes"
           rows={3}
-          placeholder="Opcional"
+          placeholder="Descreva brevemente a festa ou evento."
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
         />
       </div>
+
+      {isResident && selectedArea?.rules && (
+        <div className="space-y-2">
+          <Label>Regras do espaço</Label>
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm whitespace-pre-wrap">
+            {selectedArea.rules}
+          </div>
+        </div>
+      )}
 
       {selectedArea?.requiresPaymentReceipt && (
         <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
           Após o pré-cadastro, envie o recibo de pagamento nesta reserva. A autorização final
           depende do recibo e da aprovação do administrador da Granja.
+        </p>
+      )}
+
+      {isResident && (
+        <p className="text-xs text-muted-foreground">
+          No dia do evento, um funcionário coletará sua assinatura confirmando que o espaço, móveis
+          e utensílios estão em ordem antes do início da festa.
         </p>
       )}
 

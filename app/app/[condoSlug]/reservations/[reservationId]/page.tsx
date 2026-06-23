@@ -6,20 +6,35 @@ import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
   requiresGranjaPaymentReceipt,
 } from "@/lib/reservations/area-rules";
+import {
+  canShowReservationHandoverCollection,
+  RESERVATION_HANDOVER_ACCEPTANCE_TEXT,
+} from "@/lib/reservations/handover";
 import { canCancelReservation, canApproveReservation } from "@/lib/reservations/validate-booking";
 import { getReservationByIdForContext, listUnitIdsForProfile } from "@/lib/services/reservations";
+import { listResidentsByCondominium } from "@/lib/services/residents";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ReservationActions } from "@/components/reservations/reservation-actions";
+import { ReservationHandoverSignature } from "@/components/reservations/reservation-handover-signature";
 import { ReservationReceiptUpload } from "@/components/reservations/reservation-receipt-upload";
 import { ReservationStatusBadge } from "@/components/reservations/reservation-status-badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 interface ReservationDetailPageProps {
   params: Promise<{ condoSlug: string; reservationId: string }>;
+}
+
+async function getProfileName(profileId: string | null): Promise<string | null> {
+  if (!profileId) return null;
+
+  const admin = createAdminClient();
+  const { data } = await admin.from("profiles").select("full_name").eq("id", profileId).maybeSingle();
+  return data?.full_name ?? null;
 }
 
 export default async function ReservationDetailPage({ params }: ReservationDetailPageProps) {
@@ -82,6 +97,40 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     (!isGranjaArea || isGeneralCondominium(condoSlug)) &&
     (!paymentReceiptRequired || Boolean(reservation.payment_receipt_url));
 
+  const canCollectHandover = canShowReservationHandoverCollection(
+    reservation.status,
+    access,
+  );
+
+  const residentsResult = await listResidentsByCondominium({
+    condominiumId: access.condominium.id,
+    unitId: reservation.unit_id,
+  });
+
+  const signerMap = new Map<string, string>();
+
+  if (reservation.requester) {
+    signerMap.set(reservation.requester.id, reservation.requester.full_name);
+  }
+
+  if (residentsResult.ok) {
+    for (const resident of residentsResult.data) {
+      if (resident.profile_id) {
+        signerMap.set(resident.profile_id, resident.full_name);
+      }
+    }
+  }
+
+  const handoverSigners = [...signerMap.entries()].map(([id, full_name]) => ({
+    id,
+    full_name,
+  }));
+
+  const [signedByName, collectedByName] = await Promise.all([
+    getProfileName(reservation.handover_signed_by),
+    getProfileName(reservation.handover_collected_by),
+  ]);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
@@ -104,12 +153,15 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             <span className="font-medium">{formatUnitWithTower(reservation.unit)}</span>
           </div>
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-            <span className="text-muted-foreground">Início</span>
-            <span className="font-medium">{formatDateTime(reservation.start_at)}</span>
+            <span className="text-muted-foreground">Data</span>
+            <span className="font-medium">{formatDateTime(reservation.start_at).split(",")[0]}</span>
           </div>
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-            <span className="text-muted-foreground">Fim</span>
-            <span className="font-medium">{formatDateTime(reservation.end_at)}</span>
+            <span className="text-muted-foreground">Horário</span>
+            <span className="font-medium">
+              {reservation.common_area.operating_hours.start} –{" "}
+              {reservation.common_area.operating_hours.end}
+            </span>
           </div>
           {reservation.guest_count != null && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
@@ -124,9 +176,17 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             </div>
           )}
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-            <span className="text-muted-foreground">Observações</span>
-            <span className="font-medium">{reservation.notes ?? "—"}</span>
+            <span className="text-muted-foreground">Breve relato da festa</span>
+            <span className="font-medium sm:text-right">{reservation.notes ?? "—"}</span>
           </div>
+          {reservation.common_area.description && (
+            <div className="space-y-1">
+              <span className="text-muted-foreground">Regras do espaço</span>
+              <p className="rounded-md border bg-muted/30 px-3 py-2 whitespace-pre-wrap">
+                {reservation.common_area.description}
+              </p>
+            </div>
+          )}
           {reservation.payment_receipt_url && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Recibo</span>
@@ -160,6 +220,63 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
           )}
         </CardContent>
       </Card>
+
+      {reservation.handover_signed_at && reservation.handover_signature_data && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Aceite do morador</CardTitle>
+            <CardDescription>{RESERVATION_HANDOVER_ACCEPTANCE_TEXT}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Assinado por</span>
+              <span className="font-medium">{signedByName ?? "—"}</span>
+            </div>
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Coletado por</span>
+              <span className="font-medium">{collectedByName ?? "—"}</span>
+            </div>
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Data do aceite</span>
+              <span className="font-medium">{formatDateTime(reservation.handover_signed_at)}</span>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={reservation.handover_signature_data}
+              alt="Assinatura do morador"
+              className="max-h-40 rounded-md border bg-white"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {canCollectHandover && !reservation.handover_signed_at && handoverSigners.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Coletar aceite do morador</CardTitle>
+            <CardDescription>
+              Registre a assinatura do morador antes do início da festa.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ReservationHandoverSignature
+              condoSlug={condoSlug}
+              reservationId={reservation.id}
+              signers={handoverSigners}
+              defaultSignerId={reservation.requested_by}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {canCollectHandover && !reservation.handover_signed_at && handoverSigners.length === 0 && (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            Não há morador com login vinculado à unidade para registrar o aceite. Vincule o
+            morador em Moradores antes do evento.
+          </CardContent>
+        </Card>
+      )}
 
       {canUploadReceipt && (
         <Card>

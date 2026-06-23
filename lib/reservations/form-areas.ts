@@ -22,5 +22,7 @@ export async function buildReservationAreaOptions(
       granjaCondominiumId,
     }),
     capacity: area.capacity,
+    operatingHours: area.operating_hours,
+    rules: area.description,
   }));
 }
