@@ -8,7 +8,14 @@ import { getVehicleById } from "@/lib/services/vehicles";
 import { listResidentsByCondominium } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { formatUnitOptionLabel } from "@/lib/residents/labels";
-import { formatLicensePlate } from "@/lib/vehicles/labels";
+import {
+  formatLicensePlate,
+  getVehicleStatusBadgeClass,
+  VEHICLE_STATUS_LABELS,
+} from "@/lib/vehicles/labels";
+import { VEHICLE_STATUS } from "@/lib/constants";
+import { VehicleReviewActions } from "@/components/vehicles/vehicle-review-actions";
+import { Badge } from "@/components/ui/badge";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { VehicleForm } from "@/components/vehicles/vehicle-form";
@@ -17,10 +24,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface VehicleDetailPageProps {
   params: Promise<{ condoSlug: string; vehicleId: string }>;
+  searchParams: Promise<{ submitted?: string }>;
 }
 
-export default async function VehicleDetailPage({ params }: VehicleDetailPageProps) {
+export default async function VehicleDetailPage({ params, searchParams }: VehicleDetailPageProps) {
   const { condoSlug, vehicleId } = await params;
+  const { submitted } = await searchParams;
   const access = await requireCondoAccess(condoSlug);
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
@@ -86,6 +95,12 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
         description={canEdit ? "Edite os dados do veículo." : "Detalhes do veículo."}
       />
 
+      {submitted === "1" && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Veículo enviado para aprovação do síndico. Você será avisado quando for validado.
+        </p>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -126,6 +141,16 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
                 </div>
               ) : null}
               <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Status</span>
+                <Badge
+                  className={getVehicleStatusBadgeClass(
+                    vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                  )}
+                >
+                  {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                </Badge>
+              </div>
+              <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">Placa</span>
                 <span className="font-medium">{formatLicensePlate(vehicle.license_plate)}</span>
               </div>
@@ -145,6 +170,8 @@ export default async function VehicleDetailPage({ params }: VehicleDetailPagePro
               </div>
             </div>
           )}
+
+          {canEdit && <VehicleReviewActions condoSlug={condoSlug} vehicle={vehicle} />}
         </CardContent>
       </Card>
 

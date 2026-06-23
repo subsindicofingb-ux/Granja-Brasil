@@ -93,7 +93,16 @@ export const REGISTRATION_PROFILE_TYPES = {
   STAFF: "staff",
   VISITOR: "visitor",
   SERVICE_PROVIDER: "service_provider",
+  OTHER: "other",
 } as const;
+
+export const VEHICLE_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+} as const;
+
+export type VehicleStatus = (typeof VEHICLE_STATUS)[keyof typeof VEHICLE_STATUS];
 
 export type RegistrationProfileType =
   (typeof REGISTRATION_PROFILE_TYPES)[keyof typeof REGISTRATION_PROFILE_TYPES];

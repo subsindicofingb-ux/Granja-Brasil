@@ -72,6 +72,8 @@ function mapProfileTypeToResidentType(profileType: RegistrationProfileType): Res
       return RESIDENT_TYPES.DEPENDENT;
     case "service_provider":
       return RESIDENT_TYPES.TENANT;
+    case "other":
+      return RESIDENT_TYPES.OWNER;
     default:
       return RESIDENT_TYPES.OWNER;
   }
@@ -259,6 +261,8 @@ export async function createRegistrationRequestAsAdmin(input: {
   profileType: RegistrationProfileType;
   fullName: string;
   email: string;
+  phone?: string | null;
+  photoUrl?: string | null;
   unitId?: string;
   unitNumber?: string;
   unitKind?: RegistrationUnitKind;
@@ -343,6 +347,8 @@ export async function createRegistrationRequestAsAdmin(input: {
       unit_number: unitNumber,
       full_name: input.fullName.trim(),
       email: input.email.trim().toLowerCase(),
+      phone: input.phone?.trim() || null,
+      photo_url: input.photoUrl ?? null,
       status: "pending" as const,
     };
 
@@ -621,6 +627,7 @@ export async function approveRegistrationRequest(input: {
   reviewerProfileId: string;
   unitId?: string;
   reviewNotes?: string;
+  residentType?: ResidentType;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   const requestResult = await getRegistrationRequestById(input.requestId, input.condominiumId);
   if (!requestResult.ok) {
@@ -669,6 +676,7 @@ export async function approveRegistrationRequest(input: {
   }
 
   const supabase = await createClient();
+  const resolvedResidentType = input.residentType ?? request.resident_type;
 
   if (needsUnit && resolvedUnitId) {
     const { error: residentError } = await supabase.from("residents").insert({
@@ -676,7 +684,9 @@ export async function approveRegistrationRequest(input: {
       profile_id: request.profile_id,
       full_name: request.full_name,
       email: request.email,
-      type: request.resident_type,
+      phone: request.phone,
+      photo_url: request.photo_url,
+      type: resolvedResidentType,
     });
 
     if (residentError) {
@@ -707,6 +717,7 @@ export async function approveRegistrationRequest(input: {
     .from("registration_requests")
     .update({
       status: "approved",
+      resident_type: resolvedResidentType,
       reviewed_by: input.reviewerProfileId,
       reviewed_at: new Date().toISOString(),
       review_notes: input.reviewNotes?.trim() || null,

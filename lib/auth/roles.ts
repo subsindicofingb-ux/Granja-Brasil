@@ -14,6 +14,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: true,
     canManageVehicles: true,
     canViewUnitVehicles: true,
+    canRegisterUnitVehicles: false,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -34,6 +35,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: true,
     canManageVehicles: true,
     canViewUnitVehicles: true,
+    canRegisterUnitVehicles: false,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -54,6 +56,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: true,
     canManageVehicles: true,
     canViewUnitVehicles: true,
+    canRegisterUnitVehicles: false,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -74,6 +77,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: true,
     canManageVehicles: true,
     canViewUnitVehicles: true,
+    canRegisterUnitVehicles: false,
     canManageAreas: true,
     canManageReservations: true,
     canManageAnnouncements: true,
@@ -94,6 +98,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: false,
     canManageVehicles: false,
     canViewUnitVehicles: true,
+    canRegisterUnitVehicles: true,
     canManageAreas: false,
     canManageReservations: true,
     canManageAnnouncements: false,
@@ -114,6 +119,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: false,
     canManageVehicles: false,
     canViewUnitVehicles: false,
+    canRegisterUnitVehicles: false,
     canManageAreas: false,
     canManageReservations: false,
     canManageAnnouncements: false,
@@ -134,6 +140,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: false,
     canManageVehicles: false,
     canViewUnitVehicles: false,
+    canRegisterUnitVehicles: false,
     canManageAreas: false,
     canManageReservations: false,
     canManageAnnouncements: false,
@@ -156,6 +163,7 @@ export const ROLE_PERMISSIONS = {
     canManageRegistrationRequests: boolean;
     canManageVehicles: boolean;
     canViewUnitVehicles: boolean;
+    canRegisterUnitVehicles: boolean;
     canManageAreas: boolean;
     canManageReservations: boolean;
     canManageAnnouncements: boolean;

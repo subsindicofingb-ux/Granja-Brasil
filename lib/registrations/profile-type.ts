@@ -72,7 +72,8 @@ export const REGISTRATION_UNIT_NOT_APPLICABLE = "—";
 export function requiresRegistrationUnit(profileType: RegistrationProfileType): boolean {
   return (
     profileType === REGISTRATION_PROFILE_TYPES.RESIDENT ||
-    profileType === REGISTRATION_PROFILE_TYPES.VISITOR
+    profileType === REGISTRATION_PROFILE_TYPES.VISITOR ||
+    profileType === REGISTRATION_PROFILE_TYPES.OTHER
   );
 }
 

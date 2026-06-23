@@ -13,6 +13,7 @@ import type { PublicUnitOption } from "@/lib/services/registration-requests";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhotoField } from "@/components/shared/photo-field";
 
 interface SignUpFormProps {
   condominiums: PublicCondominiumOption[];
@@ -24,6 +25,7 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [unitNumber, setUnitNumber] = useState("");
+  const [phone, setPhone] = useState("");
   const [selectedCondoId, setSelectedCondoId] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedProfileType, setSelectedProfileType] = useState<RegistrationProfileType>(
@@ -76,10 +78,11 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
     hasRequiredUnit;
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" className="space-y-4">
       <input type="hidden" name="full_name" value={fullName} />
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="password" value={password} />
+      <input type="hidden" name="phone" value={phone} />
       <input type="hidden" name="condominium_id" value={selectedCondoId} />
       <input type="hidden" name="condominium_slug" value={selectedCondo?.slug ?? ""} />
       <input type="hidden" name="profile_type" value={selectedProfileType} />
@@ -134,6 +137,20 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
           required
         />
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="phone">Celular</Label>
+        <Input
+          id="phone"
+          type="tel"
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          placeholder="(11) 99999-0000"
+          autoComplete="tel"
+        />
+      </div>
+
+      <PhotoField label="Foto (opcional)" enableCamera />
 
       <div className="space-y-4 rounded-md border bg-muted/30 p-4">
         <div>

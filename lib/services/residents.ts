@@ -236,6 +236,59 @@ export async function updateResident(input: {
   return serviceOk(mapResidentRow(resident));
 }
 
+export async function deleteResident(input: {
+  residentId: string;
+  condominiumId?: string;
+}): Promise<ServiceResult<true>> {
+  const supabase = await createClient();
+
+  const residentResult = await getResidentById(input.residentId, {
+    condominiumId: input.condominiumId,
+  });
+
+  if (!residentResult.ok) {
+    return serviceError(residentResult.error);
+  }
+
+  const { error } = await supabase.from("residents").delete().eq("id", input.residentId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(true);
+}
+
+export async function getLinkedResidentForProfile(input: {
+  profileId: string;
+  condominiumId: string;
+  unitId?: string;
+}): Promise<ServiceResult<{ id: string; unit_id: string } | null>> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("residents")
+    .select("id, unit_id, units!inner(towers!inner(condominium_id))")
+    .eq("profile_id", input.profileId)
+    .eq("units.towers.condominium_id", input.condominiumId);
+
+  if (input.unitId) {
+    query = query.eq("unit_id", input.unitId);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  if (!data) {
+    return serviceOk(null);
+  }
+
+  return serviceOk({ id: data.id, unit_id: data.unit_id });
+}
+
 export type AnnouncementResidentTarget = {
   profile_id: string;
   full_name: string;

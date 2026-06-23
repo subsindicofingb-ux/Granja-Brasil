@@ -6,7 +6,8 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { formatUnitWithTower } from "@/lib/residents/labels";
-import { formatLicensePlate } from "@/lib/vehicles/labels";
+import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
+import { VEHICLE_STATUS } from "@/lib/constants";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
@@ -27,7 +28,7 @@ async function VehiclesHeader({ condoSlug }: { condoSlug: string }) {
       title="Veículos"
       description="Cadastro de veículos com placa, TAG de acesso e foto."
       action={
-        access.permissions.canManageVehicles ? (
+        access.permissions.canManageVehicles || access.permissions.canRegisterUnitVehicles ? (
           <Button asChild>
             <Link href={`/app/${condoSlug}/vehicles/new`}>
               <Plus className="h-4 w-4" />
@@ -70,7 +71,7 @@ async function VehiclesContent({ condoSlug }: { condoSlug: string }) {
         title="Nenhum veículo cadastrado"
         description="Registre veículos da sua unidade com placa, número da TAG e foto para controle de acesso."
         action={
-          access.permissions.canManageVehicles ? (
+          access.permissions.canManageVehicles || access.permissions.canRegisterUnitVehicles ? (
             <Button asChild>
               <Link href={`/app/${condoSlug}/vehicles/new`}>Cadastrar veículo</Link>
             </Button>
@@ -89,6 +90,7 @@ async function VehiclesContent({ condoSlug }: { condoSlug: string }) {
             <th className="px-4 py-3 text-left font-medium">Veículo</th>
             <th className="px-4 py-3 text-left font-medium">Placa</th>
             <th className="px-4 py-3 text-left font-medium">TAG</th>
+            <th className="px-4 py-3 text-left font-medium">Status</th>
             <th className="px-4 py-3 text-left font-medium">Unidade</th>
             <th className="px-4 py-3 text-right font-medium">Ações</th>
           </tr>
@@ -121,6 +123,13 @@ async function VehiclesContent({ condoSlug }: { condoSlug: string }) {
               </td>
               <td className="px-4 py-3">{formatLicensePlate(vehicle.license_plate)}</td>
               <td className="px-4 py-3 text-muted-foreground">{vehicle.tag_number ?? "—"}</td>
+              <td className="px-4 py-3">
+                <span
+                  className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${getVehicleStatusBadgeClass(vehicle.status ?? VEHICLE_STATUS.APPROVED)}`}
+                >
+                  {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                </span>
+              </td>
               <td className="px-4 py-3 text-muted-foreground">
                 {formatUnitWithTower(vehicle.unit)}
               </td>

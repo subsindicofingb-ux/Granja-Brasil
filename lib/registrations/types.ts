@@ -24,6 +24,8 @@ export type RegistrationRequestRecord = {
   requested_unit_id: string | null;
   full_name: string;
   email: string;
+  phone: string | null;
+  photo_url: string | null;
   status: RegistrationRequestStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;

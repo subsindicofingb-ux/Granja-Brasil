@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireCondoPermission } from "@/lib/auth/access";
+import { requireCondoPermission, requireCondoAccess } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { createResident, updateResident } from "@/lib/services/residents";
+import { createResident, deleteResident, updateResident } from "@/lib/services/residents";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
@@ -149,4 +150,37 @@ export async function updateResidentAction(
   revalidateResidentPaths(condoSlug);
   revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
   return { success: "Morador atualizado com sucesso." };
+}
+
+export async function deleteResidentAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const residentId = String(formData.get("resident_id") ?? "");
+
+  const access = await requireCondoAccess(condoSlug);
+
+  if (access.role !== ROLES.SYNDIC && access.role !== ROLES.SUPER_ADMIN) {
+    return { error: "Somente o síndico ou a Granja podem excluir moradores." };
+  }
+
+  if (!access.permissions.canManageResidents) {
+    return { error: "Sem permissão para excluir moradores." };
+  }
+
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+
+  const result = await deleteResident({
+    residentId,
+    condominiumId: scopeCondominiumId,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateResidentPaths(condoSlug);
+  redirect(`/app/${condoSlug}/residents`);
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { ROLES } from "@/lib/constants";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { getResidentById } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
@@ -9,6 +10,7 @@ import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/lab
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
+import { ResidentDeleteButton } from "@/components/residents/resident-delete-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +70,8 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
 
   const resident = residentResult.data;
   const canEdit = access.permissions.canManageResidents;
+  const canDelete =
+    canEdit && (access.role === ROLES.SYNDIC || access.role === ROLES.SUPER_ADMIN);
   const units = "units" in unitsResult.data ? unitsResult.data.units : [];
   const condominiumNamesById =
     "condominiumNamesById" in unitsResult.data ? unitsResult.data.condominiumNamesById : {};
@@ -87,21 +91,30 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
         </CardHeader>
         <CardContent>
           {canEdit ? (
-            <ResidentForm
-              condoSlug={condoSlug}
-              units={units}
-              condominiumNamesById={condominiumNamesById}
-              mode="edit"
-              defaultValues={{
-                residentId: resident.id,
-                unitId: resident.unit_id,
-                fullName: resident.full_name,
-                email: resident.email,
-                phone: resident.phone,
-                photoUrl: resident.photo_url,
-                type: resident.type,
-              }}
-            />
+            <div className="space-y-6">
+              <ResidentForm
+                condoSlug={condoSlug}
+                units={units}
+                condominiumNamesById={condominiumNamesById}
+                mode="edit"
+                defaultValues={{
+                  residentId: resident.id,
+                  unitId: resident.unit_id,
+                  fullName: resident.full_name,
+                  email: resident.email,
+                  phone: resident.phone,
+                  photoUrl: resident.photo_url,
+                  type: resident.type,
+                }}
+              />
+              {canDelete && (
+                <ResidentDeleteButton
+                  condoSlug={condoSlug}
+                  residentId={resident.id}
+                  residentName={resident.full_name}
+                />
+              )}
+            </div>
           ) : (
             <div className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { reviewRegistrationRequestAction } from "@/lib/actions/registration-requests";
 import {
@@ -8,7 +9,9 @@ import {
   getRegistrationRequestStatusBadgeClass,
   REGISTRATION_REQUEST_STATUS_LABELS,
 } from "@/lib/registrations/labels";
+import { requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
+import { RESIDENT_TYPE_OPTIONS } from "@/lib/residents/labels";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 import { FormAlert } from "@/components/shared/feedback";
@@ -37,6 +40,7 @@ function ReviewForm({ condoSlug, request }: { condoSlug: string; request: Regist
   const router = useRouter();
   const [state, formAction, pending] = useActionState(reviewRegistrationRequestAction, {});
   const requestCondoSlug = request.condominium?.slug ?? condoSlug;
+  const showQualification = requiresRegistrationUnit(request.profile_type);
 
   useEffect(() => {
     if (state.success) {
@@ -51,6 +55,30 @@ function ReviewForm({ condoSlug, request }: { condoSlug: string; request: Regist
       <input type="hidden" name="request_id" value={request.id} />
 
       <FormAlert error={state.error} success={state.success} />
+
+      {showQualification && (
+        <div className="space-y-2">
+          <Label htmlFor={`resident_type_${request.id}`}>Qualificação do morador</Label>
+          <select
+            id={`resident_type_${request.id}`}
+            name="resident_type"
+            defaultValue={request.resident_type}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            required
+          >
+            {RESIDENT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            {request.profile_type === "other"
+              ? "Defina a qualificação após analisar o pré-cadastro."
+              : "Ajuste a qualificação, se necessário, antes de aprovar."}
+          </p>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor={`review_notes_${request.id}`}>Observações (opcional)</Label>
@@ -91,9 +119,25 @@ export function RegistrationRequestList({
       {requests.map((request) => (
         <div key={request.id} className="rounded-lg border bg-card p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-medium">{request.full_name}</p>
-              <p className="text-sm text-muted-foreground">{request.email}</p>
+            <div className="flex items-start gap-3">
+              {request.photo_url ? (
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted">
+                  <Image
+                    src={request.photo_url}
+                    alt={request.full_name}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              <div>
+                <p className="font-medium">{request.full_name}</p>
+                <p className="text-sm text-muted-foreground">{request.email}</p>
+                {request.phone && (
+                  <p className="text-sm text-muted-foreground">Celular: {request.phone}</p>
+                )}
+              </div>
             </div>
             <Badge className={getRegistrationRequestStatusBadgeClass(request.status)}>
               {REGISTRATION_REQUEST_STATUS_LABELS[request.status]}

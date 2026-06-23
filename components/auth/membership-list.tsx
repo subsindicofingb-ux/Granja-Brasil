@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { getMemberRoleLabel } from "@/lib/auth/member-roles";
 import { removeMembershipAction } from "@/lib/auth/actions";
 import type { Role } from "@/lib/constants";
+import { ROLES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 
 interface MemberRow {
@@ -66,7 +67,7 @@ export function MembershipList({
                 </td>
                 {canManage && (
                   <td className="px-4 py-3 text-right">
-                    {member.profile?.id !== currentProfileId ? (
+                    {member.profile?.id !== currentProfileId && member.role !== ROLES.RESIDENT ? (
                       <form action={formAction}>
                         <input type="hidden" name="condo_slug" value={condoSlug} />
                         <input type="hidden" name="membership_id" value={member.id} />

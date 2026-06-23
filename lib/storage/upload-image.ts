@@ -7,7 +7,7 @@ const RECEIPT_TYPES = new Set([...IMAGE_TYPES, "application/pdf"]);
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
-  folder: "residents" | "vehicles" | "reservations" | "announcements";
+  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests";
   file: File | null;
 }): Promise<ServiceResult<string | null>> {
   const file = input.file;

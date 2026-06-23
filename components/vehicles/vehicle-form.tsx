@@ -17,6 +17,7 @@ interface VehicleFormProps {
   units: UnitWithTower[];
   residents: ResidentWithUnit[];
   mode: "create" | "edit";
+  isResidentSubmission?: boolean;
   condominiumNamesById?: Record<string, string>;
   defaultValues?: {
     vehicleId?: string;
@@ -36,6 +37,7 @@ export function VehicleForm({
   units,
   residents,
   mode,
+  isResidentSubmission = false,
   condominiumNamesById,
   defaultValues,
 }: VehicleFormProps) {
@@ -65,7 +67,17 @@ export function VehicleForm({
 
       <FormAlert error={state.error} success={state.success} />
 
-      <PhotoField label="Foto do veículo" currentPhotoUrl={defaultValues?.photoUrl} />
+      {isResidentSubmission && mode === "create" && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Após o cadastro, o síndico precisa aprovar o veículo antes de liberar na portaria.
+        </p>
+      )}
+
+      <PhotoField
+        label="Foto do veículo"
+        currentPhotoUrl={defaultValues?.photoUrl}
+        enableCamera={isResidentSubmission || mode === "create"}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -122,49 +134,66 @@ export function VehicleForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="unit_id">Unidade</Label>
-        <select
-          id="unit_id"
-          name="unit_id"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          defaultValue={defaultValues?.unitId ?? ""}
-          required
-        >
-          <option value="" disabled>
-            Selecione a unidade
-          </option>
-          {units.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {formatUnitOptionLabel(unit, condominiumNamesById)}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!isResidentSubmission && (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="unit_id">Unidade</Label>
+            <select
+              id="unit_id"
+              name="unit_id"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              defaultValue={defaultValues?.unitId ?? ""}
+              required
+            >
+              <option value="" disabled>
+                Selecione a unidade
+              </option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {formatUnitOptionLabel(unit, condominiumNamesById)}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="resident_id">Morador vinculado (opcional)</Label>
-        <select
-          id="resident_id"
-          name="resident_id"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          defaultValue={defaultValues?.residentId ?? ""}
-        >
-          <option value="">Nenhum / não informado</option>
-          {residents.map((resident) => (
-            <option key={resident.id} value={resident.id}>
-              {resident.full_name} · {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
-            </option>
-          ))}
-        </select>
-        <p className="text-xs text-muted-foreground">
-          Após escolher a unidade, selecione o morador responsável pelo veículo.
-        </p>
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="resident_id">Morador vinculado (opcional)</Label>
+            <select
+              id="resident_id"
+              name="resident_id"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              defaultValue={defaultValues?.residentId ?? ""}
+            >
+              <option value="">Nenhum / não informado</option>
+              {residents.map((resident) => (
+                <option key={resident.id} value={resident.id}>
+                  {resident.full_name} · {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Após escolher a unidade, selecione o morador responsável pelo veículo.
+            </p>
+          </div>
+        </>
+      )}
+
+      {isResidentSubmission && units[0] && (
+        <>
+          <input type="hidden" name="unit_id" value={units[0].id} />
+          <input type="hidden" name="resident_id" value="" />
+        </>
+      )}
 
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando..." : mode === "create" ? "Cadastrar veículo" : "Salvar alterações"}
+          {pending
+            ? "Salvando..."
+            : mode === "create"
+              ? isResidentSubmission
+                ? "Enviar para aprovação"
+                : "Cadastrar veículo"
+              : "Salvar alterações"}
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/app/${condoSlug}/vehicles`}>Cancelar</Link>

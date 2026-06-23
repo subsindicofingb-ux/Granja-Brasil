@@ -3,9 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { getUnitListFilterForAccess } from "@/lib/auth/unit-scope";
 import type { AuthActionState } from "@/lib/auth/types";
+import { VEHICLE_STATUS } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { createVehicle, updateVehicle } from "@/lib/services/vehicles";
+import { getLinkedResidentForProfile } from "@/lib/services/residents";
+import { createVehicle, reviewVehicle, updateVehicle } from "@/lib/services/vehicles";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
@@ -20,7 +23,7 @@ function revalidateVehiclePaths(condoSlug: string) {
 
 function getPhotoFile(formData: FormData): File | null {
   const value = formData.get("photo");
-  return value instanceof File ? value : null;
+  return value instanceof File && value.size > 0 ? value : null;
 }
 
 export async function createVehicleAction(
@@ -31,10 +34,11 @@ export async function createVehicleAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles,
+    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canRegisterUnitVehicles,
     { redirectTo: `/app/${condoSlug}/vehicles` },
   );
 
+  const isResidentRegistration = access.permissions.canRegisterUnitVehicles;
   const parsed = vehicleFormSchema.safeParse({
     unit_id: formData.get("unit_id"),
     resident_id: formData.get("resident_id") ?? "",
@@ -51,7 +55,37 @@ export async function createVehicleAction(
 
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
-  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+
+  let unitId = parsed.data.unit_id;
+  let residentId = parsed.data.resident_id;
+
+  if (isResidentRegistration) {
+    const unitFilter = await getUnitListFilterForAccess(access);
+
+    if (unitFilter === "none" || unitFilter.unitIds?.length !== 1) {
+      return { error: "Seu cadastro precisa estar vinculado a uma unidade para cadastrar veículos." };
+    }
+
+    unitId = unitFilter.unitIds[0] ?? unitId;
+
+    const linkedResident = await getLinkedResidentForProfile({
+      profileId: access.profile.id,
+      condominiumId: access.condominium.id,
+      unitId,
+    });
+
+    if (!linkedResident.ok) {
+      return { error: linkedResident.error };
+    }
+
+    if (!linkedResident.data) {
+      return { error: "Morador vinculado à unidade não encontrado." };
+    }
+
+    residentId = linkedResident.data.id;
+  }
+
+  const unitContext = await resolveUnitContext(unitId, scopeCondominiumId);
 
   if (!unitContext.ok) {
     return { error: unitContext.error };
@@ -69,14 +103,15 @@ export async function createVehicleAction(
 
   const result = await createVehicle({
     scopeCondominiumId,
-    unitId: parsed.data.unit_id,
-    residentId: parsed.data.resident_id,
+    unitId,
+    residentId,
     brand: parsed.data.brand,
     model: parsed.data.model,
     color: parsed.data.color,
     licensePlate: parsed.data.license_plate,
     tagNumber: parsed.data.tag_number,
     photoUrl: uploadResult.data,
+    status: isResidentRegistration ? VEHICLE_STATUS.PENDING : VEHICLE_STATUS.APPROVED,
   });
 
   if (!result.ok) {
@@ -84,6 +119,13 @@ export async function createVehicleAction(
   }
 
   revalidateVehiclePaths(condoSlug);
+
+  if (isResidentRegistration) {
+    redirect(
+      `/app/${condoSlug}/vehicles/${result.data.id}?submitted=1`,
+    );
+  }
+
   redirect(`/app/${condoSlug}/vehicles/${result.data.id}`);
 }
 
@@ -157,4 +199,48 @@ export async function updateVehicleAction(
   revalidateVehiclePaths(condoSlug);
   revalidatePath(`/app/${condoSlug}/vehicles/${vehicleId}`);
   return { success: "Veículo atualizado com sucesso." };
+}
+
+export async function reviewVehicleAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+  const action = String(formData.get("action") ?? "");
+
+  if (action !== "approve" && action !== "reject") {
+    return { error: "Ação inválida." };
+  }
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageVehicles,
+    { redirectTo: `/app/${condoSlug}/vehicles/${vehicleId}` },
+  );
+
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+
+  const result = await reviewVehicle({
+    vehicleId,
+    scopeCondominiumId,
+    reviewerProfileId: access.profile.id,
+    action,
+    reviewNotes: String(formData.get("review_notes") ?? ""),
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateVehiclePaths(condoSlug);
+  revalidatePath(`/app/${condoSlug}/vehicles/${vehicleId}`);
+
+  return {
+    success:
+      action === "approve"
+        ? "Veículo aprovado e liberado para consulta."
+        : "Cadastro de veículo recusado.",
+  };
 }

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DEMO_CONDO_SLUG, REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
+import { DEMO_CONDO_SLUG, REGISTRATION_PROFILE_TYPES, RESIDENT_TYPES } from "@/lib/constants";
 import { requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 
 const profileTypeValues = [
@@ -8,6 +8,14 @@ const profileTypeValues = [
   REGISTRATION_PROFILE_TYPES.STAFF,
   REGISTRATION_PROFILE_TYPES.VISITOR,
   REGISTRATION_PROFILE_TYPES.SERVICE_PROVIDER,
+  REGISTRATION_PROFILE_TYPES.OTHER,
+] as const;
+
+const residentTypeValues = [
+  RESIDENT_TYPES.OWNER,
+  RESIDENT_TYPES.TENANT,
+  RESIDENT_TYPES.DEPENDENT,
+  RESIDENT_TYPES.RESPONSIBLE,
 ] as const;
 
 export const registrationPreQualificationSchema = z
@@ -19,6 +27,7 @@ export const registrationPreQualificationSchema = z
     }),
     unit_id: z.string().uuid().optional().or(z.literal("")),
     unit_number: z.string().trim().optional(),
+    phone: z.string().trim().optional(),
   })
   .superRefine((data, ctx) => {
     if (!requiresRegistrationUnit(data.profile_type)) {
@@ -53,4 +62,5 @@ export const reviewRegistrationRequestSchema = z.object({
   action: z.enum(["approve", "reject"]),
   review_notes: z.string().trim().optional(),
   unit_id: z.string().uuid().optional(),
+  resident_type: z.enum(residentTypeValues).optional(),
 });

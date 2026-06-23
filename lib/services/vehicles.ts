@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Vehicle } from "@/types";
+import { VEHICLE_STATUS, type VehicleStatus } from "@/lib/constants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
@@ -40,6 +41,10 @@ type VehicleRow = {
   license_plate: string;
   tag_number: string | null;
   photo_url: string | null;
+  status: VehicleStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
   created_at: string;
   updated_at: string;
   units: {
@@ -71,6 +76,10 @@ function mapVehicleRow(row: VehicleRow): VehicleWithUnit {
     license_plate: row.license_plate,
     tag_number: row.tag_number,
     photo_url: row.photo_url,
+    status: row.status ?? VEHICLE_STATUS.APPROVED,
+    reviewed_by: row.reviewed_by ?? null,
+    reviewed_at: row.reviewed_at ?? null,
+    review_notes: row.review_notes ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at,
     unit: {
@@ -95,6 +104,10 @@ const VEHICLE_SELECT = `
   license_plate,
   tag_number,
   photo_url,
+  status,
+  reviewed_by,
+  reviewed_at,
+  review_notes,
   created_at,
   updated_at,
   units!inner (
@@ -233,6 +246,7 @@ export async function searchVehiclesForConsult(options?: {
   let query = supabase
     .from("vehicles")
     .select(VEHICLE_CONSULT_SELECT)
+    .eq("status", VEHICLE_STATUS.APPROVED)
     .ilike("license_plate", `%${plateQuery}%`)
     .order("license_plate", { ascending: true })
     .limit(50);
@@ -293,6 +307,7 @@ export async function createVehicle(input: {
   licensePlate: string;
   tagNumber: string | null;
   photoUrl: string | null;
+  status?: VehicleStatus;
 }): Promise<ServiceResult<VehicleWithUnit>> {
   const unitCheck = await assertUnitInCondominium(input.unitId, input.scopeCondominiumId);
   if (!unitCheck.ok) {
@@ -322,6 +337,7 @@ export async function createVehicle(input: {
       license_plate: input.licensePlate.trim().toUpperCase(),
       tag_number: input.tagNumber,
       photo_url: input.photoUrl,
+      status: input.status ?? VEHICLE_STATUS.APPROVED,
     })
     .select(VEHICLE_SELECT)
     .single();
@@ -387,6 +403,53 @@ export async function updateVehicle(input: {
     if (vehicle.units.towers.condominium_id !== input.scopeCondominiumId) {
       return serviceError("Veículo não pertence a este condomínio.");
     }
+  }
+
+  return serviceOk(mapVehicleRow(data as VehicleRow));
+}
+
+export async function reviewVehicle(input: {
+  vehicleId: string;
+  scopeCondominiumId?: string;
+  reviewerProfileId: string;
+  action: "approve" | "reject";
+  reviewNotes?: string;
+}): Promise<ServiceResult<VehicleWithUnit>> {
+  const vehicleResult = await getVehicleById(input.vehicleId, {
+    condominiumId: input.scopeCondominiumId,
+  });
+
+  if (!vehicleResult.ok) {
+    return serviceError(vehicleResult.error);
+  }
+
+  if (vehicleResult.data.status !== VEHICLE_STATUS.PENDING) {
+    return serviceError("Este veículo já foi analisado.");
+  }
+
+  const supabase = await createClient();
+  const nextStatus =
+    input.action === "approve" ? VEHICLE_STATUS.APPROVED : VEHICLE_STATUS.REJECTED;
+
+  const { data, error } = await supabase
+    .from("vehicles")
+    .update({
+      status: nextStatus,
+      reviewed_by: input.reviewerProfileId,
+      reviewed_at: new Date().toISOString(),
+      review_notes: input.reviewNotes?.trim() || null,
+    })
+    .eq("id", input.vehicleId)
+    .eq("status", VEHICLE_STATUS.PENDING)
+    .select(VEHICLE_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  if (!data) {
+    return serviceError("Veículo não encontrado ou já analisado.");
   }
 
   return serviceOk(mapVehicleRow(data as VehicleRow));

@@ -23,6 +23,7 @@ import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
+import { uploadCondoImage } from "@/lib/storage/upload-image";
 
 function getSiteUrl() {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
@@ -334,6 +335,12 @@ export async function signUpAction(
   const profileType = String(formData.get("profile_type") ?? "").trim();
   const unitId = String(formData.get("unit_id") ?? "").trim();
   const unitNumber = String(formData.get("unit_number") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  function getSignupPhotoFile(): File | null {
+    const value = formData.get("photo");
+    return value instanceof File && value.size > 0 ? value : null;
+  }
 
   if (!fullName) {
     return { error: "Informe o nome completo." };
@@ -361,6 +368,7 @@ export async function signUpAction(
     profile_type: profileType,
     unit_id: unitId,
     unit_number: unitNumber,
+    phone,
   });
 
   if (!preQualification.success) {
@@ -436,12 +444,24 @@ export async function signUpAction(
       ? condos.data?.find((condo) => condo.id === preQualification.data.condominium_id)
       : undefined;
 
+    const uploadResult = await uploadCondoImage({
+      condominiumId: preQualification.data.condominium_id,
+      folder: "registration-requests",
+      file: getSignupPhotoFile(),
+    });
+
+    if (!uploadResult.ok) {
+      return { error: uploadResult.error };
+    }
+
     const requestResult = await createRegistrationRequestAsAdmin({
       profileId: userId,
       condominiumId: preQualification.data.condominium_id,
       profileType: preQualification.data.profile_type as RegistrationProfileType,
       fullName,
       email,
+      phone: preQualification.data.phone || null,
+      photoUrl: uploadResult.data,
       unitId: requiresRegistrationUnit(
         preQualification.data.profile_type as RegistrationProfileType,
       )
@@ -647,6 +667,13 @@ export async function removeMembershipAction(
 
   if (membership.profile_id === currentUser?.id) {
     return { error: "Você não pode remover o próprio vínculo." };
+  }
+
+  if (membership.role === ROLES.RESIDENT) {
+    return {
+      error:
+        "Remova moradores pelo cadastro de moradores. A opção de remover Morador não está disponível aqui.",
+    };
   }
 
   const { error } = await supabase.from("memberships").delete().eq("id", membershipId);

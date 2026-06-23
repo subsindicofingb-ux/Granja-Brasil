@@ -41,7 +41,10 @@ export type RegistrationProfileType =
   | "syndic"
   | "staff"
   | "visitor"
-  | "service_provider";
+  | "service_provider"
+  | "other";
+
+export type VehicleStatus = "pending" | "approved" | "rejected";
 
 export interface Database {
   public: {
@@ -688,6 +691,10 @@ export interface Database {
           license_plate: string;
           tag_number: string | null;
           photo_url: string | null;
+          status: VehicleStatus;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_notes: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -702,6 +709,10 @@ export interface Database {
           license_plate: string;
           tag_number?: string | null;
           photo_url?: string | null;
+          status?: VehicleStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -716,6 +727,10 @@ export interface Database {
           license_plate?: string;
           tag_number?: string | null;
           photo_url?: string | null;
+          status?: VehicleStatus;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -755,6 +770,8 @@ export interface Database {
           requested_unit_id: string | null;
           full_name: string;
           email: string;
+          phone: string | null;
+          photo_url: string | null;
           status: RegistrationRequestStatus;
           reviewed_by: string | null;
           reviewed_at: string | null;
@@ -774,6 +791,8 @@ export interface Database {
           requested_unit_id?: string | null;
           full_name: string;
           email: string;
+          phone?: string | null;
+          photo_url?: string | null;
           status?: RegistrationRequestStatus;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
@@ -793,6 +812,8 @@ export interface Database {
           requested_unit_id?: string | null;
           full_name?: string;
           email?: string;
+          phone?: string | null;
+          photo_url?: string | null;
           status?: RegistrationRequestStatus;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
