@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { markAnnouncementViewedAction } from "@/lib/actions/announcements";
 
@@ -12,6 +13,7 @@ export function AnnouncementReadTracker({
   condoSlug,
   announcementId,
 }: AnnouncementReadTrackerProps) {
+  const router = useRouter();
   const trackedRef = useRef(false);
 
   useEffect(() => {
@@ -20,8 +22,13 @@ export function AnnouncementReadTracker({
     }
 
     trackedRef.current = true;
-    void markAnnouncementViewedAction(condoSlug, announcementId);
-  }, [condoSlug, announcementId]);
+
+    void markAnnouncementViewedAction(condoSlug, announcementId).then((result) => {
+      if (result.ok) {
+        router.refresh();
+      }
+    });
+  }, [condoSlug, announcementId, router]);
 
   return null;
 }

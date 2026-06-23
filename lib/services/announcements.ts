@@ -501,6 +501,11 @@ export type AnnouncementUnreadState = {
   unreadReplyThreadIds: string[];
 };
 
+function toTimestamp(value: string): number {
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 export async function getAnnouncementUnreadState(
   profileId: string,
   announcements: Pick<AnnouncementRecord, "id" | "created_by">[],
@@ -554,7 +559,7 @@ export async function getAnnouncementUnreadState(
         const publishedAt = row.published_at as string;
         const currentLatest = latestReplyAtByParentId.get(parentId);
 
-        if (!currentLatest || publishedAt > currentLatest) {
+        if (!currentLatest || toTimestamp(publishedAt) > toTimestamp(currentLatest)) {
           latestReplyAtByParentId.set(parentId, publishedAt);
         }
       }
@@ -571,7 +576,7 @@ export async function getAnnouncementUnreadState(
             return true;
           }
 
-          return latestReplyAt > readAt;
+          return toTimestamp(latestReplyAt) > toTimestamp(readAt);
         })
         .map((announcement) => announcement.id);
     }
