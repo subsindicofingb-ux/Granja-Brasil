@@ -25,6 +25,7 @@ import {
 import { PermissionGate } from "@/components/auth/permission-gate";
 import { DashboardReservationItem } from "@/components/dashboard/dashboard-reservation-item";
 import { DashboardRegistrationRequests } from "@/components/dashboard/dashboard-registration-requests";
+import { ResidentDashboard } from "@/components/dashboard/resident-dashboard";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader, StatCard } from "@/components/shared/page-shell";
@@ -44,6 +45,15 @@ function DashboardContentSkeleton() {
 async function DashboardHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const base = `/app/${condoSlug}`;
+
+  if (access.role === ROLES.RESIDENT) {
+    return (
+      <PageHeader
+        title="Início"
+        description={`Seu painel no ${access.condominium.name}`}
+      />
+    );
+  }
 
   return (
     <PageHeader
@@ -102,6 +112,25 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     return <ErrorAlert message={result.error} title="Erro ao carregar o dashboard" />;
   }
 
+  const { metrics, upcomingReservations, recentReservations, recentAnnouncements, unreadAnnouncementIds, isUnitScoped } =
+    result.data;
+
+  if (access.role === ROLES.RESIDENT) {
+    return (
+      <ResidentDashboard
+        condoSlug={condoSlug}
+        condominiumName={access.condominium.name}
+        residentName={access.profile.fullName}
+        hasLinkedUnit={unitFilter !== "none"}
+        permissions={access.permissions}
+        upcomingReservations={upcomingReservations}
+        recentAnnouncements={recentAnnouncements}
+        unreadAnnouncementIds={unreadAnnouncementIds}
+        reservationsByStatus={metrics.reservationsByStatus}
+      />
+    );
+  }
+
   if (isGeneralCondoDashboard && generalOverviewResult && !generalOverviewResult.ok) {
     return (
       <ErrorAlert
@@ -113,8 +142,6 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   const generalOverview = generalOverviewResult?.ok ? generalOverviewResult.data : null;
 
-  const { metrics, upcomingReservations, recentReservations, recentAnnouncements, unreadAnnouncementIds, isUnitScoped } =
-    result.data;
   const unreadAnnouncementSet = new Set(unreadAnnouncementIds);
   const unreadAnnouncementCount = unreadAnnouncementIds.length;
   const pendingCount = metrics.reservationsByStatus[RESERVATION_STATUS.PENDING];

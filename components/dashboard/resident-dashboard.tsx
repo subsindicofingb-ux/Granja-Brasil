@@ -1,0 +1,341 @@
+import Link from "next/link";
+import {
+  ArrowRight,
+  CalendarDays,
+  Car,
+  Megaphone,
+  MessageSquarePlus,
+  UserCheck,
+} from "lucide-react";
+import type { AnnouncementWithDetails } from "@/lib/announcements/types";
+import {
+  getAnnouncementPriorityBadgeClass,
+  getAnnouncementPriorityLabel,
+} from "@/lib/announcements/labels";
+import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
+import type { getRolePermissions } from "@/lib/auth/roles";
+import type { ReservationWithDetails } from "@/lib/reservations/types";
+import { DashboardReservationItem } from "@/components/dashboard/dashboard-reservation-item";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTime } from "@/lib/utils";
+
+type ResidentPermissions = ReturnType<typeof getRolePermissions>;
+
+export type ResidentDashboardProps = {
+  condoSlug: string;
+  condominiumName: string;
+  residentName: string;
+  hasLinkedUnit: boolean;
+  permissions: ResidentPermissions;
+  upcomingReservations: ReservationWithDetails[];
+  recentAnnouncements: AnnouncementWithDetails[];
+  unreadAnnouncementIds: string[];
+  reservationsByStatus: Record<ReservationStatus, number>;
+};
+
+function getFirstName(fullName: string): string {
+  const trimmed = fullName.trim();
+  if (!trimmed) return "Morador";
+  return trimmed.split(/\s+/)[0] ?? trimmed;
+}
+
+type QuickAction = {
+  title: string;
+  description: string;
+  href: string;
+  icon: typeof CalendarDays;
+  accent: string;
+};
+
+export function ResidentDashboard({
+  condoSlug,
+  condominiumName,
+  residentName,
+  hasLinkedUnit,
+  permissions,
+  upcomingReservations,
+  recentAnnouncements,
+  unreadAnnouncementIds,
+  reservationsByStatus,
+}: ResidentDashboardProps) {
+  const base = `/app/${condoSlug}`;
+  const firstName = getFirstName(residentName);
+  const unreadAnnouncementSet = new Set(unreadAnnouncementIds);
+  const unreadAnnouncementCount = unreadAnnouncementIds.length;
+  const awaitingReceiptCount =
+    reservationsByStatus[RESERVATION_STATUS.AWAITING_RECEIPT];
+  const pendingCount = reservationsByStatus[RESERVATION_STATUS.PENDING];
+  const approvedUpcomingCount = upcomingReservations.filter(
+    (reservation) => reservation.status === RESERVATION_STATUS.APPROVED,
+  ).length;
+
+  const quickActions: QuickAction[] = [];
+
+  if (permissions.canManageReservations) {
+    quickActions.push({
+      title: "Reservar espaço",
+      description: "Salão, churrasqueira e áreas comuns",
+      href: `${base}/reservations/new`,
+      icon: CalendarDays,
+      accent: "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
+    });
+  }
+
+  quickActions.push({
+    title: "Avisos",
+    description:
+      unreadAnnouncementCount > 0
+        ? `${unreadAnnouncementCount} nova(s) mensagem(ns)`
+        : "Comunicados do condomínio",
+    href: `${base}/announcements`,
+    icon: Megaphone,
+    accent: "border-indigo-200 bg-indigo-50 text-indigo-900 hover:border-indigo-300 hover:bg-indigo-100/80",
+  });
+
+  if (permissions.canRegisterVisitorAuthorizations) {
+    quickActions.push({
+      title: "Autorizar visitante",
+      description: "Cadastre entrada de visitantes",
+      href: `${base}/visitors/new`,
+      icon: UserCheck,
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+    });
+  }
+
+  if (permissions.canSendAnnouncements) {
+    quickActions.push({
+      title: "Falar com a administração",
+      description: "Envie uma mensagem ao síndico",
+      href: `${base}/announcements/new`,
+      icon: MessageSquarePlus,
+      accent: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100/80",
+    });
+  }
+
+  if (permissions.canViewUnitVehicles) {
+    quickActions.push({
+      title: "Meus veículos",
+      description: "Consulte ou cadastre veículos",
+      href: `${base}/vehicles`,
+      icon: Car,
+      accent: "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-300 hover:bg-slate-100/80",
+    });
+  }
+
+  const attentionItems: Array<{
+    message: string;
+    href: string;
+    cta: string;
+    tone: string;
+  }> = [];
+
+  if (!hasLinkedUnit) {
+    attentionItems.push({
+      message: "Seu cadastro ainda não está vinculado a uma unidade.",
+      href: `${base}/settings`,
+      cta: "Ver configurações",
+      tone: "border-amber-200 bg-amber-50 text-amber-950",
+    });
+  }
+
+  if (unreadAnnouncementCount > 0) {
+    attentionItems.push({
+      message: `${unreadAnnouncementCount} aviso(s) aguardando leitura.`,
+      href: `${base}/announcements`,
+      cta: "Ler avisos",
+      tone: "border-sky-200 bg-sky-50 text-sky-950",
+    });
+  }
+
+  if (awaitingReceiptCount > 0) {
+    attentionItems.push({
+      message: `${awaitingReceiptCount} reserva(s) aguardando envio de recibo.`,
+      href: `${base}/reservations?status=${RESERVATION_STATUS.AWAITING_RECEIPT}`,
+      cta: "Enviar recibo",
+      tone: "border-blue-200 bg-blue-50 text-blue-950",
+    });
+  }
+
+  if (pendingCount > 0) {
+    attentionItems.push({
+      message: `${pendingCount} reserva(s) aguardando aprovação.`,
+      href: `${base}/reservations?status=${RESERVATION_STATUS.PENDING}`,
+      cta: "Acompanhar",
+      tone: "border-amber-200 bg-amber-50 text-amber-950",
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-6 shadow-sm">
+        <p className="text-sm font-medium text-sky-800">Bem-vindo(a)</p>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+          Olá, {firstName}
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-slate-600">
+          Aqui você acompanha avisos, reservas e visitas do{" "}
+          <span className="font-medium text-slate-800">{condominiumName}</span>.
+        </p>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Próximas reservas</p>
+            <p className="mt-1 text-2xl font-bold">{upcomingReservations.length}</p>
+          </div>
+          <div className="rounded-xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Avisos não lidos</p>
+            <p className="mt-1 text-2xl font-bold">{unreadAnnouncementCount}</p>
+          </div>
+          <div className="rounded-xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Reservas confirmadas</p>
+            <p className="mt-1 text-2xl font-bold">{approvedUpcomingCount}</p>
+          </div>
+        </div>
+      </section>
+
+      {attentionItems.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">Precisa da sua atenção</h3>
+          {attentionItems.map((item) => (
+            <div
+              key={item.message}
+              className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${item.tone}`}
+            >
+              <p className="text-sm font-medium">{item.message}</p>
+              <Button size="sm" variant="outline" className="shrink-0 bg-white/80" asChild>
+                <Link href={item.href}>{item.cta}</Link>
+              </Button>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-900">O que você precisa?</h3>
+          <Link
+            href={`${base}/reservations`}
+            className="text-xs font-medium text-primary hover:underline"
+          >
+            Ver minhas reservas
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`group flex items-start gap-3 rounded-xl border p-4 transition-colors ${action.accent}`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 font-semibold">
+                    {action.title}
+                    <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                  </span>
+                  <span className="mt-1 block text-sm opacity-80">{action.description}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Próximas reservas</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`${base}/reservations`}>Ver todas</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {upcomingReservations.length === 0 ? (
+              <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
+                <p className="text-sm font-medium">Nenhuma reserva futura</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Reserve um espaço comum quando precisar.
+                </p>
+                {permissions.canManageReservations && (
+                  <Button className="mt-4" size="sm" asChild>
+                    <Link href={`${base}/reservations/new`}>Nova reserva</Link>
+                  </Button>
+                )}
+              </div>
+            ) : (
+              upcomingReservations.map((reservation) => (
+                <DashboardReservationItem
+                  key={reservation.id}
+                  condoSlug={condoSlug}
+                  reservation={reservation}
+                />
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-base">Avisos recentes</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={`${base}/announcements`}>Ver todos</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {recentAnnouncements.length === 0 ? (
+              <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
+                <p className="text-sm font-medium">Nenhum aviso publicado</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Os comunicados do condomínio aparecerão aqui.
+                </p>
+              </div>
+            ) : (
+              recentAnnouncements.map((announcement) => {
+                const isUnread = unreadAnnouncementSet.has(announcement.id);
+
+                return (
+                  <Link
+                    key={announcement.id}
+                    href={`${base}/announcements/${announcement.id}`}
+                    className={`block rounded-lg border p-3 transition-colors hover:bg-muted/40 ${
+                      isUnread ? "border-sky-300 bg-sky-50/50" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{announcement.title}</p>
+                          {isUnread && (
+                            <Badge className="bg-sky-600 text-white hover:bg-sky-600">
+                              Nova
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDateTime(announcement.published_at)}
+                        </p>
+                      </div>
+                      <Badge className={getAnnouncementPriorityBadgeClass(announcement.priority)}>
+                        {getAnnouncementPriorityLabel(announcement.priority)}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {announcement.body}
+                    </p>
+                  </Link>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
