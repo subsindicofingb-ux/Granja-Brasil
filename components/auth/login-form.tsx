@@ -44,7 +44,6 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
           name="email"
           type="email"
           autoComplete="email"
-          placeholder="admin@condominio.com"
           required
         />
       </div>
@@ -61,7 +60,6 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
           name="password"
           type="password"
           autoComplete="current-password"
-          placeholder="••••••••"
           required
         />
       </div>
