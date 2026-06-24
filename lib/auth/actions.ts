@@ -25,20 +25,7 @@ import { registrationPreQualificationSchema } from "@/lib/validations/registrati
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
-
-function getSiteUrl() {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
-  if (explicit) {
-    return explicit;
-  }
-
-  const vercelUrl = process.env.VERCEL_URL?.trim().replace(/\/+$/, "");
-  if (vercelUrl) {
-    return `https://${vercelUrl}`;
-  }
-
-  return "http://localhost:3000";
-}
+import { buildAuthCallbackUrl } from "@/lib/auth/site-url";
 
 function formatAuthError(message: unknown): string {
   const text = message instanceof Error ? message.message : String(message);
@@ -83,8 +70,8 @@ function formatPasswordResetError(message: unknown): string {
   return formatAuthError(text);
 }
 
-function getPasswordResetRedirectUrl(): string {
-  return `${getSiteUrl()}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+function getPasswordResetRedirectUrl(preferredOrigin?: string | null): string {
+  return buildAuthCallbackUrl("/reset-password", preferredOrigin);
 }
 
 async function findAuthUserByEmail(
@@ -176,7 +163,8 @@ export async function requestPasswordResetAction(
     };
   }
 
-  const redirectTo = getPasswordResetRedirectUrl();
+  const preferredOrigin = String(formData.get("site_url") ?? "").trim() || null;
+  const redirectTo = getPasswordResetRedirectUrl(preferredOrigin);
 
   try {
     if (!getSupabaseServiceRoleKey()) {
@@ -323,6 +311,7 @@ export async function signInWithGoogleAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const redirectTo = String(formData.get("redirect") ?? "/app");
+  const preferredOrigin = String(formData.get("site_url") ?? "").trim() || null;
   const safeNext =
     redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/app";
 
@@ -338,7 +327,7 @@ export async function signInWithGoogleAction(
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        redirectTo: buildAuthCallbackUrl(safeNext, preferredOrigin),
         queryParams: {
           prompt: "select_account",
         },

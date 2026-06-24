@@ -1,21 +1,39 @@
-import { buildEmailLayout } from "@/lib/email/format";
+import { buildEmailLayout, escapeHtml } from "@/lib/email/format";
 import { sendEmail } from "@/lib/email/send-email";
 
 export async function sendPasswordResetEmail(input: {
   to: string;
   recoveryLink: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  const safeLink = input.recoveryLink.trim();
+  const footerHtml = `Este e-mail foi enviado porque alguém solicitou redefinir a senha da sua conta no Granja Brasil.
+                Se não foi você, ignore esta mensagem. O link abaixo expira em breve.<br /><br />
+                Se o botão não funcionar, copie e cole este endereço no navegador:<br />
+                <span style="word-break:break-all;">${escapeHtml(safeLink)}</span>`;
+
   const result = await sendEmail({
     to: [input.to],
-    subject: "Redefinir senha — Granja Brasil",
-    text: `Recebemos uma solicitação para redefinir sua senha.\n\nAcesse o link abaixo (válido por tempo limitado):\n${input.recoveryLink}\n\nSe você não solicitou, ignore este e-mail.`,
+    subject: "Redefinir sua senha no Granja Brasil",
+    text: [
+      "Olá,",
+      "",
+      "Recebemos um pedido para redefinir a senha da sua conta no Granja Brasil.",
+      "Se você não fez este pedido, ignore este e-mail.",
+      "",
+      "Para criar uma nova senha, acesse o link abaixo (válido por tempo limitado):",
+      safeLink,
+      "",
+      "Granja Brasil",
+      "Gestão inteligente do seu condomínio",
+    ].join("\n"),
     html: buildEmailLayout({
-      preview: "Redefina sua senha do Granja Brasil.",
-      title: "Redefinir senha",
+      preview: "Use o link abaixo para criar uma nova senha da sua conta.",
+      title: "Redefinir sua senha",
       bodyHtml:
-        "<p>Recebemos uma solicitação para redefinir a senha da sua conta.</p><p>Se você não solicitou, ignore este e-mail.</p>",
+        "<p>Olá,</p><p>Recebemos um pedido para redefinir a senha da sua conta no <strong>Granja Brasil</strong>.</p><p>Se você não fez este pedido, pode ignorar este e-mail com segurança.</p>",
       actionLabel: "Criar nova senha",
-      actionUrl: input.recoveryLink,
+      actionUrl: safeLink,
+      footerHtml,
     }),
     tags: [{ name: "category", value: "password-reset" }],
   });

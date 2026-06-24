@@ -17,11 +17,17 @@ export function buildEmailLayout(input: {
   bodyHtml: string;
   actionLabel: string;
   actionUrl: string;
+  footerHtml?: string;
 }): string {
   const preview = escapeHtml(input.preview);
   const title = escapeHtml(input.title);
   const actionLabel = escapeHtml(input.actionLabel);
   const actionUrl = escapeHtml(input.actionUrl);
+  const footerHtml =
+    input.footerHtml ??
+    `Você recebeu este e-mail porque há uma atualização no seu condomínio.
+                Se o botão não funcionar, copie e cole este link no navegador:<br />
+                <span style="word-break:break-all;">${actionUrl}</span>`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -54,9 +60,7 @@ export function buildEmailLayout(input: {
             </tr>
             <tr>
               <td style="padding:16px 28px 24px;font-size:12px;line-height:1.5;color:#64748b;border-top:1px solid #f1f5f9;">
-                Você recebeu este e-mail porque há uma atualização no seu condomínio.
-                Se o botão não funcionar, copie e cole este link no navegador:<br />
-                <span style="word-break:break-all;">${actionUrl}</span>
+                ${footerHtml}
               </td>
             </tr>
           </table>

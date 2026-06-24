@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { signInWithGoogleAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +14,11 @@ export function GoogleAuthButton({
   label = "Continuar com Google",
 }: GoogleAuthButtonProps) {
   const [state, formAction, pending] = useActionState(signInWithGoogleAction, {});
+  const [siteUrl, setSiteUrl] = useState("");
+
+  useEffect(() => {
+    setSiteUrl(window.location.origin);
+  }, []);
 
   useEffect(() => {
     if (state.redirectTo) {
@@ -24,6 +29,7 @@ export function GoogleAuthButton({
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="redirect" value={redirectTo} />
+      <input type="hidden" name="site_url" value={siteUrl} />
 
       {state.error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
