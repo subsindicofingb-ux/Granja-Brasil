@@ -86,15 +86,19 @@ async function AnnouncementsContent({
     (condominium) => condominium.id !== access.condominium.id,
   );
   const announcements = announcementsResult.data ?? [];
-  const unreadState = announcementsResult.ok
-    ? await getAnnouncementUnreadState(
-        access.profile.id,
-        announcements.map((announcement) => ({
-          id: announcement.id,
-          created_by: announcement.created_by,
-        })),
-      )
-    : { unreadIncomingIds: [], unreadReplyThreadIds: [] };
+  let unreadState = { unreadIncomingIds: [] as string[], unreadReplyThreadIds: [] as string[] };
+
+  try {
+    unreadState = await getAnnouncementUnreadState(
+      access.profile.id,
+      announcements.map((announcement) => ({
+        id: announcement.id,
+        created_by: announcement.created_by,
+      })),
+    );
+  } catch (error) {
+    console.error("[announcements:unread-state]", error);
+  }
   const unreadIncomingSet = new Set(unreadState.unreadIncomingIds);
   const unreadReplySet = new Set(unreadState.unreadReplyThreadIds);
   const showFilter = isGranja ? condominiums.length > 0 : towers.length > 0;

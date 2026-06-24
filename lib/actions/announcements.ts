@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import type { AuthActionState } from "@/lib/auth/types";
@@ -10,6 +11,7 @@ import {
   notifyAnnouncementCreated,
   notifyAnnouncementReply,
 } from "@/lib/email/announcement-notifications";
+import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import {
   createAnnouncement,
   createAnnouncementReply,
@@ -58,6 +60,34 @@ async function uploadAnnouncementAttachment(
   return { ok: true, url: upload.data, name: file.name };
 }
 
+function scheduleAnnouncementCreatedNotification(input: {
+  announcement: AnnouncementWithDetails;
+  senderProfileId: string;
+}) {
+  after(async () => {
+    try {
+      await notifyAnnouncementCreated(input);
+    } catch (error) {
+      console.error("[email:announcement-created]", error);
+    }
+  });
+}
+
+function scheduleAnnouncementReplyNotification(input: {
+  rootAnnouncement: AnnouncementWithDetails;
+  replyBody: string;
+  senderProfileId: string;
+  senderName: string;
+}) {
+  after(async () => {
+    try {
+      await notifyAnnouncementReply(input);
+    } catch (error) {
+      console.error("[email:announcement-reply]", error);
+    }
+  });
+}
+
 export async function createAnnouncementAction(
   _prev: AuthActionState,
   formData: FormData,
@@ -96,14 +126,10 @@ export async function createAnnouncementAction(
     return { error: result.error };
   }
 
-  try {
-    await notifyAnnouncementCreated({
-      announcement: result.data,
-      senderProfileId: access.profile.id,
-    });
-  } catch (error) {
-    console.error("[email:announcement-created]", error);
-  }
+  scheduleAnnouncementCreatedNotification({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -151,14 +177,10 @@ export async function createResidentAnnouncementAction(
     return { error: result.error };
   }
 
-  try {
-    await notifyAnnouncementCreated({
-      announcement: result.data,
-      senderProfileId: access.profile.id,
-    });
-  } catch (error) {
-    console.error("[email:announcement-created]", error);
-  }
+  scheduleAnnouncementCreatedNotification({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -201,16 +223,12 @@ export async function replyAnnouncementAction(
   );
 
   if (rootResult.ok) {
-    try {
-      await notifyAnnouncementReply({
-        rootAnnouncement: rootResult.data,
-        replyBody: parsed.data.body,
-        senderProfileId: access.profile.id,
-        senderName: access.profile.fullName,
-      });
-    } catch (error) {
-      console.error("[email:announcement-reply]", error);
-    }
+    scheduleAnnouncementReplyNotification({
+      rootAnnouncement: rootResult.data,
+      replyBody: parsed.data.body,
+      senderProfileId: access.profile.id,
+      senderName: access.profile.fullName,
+    });
   }
 
   revalidateAnnouncementPaths(condoSlug, parsed.data.parent_announcement_id);

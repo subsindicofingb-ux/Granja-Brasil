@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSupabaseServiceRoleKey } from "@/lib/supabase/env";
+import { getSupabasePublicEnv, getSupabaseServiceRoleKey } from "@/lib/supabase/env";
 import {
   filterAnnouncementsForContext,
   type AnnouncementViewContext,
@@ -323,7 +323,10 @@ type AnnouncementWriteInput = {
 type AnnouncementInsert = Database["public"]["Tables"]["announcements"]["Insert"];
 
 async function getAnnouncementWriteClient() {
-  return getSupabaseServiceRoleKey() ? createAdminClient() : await createClient();
+  if (getSupabaseServiceRoleKey() && getSupabasePublicEnv()) {
+    return createAdminClient();
+  }
+  return await createClient();
 }
 
 async function insertAnnouncementRecord(
@@ -514,7 +517,14 @@ export async function getAnnouncementUnreadState(
     return { unreadIncomingIds: [], unreadReplyThreadIds: [] };
   }
 
-  const readClient = await getAnnouncementWriteClient();
+  let readClient;
+
+  try {
+    readClient = await getAnnouncementWriteClient();
+  } catch (error) {
+    console.error("[announcements:read-client]", error);
+    return { unreadIncomingIds: [], unreadReplyThreadIds: [] };
+  }
   const announcementIds = announcements.map((announcement) => announcement.id);
   const incomingCandidates = announcements.filter(
     (announcement) => announcement.created_by !== profileId,
