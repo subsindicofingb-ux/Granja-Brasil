@@ -6,7 +6,7 @@ import type { Role } from "@/lib/constants";
 import { ROLES } from "@/lib/constants";
 import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
 import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
-import { getUserMemberships, requireCondoAccess } from "@/lib/auth/access";
+import { requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
@@ -19,7 +19,8 @@ import {
   createRegistrationRequestAsAdmin,
   listPublicCondominiums,
 } from "@/lib/services/registration-requests";
-import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
+import { isEmailConfigured } from "@/lib/email/send-email";
+import { sendPasswordResetEmail } from "@/lib/email/password-reset";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
@@ -217,15 +218,9 @@ export async function requestPasswordResetAction(
     const recoveryLink = linkData.properties?.action_link;
 
     if (recoveryLink && isEmailConfigured()) {
-      const sent = await sendEmail({
-        to: [existingUser.email],
-        subject: "Redefinir senha — Granja Brasil",
-        text: `Recebemos uma solicitação para redefinir sua senha.\n\nAcesse o link abaixo (válido por tempo limitado):\n${recoveryLink}\n\nSe você não solicitou, ignore este e-mail.`,
-        html: `
-          <p>Recebemos uma solicitação para redefinir sua senha.</p>
-          <p><a href="${recoveryLink}">Redefinir senha</a></p>
-          <p>Se você não solicitou, ignore este e-mail.</p>
-        `,
+      const sent = await sendPasswordResetEmail({
+        to: existingUser.email,
+        recoveryLink,
       });
 
       if (sent.ok) {
@@ -323,12 +318,55 @@ export async function updatePasswordAction(
   }
 }
 
+export async function signInWithGoogleAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const redirectTo = String(formData.get("redirect") ?? "/app");
+  const safeNext =
+    redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "/app";
+
+  if (!isSupabaseConfigured()) {
+    return {
+      error:
+        "Supabase não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY na Vercel.",
+    };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
+    });
+
+    if (error) {
+      return { error: formatAuthError(error.message) };
+    }
+
+    if (!data.url) {
+      return { error: "Não foi possível iniciar o login com Google." };
+    }
+
+    return { redirectTo: data.url };
+  } catch (err) {
+    return { error: formatAuthError(err) };
+  }
+}
+
 export async function signUpAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const fullName = String(formData.get("full_name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const authMode = String(formData.get("auth_mode") ?? "password");
+  const isGoogleSignUp = authMode === "google";
+  let fullName = String(formData.get("full_name") ?? "").trim();
+  let email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const condominiumId = String(formData.get("condominium_id") ?? "").trim();
   const condominiumSlug = String(formData.get("condominium_slug") ?? "").trim();
@@ -342,24 +380,26 @@ export async function signUpAction(
     return value instanceof File && value.size > 0 ? value : null;
   }
 
-  if (!fullName) {
+  if (!fullName && !isGoogleSignUp) {
     return { error: "Informe o nome completo." };
   }
 
-  if (!email) {
-    return { error: "Informe o e-mail." };
-  }
+  if (!isGoogleSignUp) {
+    if (!email) {
+      return { error: "Informe o e-mail." };
+    }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { error: "Informe um e-mail válido." };
-  }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: "Informe um e-mail válido." };
+    }
 
-  if (!password) {
-    return { error: "Informe a senha." };
-  }
+    if (!password) {
+      return { error: "Informe a senha." };
+    }
 
-  if (password.length < 6) {
-    return { error: "A senha deve ter pelo menos 6 caracteres." };
+    if (password.length < 6) {
+      return { error: "A senha deve ter pelo menos 6 caracteres." };
+    }
   }
 
   const preQualification = registrationPreQualificationSchema.safeParse({
@@ -391,40 +431,66 @@ export async function signUpAction(
 
   try {
     const admin = createAdminClient();
-    const existingUser = await findAuthUserByEmail(admin, email);
     let userId: string;
 
-    if (existingUser) {
-      const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, {
-        password,
-        user_metadata: { full_name: fullName },
-      });
+    if (isGoogleSignUp) {
+      const oauthUser = await getAuthUser();
 
-      if (updateError) {
-        return {
-          error:
-            "Este e-mail já possui cadastro. Faça login em /login ou use a opção de recuperar senha.",
-        };
+      if (!oauthUser?.email) {
+        return { error: "Entre com Google antes de concluir o cadastro." };
       }
 
-      userId = existingUser.id;
+      userId = oauthUser.id;
+      email = oauthUser.email.toLowerCase();
+
+      if (!fullName) {
+        fullName =
+          (oauthUser.user_metadata?.full_name as string | undefined) ??
+          (oauthUser.user_metadata?.name as string | undefined) ??
+          oauthUser.email.split("@")[0] ??
+          "";
+      }
+
+      if (!fullName) {
+        return { error: "Informe o nome completo." };
+      }
+
+      await ensureProfile(oauthUser);
     } else {
-      const { data: created, error: createError } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { full_name: fullName },
-      });
+      const existingUser = await findAuthUserByEmail(admin, email);
 
-      if (createError) {
-        return { error: formatAuthError(createError.message) };
+      if (existingUser) {
+        const { error: updateError } = await admin.auth.admin.updateUserById(existingUser.id, {
+          password,
+          user_metadata: { full_name: fullName },
+        });
+
+        if (updateError) {
+          return {
+            error:
+              "Este e-mail já possui cadastro. Faça login em /login ou use a opção de recuperar senha.",
+          };
+        }
+
+        userId = existingUser.id;
+      } else {
+        const { data: created, error: createError } = await admin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: fullName },
+        });
+
+        if (createError) {
+          return { error: formatAuthError(createError.message) };
+        }
+
+        if (!created.user) {
+          return { error: "Não foi possível criar a conta. Tente novamente." };
+        }
+
+        userId = created.user.id;
       }
-
-      if (!created.user) {
-        return { error: "Não foi possível criar a conta. Tente novamente." };
-      }
-
-      userId = created.user.id;
     }
 
     const { error: profileError } = await admin.from("profiles").upsert(
@@ -506,10 +572,14 @@ export async function signUpAction(
       });
     }
 
+    revalidatePath("/", "layout");
+
+    if (isGoogleSignUp) {
+      return { redirectTo: "/app" };
+    }
+
     const supabase = await createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-    revalidatePath("/", "layout");
 
     if (signInError) {
       return {

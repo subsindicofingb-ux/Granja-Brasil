@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { AuthDivider } from "@/components/auth/auth-divider";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { listSignupUnitsAction } from "@/lib/actions/signup-units";
 import { signUpAction } from "@/lib/auth/actions";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
@@ -17,12 +19,14 @@ import { PhotoField } from "@/components/shared/photo-field";
 
 interface SignUpFormProps {
   condominiums: PublicCondominiumOption[];
+  oauthUser?: { email: string; fullName: string } | null;
 }
 
-export function SignUpForm({ condominiums }: SignUpFormProps) {
+export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) {
+  const isGoogleSignUp = Boolean(oauthUser);
   const [state, formAction, pending] = useActionState(signUpAction, {});
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState(oauthUser?.fullName ?? "");
+  const [email, setEmail] = useState(oauthUser?.email ?? "");
   const [password, setPassword] = useState("");
   const [unitNumber, setUnitNumber] = useState("");
   const [phone, setPhone] = useState("");
@@ -72,13 +76,27 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
   const canSubmit =
     condominiums.length > 0 &&
     fullName.trim().length > 0 &&
-    email.trim().length > 0 &&
-    password.length >= 6 &&
+    (isGoogleSignUp || (email.trim().length > 0 && password.length >= 6)) &&
     selectedCondoId &&
     hasRequiredUnit;
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="space-y-4">
+    <div className="space-y-4">
+      {!isGoogleSignUp && (
+        <>
+          <GoogleAuthButton redirectTo="/signup" label="Cadastrar com Google" />
+          <AuthDivider />
+        </>
+      )}
+
+      {isGoogleSignUp && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Conta Google conectada: <span className="font-medium">{oauthUser?.email}</span>
+        </div>
+      )}
+
+      <form action={formAction} encType="multipart/form-data" className="space-y-4">
+      {isGoogleSignUp && <input type="hidden" name="auth_mode" value="google" />}
       <input type="hidden" name="full_name" value={fullName} />
       <input type="hidden" name="email" value={email} />
       <input type="hidden" name="password" value={password} />
@@ -113,30 +131,34 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
         />
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label>
-        <Input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          autoComplete="email"
-          required
-        />
-      </div>
+      {!isGoogleSignUp ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Senha</Label>
-        <Input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="new-password"
-          minLength={6}
-          required
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="new-password"
+              minLength={6}
+              required
+            />
+          </div>
+        </>
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="phone">Celular</Label>
@@ -244,7 +266,11 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
       </div>
 
       <Button className="w-full" type="submit" disabled={pending || !canSubmit}>
-        {pending ? "Criando conta..." : "Criar conta e solicitar acesso"}
+        {pending
+          ? "Enviando solicitação..."
+          : isGoogleSignUp
+            ? "Concluir cadastro e solicitar acesso"
+            : "Criar conta e solicitar acesso"}
       </Button>
 
       {condominiums.length === 0 && (
@@ -260,5 +286,6 @@ export function SignUpForm({ condominiums }: SignUpFormProps) {
         </Link>
       </p>
     </form>
+    </div>
   );
 }

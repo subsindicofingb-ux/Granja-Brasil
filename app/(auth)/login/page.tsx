@@ -37,7 +37,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <Card className="w-full max-w-md shadow-sm">
           <CardHeader>
             <CardTitle>Entrar</CardTitle>
-            <CardDescription>Use e-mail e senha para acessar o painel.</CardDescription>
+            <CardDescription>
+              Entre com Google ou use e-mail e senha para acessar o painel.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {errorMessage && (

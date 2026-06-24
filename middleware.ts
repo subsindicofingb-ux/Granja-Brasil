@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import {
   canAccessCondoSlug,
   extractCondoSlugFromAppPath,
+  userHasAnyMembership,
 } from "@/lib/auth/condo-access-guard";
 import {
   copyCookies,
@@ -58,6 +59,25 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isLoginOrSignup && user && pathname !== "/reset-password") {
+    if (pathname === "/signup") {
+      const env = getSupabasePublicEnv();
+      if (env) {
+        const supabase = createServerClient<Database>(env.url, env.anonKey, {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll() {},
+          },
+        });
+
+        const hasMembership = await userHasAnyMembership(supabase);
+        if (!hasMembership) {
+          return response;
+        }
+      }
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/app";
     url.search = "";

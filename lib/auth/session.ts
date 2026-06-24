@@ -6,16 +6,30 @@ import { getSupabaseServiceRoleKey, isSupabaseConfigured } from "@/lib/supabase/
 import type { Profile } from "@/types";
 import type { SessionUser } from "@/lib/auth/types";
 
+function getDisplayNameFromUser(user: User): string {
+  return (
+    (user.user_metadata?.full_name as string | undefined) ??
+    (user.user_metadata?.name as string | undefined) ??
+    user.email?.split("@")[0] ??
+    "Usuário"
+  );
+}
+
+function getAvatarFromUser(user: User): string | null {
+  return (
+    (user.user_metadata?.avatar_url as string | undefined) ??
+    (user.user_metadata?.picture as string | undefined) ??
+    null
+  );
+}
+
 function buildProfileFromUser(user: User): Profile {
   const now = new Date().toISOString();
 
   return {
     id: user.id,
-    full_name:
-      (user.user_metadata?.full_name as string | undefined) ??
-      user.email?.split("@")[0] ??
-      "Usuário",
-    avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+    full_name: getDisplayNameFromUser(user),
+    avatar_url: getAvatarFromUser(user),
     created_at: now,
     updated_at: now,
   };
@@ -74,17 +88,14 @@ export async function ensureProfile(user: User): Promise<Profile> {
       return existing;
     }
 
-    const fullName =
-      (user.user_metadata?.full_name as string | undefined) ??
-      user.email?.split("@")[0] ??
-      "Usuário";
+    const fullName = getDisplayNameFromUser(user);
 
     const { data: inserted } = await supabase
       .from("profiles")
       .insert({
         id: user.id,
         full_name: fullName,
-        avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+        avatar_url: getAvatarFromUser(user),
       })
       .select("*")
       .single();
@@ -111,7 +122,7 @@ export async function ensureProfile(user: User): Promise<Profile> {
           {
             id: user.id,
             full_name: fullName,
-            avatar_url: (user.user_metadata?.avatar_url as string | undefined) ?? null,
+            avatar_url: getAvatarFromUser(user),
           },
           { onConflict: "id" },
         )

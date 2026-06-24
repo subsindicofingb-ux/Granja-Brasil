@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { SignUpForm } from "@/components/auth/signup-form";
+import { getUserMemberships } from "@/lib/auth/access";
+import { getAuthUser, isSuperAdmin } from "@/lib/auth/session";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { listPublicCondominiums } from "@/lib/services/registration-requests";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +10,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default async function SignUpPage() {
   const condosResult = await listPublicCondominiums();
   const condominiums = condosResult.ok ? (condosResult.data ?? []) : [];
+  const user = await getAuthUser();
+
+  let oauthUser: { email: string; fullName: string } | null = null;
+
+  if (user?.email) {
+    const memberships = await getUserMemberships();
+    const superAdmin = await isSuperAdmin();
+
+    if (memberships.length > 0 || superAdmin) {
+      redirect("/app");
+    }
+
+    oauthUser = {
+      email: user.email,
+      fullName:
+        (user.user_metadata?.full_name as string | undefined) ??
+        (user.user_metadata?.name as string | undefined) ??
+        user.email.split("@")[0] ??
+        "",
+    };
+  }
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
@@ -28,13 +52,15 @@ export default async function SignUpPage() {
         </div>
         <Card className="w-full max-w-md shadow-sm">
           <CardHeader>
-            <CardTitle>Criar conta</CardTitle>
+            <CardTitle>{oauthUser ? "Concluir cadastro" : "Criar conta"}</CardTitle>
             <CardDescription>
-              Cadastro com e-mail, senha e pré-qualificação do seu condomínio.
+              {oauthUser
+                ? "Complete sua pré-qualificação para solicitar acesso ao condomínio."
+                : "Cadastre-se com Google ou e-mail, senha e pré-qualificação do seu condomínio."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SignUpForm condominiums={condominiums} />
+            <SignUpForm condominiums={condominiums} oauthUser={oauthUser} />
           </CardContent>
         </Card>
         <p className="mt-4 text-center text-xs text-muted-foreground lg:hidden">{BRAND_TAGLINE}</p>

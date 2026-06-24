@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
+import { AuthDivider } from "@/components/auth/auth-divider";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { signInAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +23,12 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
   }, [state.redirectTo]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <div className="space-y-4">
+      <GoogleAuthButton redirectTo={redirectTo} label="Entrar com Google" />
+
+      <AuthDivider />
+
+      <form action={formAction} className="space-y-4">
       <input type="hidden" name="redirect" value={redirectTo} />
 
       {state.error && (
@@ -70,5 +77,6 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
         </Link>
       </p>
     </form>
+    </div>
   );
 }

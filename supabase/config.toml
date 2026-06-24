@@ -30,7 +30,13 @@ port = 54323
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000/auth/callback", "http://localhost:3000/reset-password"]
+additional_redirect_urls = [
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/reset-password",
+  "https://granjabrasil.app.br/auth/callback",
+  "https://granjabrasil.app.br/reset-password",
+  "https://granjabrasil.app.br/signup",
+]
 jwt_expiry = 3600
 enable_signup = true
 

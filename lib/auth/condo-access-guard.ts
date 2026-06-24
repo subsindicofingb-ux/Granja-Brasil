@@ -1,7 +1,33 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
-const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password"]);
+const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password", "/signup"]);
+
+export async function userHasAnyMembership(
+  supabase: SupabaseClient<Database>,
+): Promise<boolean> {
+  const { data: isSuperAdmin, error: rpcError } = await supabase.rpc("is_super_admin");
+
+  if (!rpcError && isSuperAdmin) {
+    return true;
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("profile_id", user.id)
+    .limit(1);
+
+  return !error && (data?.length ?? 0) > 0;
+}
 
 export function extractCondoSlugFromAppPath(pathname: string): string | null {
   if (!pathname.startsWith("/app/")) {
