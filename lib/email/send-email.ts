@@ -3,6 +3,7 @@ type SendEmailInput = {
   subject: string;
   html: string;
   text: string;
+  tags?: Array<{ name: string; value: string }>;
 };
 
 type SendEmailResult = { ok: true } | { ok: false; error: string };
@@ -48,6 +49,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         subject: input.subject,
         html: input.html,
         text: input.text,
+        ...(input.tags?.length ? { tags: input.tags } : {}),
       }),
     });
 

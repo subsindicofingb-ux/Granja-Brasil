@@ -99,7 +99,9 @@ export async function createAnnouncementAction(
   void notifyAnnouncementCreated({
     announcement: result.data,
     senderProfileId: access.profile.id,
-  }).catch(() => {});
+  }).catch((error) => {
+    console.error("[email:announcement-created]", error);
+  });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -150,7 +152,9 @@ export async function createResidentAnnouncementAction(
   void notifyAnnouncementCreated({
     announcement: result.data,
     senderProfileId: access.profile.id,
-  }).catch(() => {});
+  }).catch((error) => {
+    console.error("[email:announcement-created]", error);
+  });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -198,7 +202,9 @@ export async function replyAnnouncementAction(
       replyBody: parsed.data.body,
       senderProfileId: access.profile.id,
       senderName: access.profile.fullName,
-    }).catch(() => {});
+    }).catch((error) => {
+      console.error("[email:announcement-reply]", error);
+    });
   }
 
   revalidateAnnouncementPaths(condoSlug, parsed.data.parent_announcement_id);

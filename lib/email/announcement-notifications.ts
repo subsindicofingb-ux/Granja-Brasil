@@ -1,97 +1,207 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getGranjaCondoSlug } from "@/lib/constants";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
-import { sendEmail } from "@/lib/email/send-email";
+import {
+  buildEmailLayout,
+  textToHtmlParagraphs,
+} from "@/lib/email/format";
+import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 
-const STAFF_ROLES = ["super_admin", "admin", "syndic"] as const;
+const STAFF_ROLES = ["super_admin", "admin", "syndic", "sub_syndic"] as const;
 
 function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
-async function getProfileEmails(profileIds: string[]): Promise<string[]> {
-  if (profileIds.length === 0) {
-    return [];
-  }
+function logEmailFailure(context: string, error: string): void {
+  console.error(`[email:${context}] ${error}`);
+}
 
-  const admin = createAdminClient();
-  const emails: string[] = [];
-
-  for (const profileId of [...new Set(profileIds)]) {
+async function getProfileEmail(profileId: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
     const { data, error } = await admin.auth.admin.getUserById(profileId);
 
-    if (!error && data.user?.email) {
-      emails.push(data.user.email);
+    if (error || !data.user?.email) {
+      return null;
     }
-  }
 
-  return emails;
+    return data.user.email;
+  } catch (error) {
+    logEmailFailure(
+      "profile",
+      error instanceof Error ? error.message : "Falha ao buscar e-mail do usuário.",
+    );
+    return null;
+  }
 }
 
 async function getStaffProfileIdsForCondominium(condominiumId: string): Promise<string[]> {
-  const admin = createAdminClient();
+  try {
+    const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("memberships")
-    .select("profile_id")
-    .eq("condominium_id", condominiumId)
-    .in("role", STAFF_ROLES);
+    const { data, error } = await admin
+      .from("memberships")
+      .select("profile_id")
+      .eq("condominium_id", condominiumId)
+      .in("role", STAFF_ROLES);
 
-  if (error || !data) {
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row) => row.profile_id);
+  } catch (error) {
+    logEmailFailure(
+      "staff",
+      error instanceof Error ? error.message : "Falha ao buscar equipe do condomínio.",
+    );
     return [];
   }
-
-  return data.map((row) => row.profile_id);
 }
 
 async function getCondominiumSlug(condominiumId: string): Promise<string | null> {
-  const admin = createAdminClient();
+  try {
+    const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("condominiums")
-    .select("slug")
-    .eq("id", condominiumId)
-    .maybeSingle();
+    const { data, error } = await admin
+      .from("condominiums")
+      .select("slug")
+      .eq("id", condominiumId)
+      .maybeSingle();
 
-  if (error || !data) {
+    if (error || !data) {
+      return null;
+    }
+
+    return data.slug;
+  } catch {
     return null;
   }
-
-  return data.slug;
 }
 
-async function resolveNotificationContext(announcement: AnnouncementWithDetails): Promise<{
-  condoSlug: string;
-  recipientProfileIds: string[];
-}> {
+async function getPreferredCondoSlugForProfile(profileId: string): Promise<string | null> {
+  try {
+    const admin = createAdminClient();
+    const granjaCondominiumId = await getGranjaCondominiumId();
+
+    const { data, error } = await admin
+      .from("memberships")
+      .select("condominium_id, role, condominiums!inner(slug)")
+      .eq("profile_id", profileId);
+
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    const granjaMembership = data.find(
+      (row) => granjaCondominiumId && row.condominium_id === granjaCondominiumId,
+    );
+    if (granjaMembership?.condominiums?.slug) {
+      return granjaMembership.condominiums.slug;
+    }
+
+    const staffMembership = data.find((row) =>
+      STAFF_ROLES.includes(row.role as (typeof STAFF_ROLES)[number]),
+    );
+    if (staffMembership?.condominiums?.slug) {
+      return staffMembership.condominiums.slug;
+    }
+
+    return data[0]?.condominiums?.slug ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function buildAnnouncementLink(condoSlug: string, announcementId: string): string {
+  return `${getSiteUrl()}/app/${condoSlug}/announcements/${announcementId}`;
+}
+
+async function resolveFallbackSlug(announcement: AnnouncementWithDetails): Promise<string> {
   const granjaCondominiumId = await getGranjaCondominiumId();
   const isGranjaMessage =
     granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
 
   if (isGranjaMessage && announcement.target_condominium_id) {
-    const [granjaStaff, localStaff, slug] = await Promise.all([
-      getStaffProfileIdsForCondominium(granjaCondominiumId),
-      getStaffProfileIdsForCondominium(announcement.target_condominium_id),
-      getCondominiumSlug(announcement.target_condominium_id),
-    ]);
-
-    return {
-      condoSlug: slug ?? "residencial-exemplo",
-      recipientProfileIds: [...granjaStaff, ...localStaff],
-    };
+    return (
+      (await getCondominiumSlug(announcement.target_condominium_id)) ??
+      getGranjaCondoSlug()
+    );
   }
 
-  const slug = await getCondominiumSlug(announcement.condominium_id);
-  const staff = await getStaffProfileIdsForCondominium(announcement.condominium_id);
-
-  return {
-    condoSlug: slug ?? "residencial-exemplo",
-    recipientProfileIds: staff,
-  };
+  return (await getCondominiumSlug(announcement.condominium_id)) ?? getGranjaCondoSlug();
 }
 
-function buildAnnouncementLink(condoSlug: string, announcementId: string): string {
-  return `${getSiteUrl()}/app/${condoSlug}/announcements/${announcementId}`;
+async function resolveStaffRecipients(
+  announcement: AnnouncementWithDetails,
+): Promise<string[]> {
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const isGranjaMessage =
+    granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
+
+  if (isGranjaMessage && announcement.target_condominium_id) {
+    const [granjaStaff, localStaff] = await Promise.all([
+      getStaffProfileIdsForCondominium(granjaCondominiumId),
+      getStaffProfileIdsForCondominium(announcement.target_condominium_id),
+    ]);
+
+    return [...new Set([...granjaStaff, ...localStaff])];
+  }
+
+  return getStaffProfileIdsForCondominium(announcement.condominium_id);
+}
+
+async function sendAnnouncementEmailToProfiles(input: {
+  profileIds: string[];
+  excludeProfileId: string;
+  fallbackCondoSlug: string;
+  subject: string;
+  preview: string;
+  title: string;
+  bodyText: string;
+  actionLabel: string;
+  announcementId: string;
+}): Promise<void> {
+  if (!isEmailConfigured()) {
+    logEmailFailure("config", "RESEND_API_KEY não configurada.");
+    return;
+  }
+
+  const recipients = [...new Set(input.profileIds)].filter(
+    (profileId) => profileId !== input.excludeProfileId,
+  );
+
+  for (const profileId of recipients) {
+    const email = await getProfileEmail(profileId);
+    if (!email) {
+      continue;
+    }
+
+    const condoSlug =
+      (await getPreferredCondoSlugForProfile(profileId)) ?? input.fallbackCondoSlug;
+    const link = buildAnnouncementLink(condoSlug, input.announcementId);
+    const bodyHtml = `<p>${textToHtmlParagraphs(input.bodyText)}</p>`;
+
+    const result = await sendEmail({
+      to: [email],
+      subject: input.subject,
+      text: `${input.title}\n\n${input.bodyText}\n\n${input.actionLabel}: ${link}`,
+      html: buildEmailLayout({
+        preview: input.preview,
+        title: input.title,
+        bodyHtml,
+        actionLabel: input.actionLabel,
+        actionUrl: link,
+      }),
+      tags: [{ name: "category", value: "announcement" }],
+    });
+
+    if (!result.ok) {
+      logEmailFailure("send", result.error);
+    }
+  }
 }
 
 export async function notifyAnnouncementCreated(input: {
@@ -99,34 +209,26 @@ export async function notifyAnnouncementCreated(input: {
   senderProfileId: string;
 }): Promise<void> {
   const { announcement, senderProfileId } = input;
+  const fallbackCondoSlug = await resolveFallbackSlug(announcement);
 
   if (announcement.staff_only) {
-    const { condoSlug, recipientProfileIds } = await resolveNotificationContext(announcement);
-    const recipients = recipientProfileIds.filter((profileId) => profileId !== senderProfileId);
-    const emails = await getProfileEmails(recipients);
+    const recipientProfileIds = await resolveStaffRecipients(announcement);
 
-    if (emails.length === 0) {
-      return;
-    }
-
-    const link = buildAnnouncementLink(condoSlug, announcement.id);
-
-    await sendEmail({
-      to: emails,
+    await sendAnnouncementEmailToProfiles({
+      profileIds: recipientProfileIds,
+      excludeProfileId: senderProfileId,
+      fallbackCondoSlug,
+      announcementId: announcement.id,
       subject: `Nova mensagem: ${announcement.title}`,
-      text: `Você recebeu uma nova mensagem no condomínio.\n\nAssunto: ${announcement.title}\n\n${announcement.body}\n\nAbrir: ${link}`,
-      html: `
-        <p>Você recebeu uma nova mensagem no condomínio.</p>
-        <p><strong>Assunto:</strong> ${announcement.title}</p>
-        <p>${announcement.body.replace(/\n/g, "<br />")}</p>
-        <p><a href="${link}">Abrir mensagem</a></p>
-      `,
+      preview: "Nova mensagem recebida no condomínio.",
+      title: "Nova mensagem",
+      bodyText: `Assunto: ${announcement.title}\n\n${announcement.body}`,
+      actionLabel: "Abrir mensagem",
     });
 
     return;
   }
 
-  const condoSlug = (await getCondominiumSlug(announcement.condominium_id)) ?? "residencial-exemplo";
   const granjaCondominiumId = await getGranjaCondominiumId();
   const isGranjaBroadcast =
     granjaCondominiumId !== null &&
@@ -143,37 +245,34 @@ export async function notifyAnnouncementCreated(input: {
   if (announcement.target_profile_id) {
     recipientProfileIds.push(announcement.target_profile_id);
   } else {
-    const admin = createAdminClient();
-    const residentCondoId = announcement.target_condominium_id ?? announcement.condominium_id;
-    const { data } = await admin
-      .from("memberships")
-      .select("profile_id")
-      .eq("condominium_id", residentCondoId)
-      .eq("role", "resident");
+    try {
+      const admin = createAdminClient();
+      const residentCondoId = announcement.target_condominium_id ?? announcement.condominium_id;
+      const { data } = await admin
+        .from("memberships")
+        .select("profile_id")
+        .eq("condominium_id", residentCondoId)
+        .eq("role", "resident");
 
-    recipientProfileIds.push(...(data?.map((row) => row.profile_id) ?? []));
+      recipientProfileIds.push(...(data?.map((row) => row.profile_id) ?? []));
+    } catch (error) {
+      logEmailFailure(
+        "residents",
+        error instanceof Error ? error.message : "Falha ao buscar moradores.",
+      );
+    }
   }
 
-  const emails = await getProfileEmails(
-    recipientProfileIds.filter((profileId) => profileId !== senderProfileId),
-  );
-
-  if (emails.length === 0) {
-    return;
-  }
-
-  const link = buildAnnouncementLink(condoSlug, announcement.id);
-
-  await sendEmail({
-    to: emails,
+  await sendAnnouncementEmailToProfiles({
+    profileIds: recipientProfileIds,
+    excludeProfileId: senderProfileId,
+    fallbackCondoSlug,
+    announcementId: announcement.id,
     subject: `Novo aviso: ${announcement.title}`,
-    text: `Novo aviso publicado no condomínio.\n\n${announcement.title}\n\n${announcement.body}\n\nAbrir: ${link}`,
-    html: `
-      <p>Novo aviso publicado no condomínio.</p>
-      <p><strong>${announcement.title}</strong></p>
-      <p>${announcement.body.replace(/\n/g, "<br />")}</p>
-      <p><a href="${link}">Abrir aviso</a></p>
-    `,
+    preview: "Novo aviso publicado no condomínio.",
+    title: announcement.title,
+    bodyText: announcement.body,
+    actionLabel: "Abrir aviso",
   });
 }
 
@@ -191,32 +290,20 @@ export async function notifyAnnouncementReply(input: {
   }
 
   if (rootAnnouncement.staff_only) {
-    const { recipientProfileIds: staffIds } = await resolveNotificationContext(rootAnnouncement);
-    recipientProfileIds.push(...staffIds);
+    recipientProfileIds.push(...(await resolveStaffRecipients(rootAnnouncement)));
   }
 
-  const emails = await getProfileEmails(
-    [...new Set(recipientProfileIds)].filter((profileId) => profileId !== senderProfileId),
-  );
+  const fallbackCondoSlug = await resolveFallbackSlug(rootAnnouncement);
 
-  if (emails.length === 0) {
-    return;
-  }
-
-  const condoSlug =
-    (await getCondominiumSlug(
-      rootAnnouncement.target_condominium_id ?? rootAnnouncement.condominium_id,
-    )) ?? "residencial-exemplo";
-  const link = buildAnnouncementLink(condoSlug, rootAnnouncement.id);
-
-  await sendEmail({
-    to: emails,
+  await sendAnnouncementEmailToProfiles({
+    profileIds: [...new Set(recipientProfileIds)],
+    excludeProfileId: senderProfileId,
+    fallbackCondoSlug,
+    announcementId: rootAnnouncement.id,
     subject: `Nova resposta: ${rootAnnouncement.title}`,
-    text: `${senderName} respondeu a "${rootAnnouncement.title}".\n\n${replyBody}\n\nAbrir: ${link}`,
-    html: `
-      <p><strong>${senderName}</strong> respondeu a "${rootAnnouncement.title}".</p>
-      <p>${replyBody.replace(/\n/g, "<br />")}</p>
-      <p><a href="${link}">Abrir conversa</a></p>
-    `,
+    preview: `${senderName} respondeu uma conversa.`,
+    title: "Nova resposta",
+    bodyText: `${senderName} respondeu "${rootAnnouncement.title}":\n\n${replyBody}`,
+    actionLabel: "Abrir conversa",
   });
 }
