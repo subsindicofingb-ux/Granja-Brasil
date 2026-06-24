@@ -96,12 +96,14 @@ export async function createAnnouncementAction(
     return { error: result.error };
   }
 
-  void notifyAnnouncementCreated({
-    announcement: result.data,
-    senderProfileId: access.profile.id,
-  }).catch((error) => {
+  try {
+    await notifyAnnouncementCreated({
+      announcement: result.data,
+      senderProfileId: access.profile.id,
+    });
+  } catch (error) {
     console.error("[email:announcement-created]", error);
-  });
+  }
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -149,12 +151,14 @@ export async function createResidentAnnouncementAction(
     return { error: result.error };
   }
 
-  void notifyAnnouncementCreated({
-    announcement: result.data,
-    senderProfileId: access.profile.id,
-  }).catch((error) => {
+  try {
+    await notifyAnnouncementCreated({
+      announcement: result.data,
+      senderProfileId: access.profile.id,
+    });
+  } catch (error) {
     console.error("[email:announcement-created]", error);
-  });
+  }
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
@@ -197,14 +201,16 @@ export async function replyAnnouncementAction(
   );
 
   if (rootResult.ok) {
-    void notifyAnnouncementReply({
-      rootAnnouncement: rootResult.data,
-      replyBody: parsed.data.body,
-      senderProfileId: access.profile.id,
-      senderName: access.profile.fullName,
-    }).catch((error) => {
+    try {
+      await notifyAnnouncementReply({
+        rootAnnouncement: rootResult.data,
+        replyBody: parsed.data.body,
+        senderProfileId: access.profile.id,
+        senderName: access.profile.fullName,
+      });
+    } catch (error) {
       console.error("[email:announcement-reply]", error);
-    });
+    }
   }
 
   revalidateAnnouncementPaths(condoSlug, parsed.data.parent_announcement_id);

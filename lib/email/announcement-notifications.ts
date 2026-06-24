@@ -173,6 +173,13 @@ async function sendAnnouncementEmailToProfiles(input: {
     (profileId) => profileId !== input.excludeProfileId,
   );
 
+  if (recipients.length === 0) {
+    logEmailFailure("recipients", "Nenhum destinatário para notificar.");
+    return;
+  }
+
+  let sentCount = 0;
+
   for (const profileId of recipients) {
     const email = await getProfileEmail(profileId);
     if (!email) {
@@ -200,7 +207,13 @@ async function sendAnnouncementEmailToProfiles(input: {
 
     if (!result.ok) {
       logEmailFailure("send", result.error);
+    } else {
+      sentCount += 1;
     }
+  }
+
+  if (sentCount === 0) {
+    logEmailFailure("send", "Nenhum e-mail foi enviado para os destinatários encontrados.");
   }
 }
 
