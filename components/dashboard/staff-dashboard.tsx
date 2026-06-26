@@ -68,6 +68,20 @@ type GranjaOverviewCard = {
   accent: string;
 };
 
+function formatGranjaPendingVehiclesDescription(
+  pendingByCondominium: GeneralCondominiumOverviewMetrics["pendingVehiclesByCondominium"],
+): string {
+  if (pendingByCondominium.length === 0) {
+    return "Consulta por placa inclui cadastros pendentes";
+  }
+
+  const breakdown = pendingByCondominium
+    .map(({ condominiumName, count }) => `${condominiumName} (${count})`)
+    .join(" · ");
+
+  return `Aguardando aprovação: ${breakdown}`;
+}
+
 export function StaffDashboard({
   condoSlug,
   condominiumName,
@@ -265,10 +279,9 @@ export function StaffDashboard({
           {
             label: "Veículos cadastrados",
             value: generalOverview.totalVehicles,
-            description:
-              granjaPendingVehicles > 0
-                ? `${granjaPendingVehicles} aguardando aprovação · consulta inclui pendentes`
-                : "Consulta por placa inclui cadastros pendentes",
+            description: formatGranjaPendingVehiclesDescription(
+              generalOverview.pendingVehiclesByCondominium,
+            ),
             href: `${base}/vehicles/consult`,
             icon: Car,
             accent:
@@ -387,10 +400,8 @@ export function StaffDashboard({
                   <span className="min-w-0 flex-1">
                     <span className="block text-xs font-medium opacity-80">{card.label}</span>
                     <span className="mt-1 block text-2xl font-bold">{card.value}</span>
-                    <span className="mt-1 flex items-center gap-2 text-sm opacity-80">
-                      {card.description}
-                      <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </span>
+                    <span className="mt-1 block text-sm opacity-80">{card.description}</span>
+                    <ArrowRight className="mt-2 h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
                   </span>
                 </Link>
               );

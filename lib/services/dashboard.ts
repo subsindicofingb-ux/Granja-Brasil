@@ -15,8 +15,16 @@ import {
 } from "@/lib/services/reservations";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
 import { applyUnitListFilter } from "@/lib/services/unit-filter";
+import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
+import { VEHICLE_STATUS } from "@/lib/constants";
 import { isHouseTower } from "@/lib/residents/labels";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
+
+export type PendingVehicleByCondominium = {
+  condominiumId: string;
+  condominiumName: string;
+  count: number;
+};
 
 export type GeneralCondominiumOverviewMetrics = {
   residentialCondominiums: number;
@@ -27,6 +35,7 @@ export type GeneralCondominiumOverviewMetrics = {
   totalResidents: number;
   totalVehicles: number;
   pendingVehicles: number;
+  pendingVehiclesByCondominium: PendingVehicleByCondominium[];
 };
 
 export type DashboardMetrics = {
@@ -132,8 +141,8 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     supabase.from("vehicles").select("id", { count: "exact", head: true }),
     supabase
       .from("vehicles")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+      .select("condominium_id, condominiums!inner(id, name, slug)")
+      .eq("status", VEHICLE_STATUS.PENDING),
   ]);
 
   if (unitsResult.error) {
@@ -151,6 +160,39 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
   if (pendingVehiclesResult.error) {
     return serviceError(mapSupabaseError(pendingVehiclesResult.error));
   }
+
+  const pendingByCondominiumMap = new Map<string, PendingVehicleByCondominium>();
+
+  for (const row of pendingVehiclesResult.data ?? []) {
+    const condominium = row.condominiums as { id: string; name: string; slug: string };
+
+    if (isGeneralCondominium(condominium.slug)) {
+      continue;
+    }
+
+    const existing = pendingByCondominiumMap.get(condominium.id);
+
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+
+    pendingByCondominiumMap.set(condominium.id, {
+      condominiumId: condominium.id,
+      condominiumName: formatCondominiumDisplayName(condominium.name, condominium.slug),
+      count: 1,
+    });
+  }
+
+  const pendingVehiclesByCondominium = Array.from(pendingByCondominiumMap.values()).sort(
+    (left, right) =>
+      right.count - left.count || left.condominiumName.localeCompare(right.condominiumName, "pt-BR"),
+  );
+
+  const pendingVehicles = pendingVehiclesByCondominium.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
 
   let residentialCondominiums = 0;
   let commercialCondominiums = 0;
@@ -216,7 +258,8 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     commercialUnits,
     totalResidents: residentsResult.count ?? 0,
     totalVehicles: vehiclesResult.count ?? 0,
-    pendingVehicles: pendingVehiclesResult.count ?? 0,
+    pendingVehicles,
+    pendingVehiclesByCondominium,
   });
 }
 
