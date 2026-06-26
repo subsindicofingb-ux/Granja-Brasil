@@ -188,7 +188,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Hidrômetros",
     href: "water-meters",
     icon: "Droplets",
-    visible: ({ permissions }) => permissions.canManageWaterMeters,
+    visible: ({ permissions }) =>
+      permissions.canManageWaterMeters || permissions.canViewWaterMeters,
   },
   {
     label: "Notificações",

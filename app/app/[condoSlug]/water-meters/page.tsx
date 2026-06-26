@@ -33,8 +33,10 @@ export default async function WaterMetersPage({
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageWaterMeters,
+    (ctx) => ctx.permissions.canManageWaterMeters || ctx.permissions.canViewWaterMeters,
   );
+
+  const canManageWaterMeters = access.permissions.canManageWaterMeters;
 
   if (isGeneralCondominium(condoSlug)) {
     return (
@@ -69,7 +71,11 @@ export default async function WaterMetersPage({
 
       <PageHeader
         title="Hidrômetros"
-        description="Leitura diária acumulada, consumo do dia e alertas de gasto anormal."
+        description={
+          canManageWaterMeters
+            ? "Leitura diária acumulada, consumo do dia e alertas de gasto anormal."
+            : "Consulte as leituras registradas pela portaria, consumo diário e alertas."
+        }
       />
 
       <Card className={summary.activeAlert ? "border-red-300 bg-red-50/30" : undefined}>
@@ -98,14 +104,16 @@ export default async function WaterMetersPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Registrar leitura</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WaterMeterReadingForm condoSlug={condoSlug} defaultDate={todayIsoDate()} />
-        </CardContent>
-      </Card>
+      {canManageWaterMeters && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Registrar leitura</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WaterMeterReadingForm condoSlug={condoSlug} defaultDate={todayIsoDate()} />
+          </CardContent>
+        </Card>
+      )}
 
       {summary.recentReadings.length > 0 && (
         <Card>
@@ -124,11 +132,13 @@ export default async function WaterMetersPage({
                   {reading.author && ` · ${reading.author.full_name}`}
                   {` · ${formatDateTime(reading.created_at)}`}
                 </p>
-                <WaterMeterReadingEditForm
-                  condoSlug={condoSlug}
-                  readingId={reading.id}
-                  readingValue={reading.reading_value}
-                />
+                {canManageWaterMeters && (
+                  <WaterMeterReadingEditForm
+                    condoSlug={condoSlug}
+                    readingId={reading.id}
+                    readingValue={reading.reading_value}
+                  />
+                )}
               </div>
             ))}
           </CardContent>

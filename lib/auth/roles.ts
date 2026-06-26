@@ -29,6 +29,7 @@ export type RolePermissions = {
   canBookReservationsForCondo: boolean;
   canManageCorrespondence: boolean;
   canManageWaterMeters: boolean;
+  canViewWaterMeters: boolean;
 };
 
 export const ROLE_PERMISSIONS = {
@@ -57,6 +58,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: false,
   },
   admin: {
     label: "Administrador",
@@ -83,6 +85,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: true,
   },
   syndic: {
     label: "Síndico",
@@ -109,6 +112,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: true,
   },
   sub_syndic: {
     label: "Sub-síndico",
@@ -135,6 +139,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: true,
   },
   resident: {
     label: "Morador",
@@ -161,6 +166,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: false,
   },
   doorman: {
     label: "Portaria",
@@ -187,6 +193,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: true,
     canManageCorrespondence: true,
     canManageWaterMeters: true,
+    canViewWaterMeters: false,
   },
   staff: {
     label: "Funcionário",
@@ -213,6 +220,7 @@ export const ROLE_PERMISSIONS = {
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
     canManageWaterMeters: false,
+    canViewWaterMeters: false,
   },
 } satisfies Record<Role, RolePermissions>;
 
