@@ -4,6 +4,30 @@ import type { Role } from "@/lib/constants";
  * Mapeamento papel → permissões (espelha RLS do Supabase).
  * Referência para UI e auth futura — enforcement real está no banco.
  */
+export type RolePermissions = {
+  label: string;
+  canManageCondo: boolean;
+  canManageMembers: boolean;
+  canManageStructure: boolean;
+  canManageResidents: boolean;
+  canManageRegistrationRequests: boolean;
+  canManageVehicles: boolean;
+  canViewUnitVehicles: boolean;
+  canRegisterUnitVehicles: boolean;
+  canManageAreas: boolean;
+  canManageReservations: boolean;
+  canManageAnnouncements: boolean;
+  canSendAnnouncements: boolean;
+  canSendUnitNotifications: boolean;
+  canViewUnitNotifications: boolean;
+  canApproveReservations: boolean;
+  canViewVisitorAuthorizations: boolean;
+  canManageVisitorAuthorizations: boolean;
+  canRegisterVisitorAuthorizations: boolean;
+  canApproveVisitorAuthorizations: boolean;
+  canConsultVisitorAuthorizations: boolean;
+};
+
 export const ROLE_PERMISSIONS = {
   super_admin: {
     label: "Super Admin",
@@ -19,6 +43,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: true,
     canManageAnnouncements: true,
     canSendAnnouncements: true,
+    canSendUnitNotifications: true,
+    canViewUnitNotifications: false,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -40,6 +66,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: true,
     canManageAnnouncements: true,
     canSendAnnouncements: true,
+    canSendUnitNotifications: true,
+    canViewUnitNotifications: false,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -61,6 +89,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: true,
     canManageAnnouncements: true,
     canSendAnnouncements: true,
+    canSendUnitNotifications: true,
+    canViewUnitNotifications: false,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -82,6 +112,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: true,
     canManageAnnouncements: true,
     canSendAnnouncements: true,
+    canSendUnitNotifications: true,
+    canViewUnitNotifications: false,
     canApproveReservations: true,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: true,
@@ -103,6 +135,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: true,
     canManageAnnouncements: false,
     canSendAnnouncements: true,
+    canSendUnitNotifications: false,
+    canViewUnitNotifications: false,
     canApproveReservations: false,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: false,
@@ -124,6 +158,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: false,
     canManageAnnouncements: false,
     canSendAnnouncements: false,
+    canSendUnitNotifications: false,
+    canViewUnitNotifications: false,
     canApproveReservations: false,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: false,
@@ -145,6 +181,8 @@ export const ROLE_PERMISSIONS = {
     canManageReservations: false,
     canManageAnnouncements: false,
     canSendAnnouncements: false,
+    canSendUnitNotifications: false,
+    canViewUnitNotifications: false,
     canApproveReservations: false,
     canViewVisitorAuthorizations: true,
     canManageVisitorAuthorizations: false,
@@ -152,31 +190,8 @@ export const ROLE_PERMISSIONS = {
     canApproveVisitorAuthorizations: false,
     canConsultVisitorAuthorizations: true,
   },
-} as const satisfies Record<
-  Role,
-  {
-    label: string;
-    canManageCondo: boolean;
-    canManageMembers: boolean;
-    canManageStructure: boolean;
-    canManageResidents: boolean;
-    canManageRegistrationRequests: boolean;
-    canManageVehicles: boolean;
-    canViewUnitVehicles: boolean;
-    canRegisterUnitVehicles: boolean;
-    canManageAreas: boolean;
-    canManageReservations: boolean;
-    canManageAnnouncements: boolean;
-    canSendAnnouncements: boolean;
-    canApproveReservations: boolean;
-    canViewVisitorAuthorizations: boolean;
-    canManageVisitorAuthorizations: boolean;
-    canRegisterVisitorAuthorizations: boolean;
-    canApproveVisitorAuthorizations: boolean;
-    canConsultVisitorAuthorizations: boolean;
-  }
->;
+} satisfies Record<Role, RolePermissions>;
 
-export function getRolePermissions(role: Role) {
+export function getRolePermissions(role: Role): RolePermissions {
   return ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.admin;
 }

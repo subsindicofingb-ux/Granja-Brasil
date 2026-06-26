@@ -63,4 +63,5 @@ export const reviewRegistrationRequestSchema = z.object({
   review_notes: z.string().trim().optional(),
   unit_id: z.string().uuid().optional(),
   resident_type: z.enum(residentTypeValues).optional(),
+  mark_as_unit_responsible: z.coerce.boolean().optional(),
 });

@@ -8,6 +8,8 @@ import {
   type CondoAccess,
   type MembershipWithCondo,
 } from "@/lib/auth/types";
+import { ROLES } from "@/lib/constants";
+import { isProfileUnitResponsible } from "@/lib/services/notifications";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -109,6 +111,29 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
   }
 }
 
+async function enrichCondoAccess(access: CondoAccess): Promise<CondoAccess> {
+  if (access.role !== ROLES.RESIDENT) {
+    return access;
+  }
+
+  const isResponsible = await isProfileUnitResponsible({
+    profileId: access.profile.id,
+    condominiumId: access.condominium.id,
+  });
+
+  if (!isResponsible) {
+    return access;
+  }
+
+  return {
+    ...access,
+    permissions: {
+      ...access.permissions,
+      canViewUnitNotifications: true,
+    },
+  };
+}
+
 export async function getCondoAccess(slug: string): Promise<CondoAccess | null> {
   const session = await getSessionForAccess();
   if (!session) {
@@ -120,13 +145,15 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
   const membership = memberships.find((item) => item.condominium.slug === slug);
 
   if (membership) {
-    return buildCondoAccess({
-      membershipId: membership.id,
-      role: membership.role,
-      condominium: membership.condominium,
-      profile,
-      email: user.email ?? "",
-    });
+    return enrichCondoAccess(
+      buildCondoAccess({
+        membershipId: membership.id,
+        role: membership.role,
+        condominium: membership.condominium,
+        profile,
+        email: user.email ?? "",
+      }),
+    );
   }
 
   const superAdmin = await isSuperAdmin();
@@ -146,16 +173,18 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
       return null;
     }
 
-    return buildCondoAccess({
-      membershipId: null,
-      role: "super_admin",
-      condominium: {
-        ...condominium,
-        name: formatCondominiumDisplayName(condominium.name, condominium.slug),
-      },
-      profile,
-      email: user.email ?? "",
-    });
+    return enrichCondoAccess(
+      buildCondoAccess({
+        membershipId: null,
+        role: "super_admin",
+        condominium: {
+          ...condominium,
+          name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+        },
+        profile,
+        email: user.email ?? "",
+      }),
+    );
   } catch {
     return null;
   }

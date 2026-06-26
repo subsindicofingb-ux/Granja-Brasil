@@ -77,6 +77,19 @@ function ReviewForm({ condoSlug, request }: { condoSlug: string; request: Regist
               ? "Defina a qualificação após analisar o pré-cadastro."
               : "Ajuste a qualificação, se necessário, antes de aprovar."}
           </p>
+          <label className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
+            <input
+              type="checkbox"
+              name="mark_as_unit_responsible"
+              className="mt-1"
+            />
+            <span>
+              Definir como morador responsável da unidade
+              <span className="mt-1 block text-xs text-muted-foreground">
+                O responsável recebe notificações formais enviadas à unidade.
+              </span>
+            </span>
+          </label>
         </div>
       )}
 

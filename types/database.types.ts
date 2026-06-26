@@ -679,6 +679,120 @@ export interface Database {
           },
         ];
       };
+      unit_notifications: {
+        Row: {
+          id: string;
+          source_condominium_id: string;
+          target_condominium_id: string;
+          target_unit_id: string;
+          target_profile_id: string;
+          title: string;
+          body: string;
+          attachment_url: string | null;
+          attachment_name: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          source_condominium_id: string;
+          target_condominium_id: string;
+          target_unit_id: string;
+          target_profile_id: string;
+          title: string;
+          body: string;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          source_condominium_id?: string;
+          target_condominium_id?: string;
+          target_unit_id?: string;
+          target_profile_id?: string;
+          title?: string;
+          body?: string;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "unit_notifications_source_condominium_id_fkey";
+            columns: ["source_condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notifications_target_condominium_id_fkey";
+            columns: ["target_condominium_id"];
+            isOneToOne: false;
+            referencedRelation: "condominiums";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notifications_target_unit_id_fkey";
+            columns: ["target_unit_id"];
+            isOneToOne: false;
+            referencedRelation: "units";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notifications_target_profile_id_fkey";
+            columns: ["target_profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notifications_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      unit_notification_reads: {
+        Row: {
+          notification_id: string;
+          profile_id: string;
+          read_at: string;
+        };
+        Insert: {
+          notification_id: string;
+          profile_id: string;
+          read_at?: string;
+        };
+        Update: {
+          notification_id?: string;
+          profile_id?: string;
+          read_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "unit_notification_reads_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "unit_notifications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notification_reads_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       vehicles: {
         Row: {
           id: string;

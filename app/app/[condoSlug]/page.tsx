@@ -8,6 +8,7 @@ import {
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
+import { countUnreadUnitNotifications } from "@/lib/services/notifications";
 import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
 import {
@@ -98,6 +99,14 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   if (access.role === ROLES.RESIDENT) {
     let vehicleRequests: ResidentVehicleRequest[] = [];
+    let unreadNotificationCount = 0;
+
+    if (access.permissions.canViewUnitNotifications) {
+      const unreadNotificationsResult = await countUnreadUnitNotifications(access.profile.id);
+      unreadNotificationCount = unreadNotificationsResult.ok
+        ? (unreadNotificationsResult.data ?? 0)
+        : 0;
+    }
 
     if (access.permissions.canViewUnitVehicles && unitFilter !== "none") {
       const unitQuery = unitFilterToQueryOptions(unitFilter);
@@ -135,6 +144,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         unreadReplyThreadIds={unreadReplyThreadIds}
         reservationsByStatus={metrics.reservationsByStatus}
         vehicleRequests={vehicleRequests}
+        unreadNotificationCount={unreadNotificationCount}
       />
     );
   }

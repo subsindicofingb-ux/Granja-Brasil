@@ -116,6 +116,7 @@ export type NavIcon =
   | "Trees"
   | "CalendarDays"
   | "Megaphone"
+  | "Bell"
   | "UserCheck"
   | "Inbox"
   | "Settings";
@@ -175,6 +176,13 @@ export const NAV_ITEMS: NavItem[] = [
     visible: ({ permissions }) => permissions.canManageReservations,
   },
   { label: "Avisos", href: "announcements", icon: "Megaphone" },
+  {
+    label: "Notificações",
+    href: "notifications",
+    icon: "Bell",
+    visible: ({ permissions }) =>
+      permissions.canSendUnitNotifications || permissions.canViewUnitNotifications,
+  },
   {
     label: "Visitantes",
     href: "visitors",

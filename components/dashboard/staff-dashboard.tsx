@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Car,
   ClipboardList,
+  Bell,
   Home,
   Inbox,
   Megaphone,
@@ -169,6 +170,16 @@ export function StaffDashboard({
       href: `${base}/admin/condominiums`,
       icon: Building2,
       accent: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+    });
+  }
+
+  if (permissions.canSendUnitNotifications) {
+    actionTiles.push({
+      title: "Nova notificação",
+      description: "Formalize aviso à unidade com anexo",
+      href: `${base}/notifications/new`,
+      icon: Bell,
+      accent: "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
     });
   }
 

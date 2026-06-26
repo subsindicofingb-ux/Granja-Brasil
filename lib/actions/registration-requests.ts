@@ -37,13 +37,15 @@ export async function reviewRegistrationRequestAction(
     review_notes: formData.get("review_notes") ?? "",
     unit_id: formData.get("unit_id") || undefined,
     resident_type: formData.get("resident_type") || undefined,
+    mark_as_unit_responsible: formData.get("mark_as_unit_responsible") === "on",
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { request_id, action, review_notes, unit_id, resident_type } = parsed.data;
+  const { request_id, action, review_notes, unit_id, resident_type, mark_as_unit_responsible } =
+    parsed.data;
 
   const result =
     action === "approve"
@@ -54,6 +56,7 @@ export async function reviewRegistrationRequestAction(
           unitId: unit_id,
           reviewNotes: review_notes,
           residentType: resident_type,
+          markAsUnitResponsible: mark_as_unit_responsible,
         })
       : await rejectRegistrationRequest({
           requestId: request_id,

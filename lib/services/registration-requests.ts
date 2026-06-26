@@ -19,6 +19,7 @@ import {
   resolveRegistrationProfileType,
 } from "@/lib/registrations/profile-type";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
+import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
 
 export type PublicCondominiumOption = {
   id: string;
@@ -628,6 +629,7 @@ export async function approveRegistrationRequest(input: {
   unitId?: string;
   reviewNotes?: string;
   residentType?: ResidentType;
+  markAsUnitResponsible?: boolean;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   const requestResult = await getRegistrationRequestById(input.requestId, input.condominiumId);
   if (!requestResult.ok) {
@@ -676,9 +678,22 @@ export async function approveRegistrationRequest(input: {
   }
 
   const supabase = await createClient();
-  const resolvedResidentType = input.residentType ?? request.resident_type;
+  const resolvedResidentType = input.markAsUnitResponsible
+    ? RESIDENT_TYPES.RESPONSIBLE
+    : (input.residentType ?? request.resident_type);
 
   if (needsUnit && resolvedUnitId) {
+    if (input.markAsUnitResponsible) {
+      const clearResult = await clearUnitResponsibleExcept({
+        unitId: resolvedUnitId,
+        profileId: request.profile_id,
+      });
+
+      if (!clearResult.ok) {
+        return serviceError(clearResult.error ?? "Não foi possível atualizar o responsável da unidade.");
+      }
+    }
+
     const { error: residentError } = await supabase.from("residents").insert({
       unit_id: resolvedUnitId,
       profile_id: request.profile_id,

@@ -5,6 +5,7 @@ import {
   Car,
   Megaphone,
   MessageSquarePlus,
+  Bell,
   UserCheck,
 } from "lucide-react";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
@@ -49,6 +50,7 @@ export type ResidentDashboardProps = {
   unreadReplyThreadIds: string[];
   reservationsByStatus: Record<ReservationStatus, number>;
   vehicleRequests: ResidentVehicleRequest[];
+  unreadNotificationCount?: number;
 };
 
 function getFirstName(fullName: string): string {
@@ -77,6 +79,7 @@ export function ResidentDashboard({
   unreadReplyThreadIds,
   reservationsByStatus,
   vehicleRequests,
+  unreadNotificationCount = 0,
 }: ResidentDashboardProps) {
   const base = `/app/${condoSlug}`;
   const firstName = getFirstName(residentName);
@@ -138,6 +141,22 @@ export function ResidentDashboard({
     });
   }
 
+  if (permissions.canViewUnitNotifications) {
+    quickActions.push({
+      title: "Notificações",
+      description:
+        unreadNotificationCount > 0
+          ? `${unreadNotificationCount} nova(s) notificação(ões) da unidade`
+          : "Notificações formais da unidade",
+      href: `${base}/notifications`,
+      icon: Bell,
+      accent:
+        unreadNotificationCount > 0
+          ? "border-sky-300 bg-sky-50 text-sky-950 hover:border-sky-400 hover:bg-sky-100/80"
+          : "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
+    });
+  }
+
   if (permissions.canViewUnitVehicles) {
     quickActions.push({
       title: "Meus veículos",
@@ -170,6 +189,15 @@ export function ResidentDashboard({
       href: `${base}/announcements/${unreadReplyThreadIds[0]}`,
       cta: "Ver resposta",
       tone: "border-purple-200 bg-purple-50 text-purple-950",
+    });
+  }
+
+  if (permissions.canViewUnitNotifications && unreadNotificationCount > 0) {
+    attentionItems.push({
+      message: `${unreadNotificationCount} notificação(ões) formal(is) aguardando leitura.`,
+      href: `${base}/notifications`,
+      cta: "Ver notificações",
+      tone: "border-sky-200 bg-sky-50 text-sky-950",
     });
   }
 

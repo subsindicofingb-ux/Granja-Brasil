@@ -7,7 +7,7 @@ const RECEIPT_TYPES = new Set([...IMAGE_TYPES, "application/pdf"]);
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
-  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests";
+  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests" | "notifications";
   file: File | null;
 }): Promise<ServiceResult<string | null>> {
   const file = input.file;
@@ -20,7 +20,7 @@ export async function uploadCondoImage(input: {
     return serviceError("O arquivo deve ter no máximo 5 MB.");
   }
 
-  const allowsPdf = input.folder === "reservations" || input.folder === "announcements";
+  const allowsPdf = input.folder === "reservations" || input.folder === "announcements" || input.folder === "notifications";
   const allowedTypes = allowsPdf ? RECEIPT_TYPES : IMAGE_TYPES;
 
   if (!allowedTypes.has(file.type)) {
