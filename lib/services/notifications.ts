@@ -188,7 +188,8 @@ function hasUnreadActivity(input: {
   const { row, viewerProfileId, readAt, recipientReadAt, replySummary } = input;
   const isRecipient = row.target_profile_id === viewerProfileId;
   const isSender = row.created_by === viewerProfileId;
-  const baseline = row.sender_last_seen_at ?? row.created_at;
+  const senderSeenAt = row.sender_last_seen_at ?? readAt;
+  const baseline = senderSeenAt ?? row.created_at;
 
   if (isRecipient) {
     if (!readAt) {
@@ -204,7 +205,7 @@ function hasUnreadActivity(input: {
   }
 
   if (isSender) {
-    if (recipientReadAt && (!row.sender_last_seen_at || recipientReadAt > row.sender_last_seen_at)) {
+    if (recipientReadAt && (!senderSeenAt || recipientReadAt > senderSeenAt)) {
       return true;
     }
 
@@ -490,14 +491,20 @@ export async function markUnitNotificationSenderSeen(input: {
 }): Promise<ServiceResult<true>> {
   const supabase = await createClient();
 
-  const { error } = await supabase
+  const { error, data } = await supabase
     .from("unit_notifications")
     .update({ sender_last_seen_at: new Date().toISOString() })
     .eq("id", input.notificationId)
-    .eq("created_by", input.profileId);
+    .eq("created_by", input.profileId)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));
+  }
+
+  if (!data) {
+    return serviceError("Não foi possível registrar a visualização da notificação.");
   }
 
   return serviceOk(true);

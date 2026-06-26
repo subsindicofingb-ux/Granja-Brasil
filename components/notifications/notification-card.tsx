@@ -20,7 +20,7 @@ export function NotificationCard({
   showUnreadBadge = false,
   showSentStatus = false,
 }: NotificationCardProps) {
-  const isUnread = showUnreadBadge && !notification.read_at;
+  const isUnread = showUnreadBadge && !showSentStatus && !notification.read_at;
   const hasActivity = notification.has_unread_activity;
 
   return (

@@ -20,6 +20,10 @@ export async function handleUnitNotificationDetailView(input: {
       notificationId: input.notificationId,
       profileId: input.profileId,
     });
+    await markUnitNotificationAsRead({
+      notificationId: input.notificationId,
+      profileId: input.profileId,
+    });
   }
 
   if (!input.isRecipient) {
