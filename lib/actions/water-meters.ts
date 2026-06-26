@@ -7,8 +7,11 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { notifyWaterMeterAbnormalConsumption } from "@/lib/email/water-meter-notifications";
-import { createWaterMeterReading } from "@/lib/services/water-meters";
-import { parseWaterMeterReadingFormData } from "@/lib/validations/doorman.schema";
+import { createWaterMeterReading, updateWaterMeterReading } from "@/lib/services/water-meters";
+import {
+  parseWaterMeterReadingFormData,
+  parseWaterMeterReadingUpdateFormData,
+} from "@/lib/validations/doorman.schema";
 
 function revalidateWaterMeterPaths(condoSlug: string) {
   revalidatePath(`/app/${condoSlug}/water-meters`);
@@ -67,4 +70,39 @@ export async function createWaterMeterReadingAction(
   }
 
   redirect(`/app/${condoSlug}/water-meters?registrado=1`);
+}
+
+export async function updateWaterMeterReadingAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageWaterMeters,
+    { redirectTo: `/app/${condoSlug}/water-meters` },
+  );
+
+  if (isGeneralCondominium(condoSlug)) {
+    return { error: "Leituras de hidrômetro são registradas nos condomínios filhos." };
+  }
+
+  const parsed = parseWaterMeterReadingUpdateFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const result = await updateWaterMeterReading({
+    condominiumId: access.condominium.id,
+    readingId: parsed.data.reading_id,
+    readingValue: parsed.data.reading_value,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateWaterMeterPaths(condoSlug);
+  return { success: "Leitura atualizada com sucesso." };
 }

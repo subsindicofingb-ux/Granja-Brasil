@@ -1,3 +1,4 @@
+import { parseWaterMeterReadingValue } from "@/lib/water-meters/format";
 import { z } from "zod";
 
 export const CORRESPONDENCE_RECIPIENT_OTHER = "__other__";
@@ -72,14 +73,42 @@ export function parseDoormanResidentMessageFormData(formData: FormData) {
   });
 }
 
+const waterMeterReadingValueSchema = z
+  .string()
+  .trim()
+  .min(1, "Informe a leitura acumulada.")
+  .transform((value, ctx) => {
+    const parsed = parseWaterMeterReadingValue(value);
+    if (parsed === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Use vírgula para decimais (ex.: 1234,567).",
+      });
+      return z.NEVER;
+    }
+    return parsed;
+  });
+
 export const waterMeterReadingSchema = z.object({
   reading_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data da leitura."),
-  reading_value: z.coerce.number().min(0, "A leitura não pode ser negativa."),
+  reading_value: waterMeterReadingValueSchema,
 });
 
 export function parseWaterMeterReadingFormData(formData: FormData) {
   return waterMeterReadingSchema.safeParse({
     reading_date: formData.get("reading_date"),
+    reading_value: formData.get("reading_value"),
+  });
+}
+
+export const waterMeterReadingUpdateSchema = z.object({
+  reading_id: z.string().uuid("Leitura inválida."),
+  reading_value: waterMeterReadingValueSchema,
+});
+
+export function parseWaterMeterReadingUpdateFormData(formData: FormData) {
+  return waterMeterReadingUpdateSchema.safeParse({
+    reading_id: formData.get("reading_id"),
     reading_value: formData.get("reading_value"),
   });
 }

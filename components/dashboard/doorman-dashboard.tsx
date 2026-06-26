@@ -11,6 +11,7 @@ import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import type { getRolePermissions } from "@/lib/auth/roles";
 import type { ReservationWithDetails } from "@/lib/reservations/types";
 import type { WaterMeterDashboardSummary } from "@/lib/water-meters/types";
+import { formatWaterMeterReadingValue } from "@/lib/water-meters/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
@@ -142,7 +143,7 @@ export function DoormanDashboard({
             <p className="text-xs font-medium text-muted-foreground">Consumo de água hoje</p>
             <p className="mt-1 text-2xl font-bold">
               {latestReading?.daily_consumption != null
-                ? `${latestReading.daily_consumption.toFixed(3)} m³`
+                ? `${formatWaterMeterReadingValue(latestReading.daily_consumption)} m³`
                 : "—"}
             </p>
           </div>
@@ -153,9 +154,9 @@ export function DoormanDashboard({
         <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-950">
           <p className="font-medium">Alerta de consumo de água</p>
           <p className="mt-1">
-            Consumo de {activeAlert.daily_consumption.toFixed(3)} m³ está{" "}
+            Consumo de {formatWaterMeterReadingValue(activeAlert.daily_consumption)} m³ está{" "}
             {activeAlert.excess_percent.toFixed(1)}% acima da média recente (
-            {activeAlert.average_consumption.toFixed(3)} m³/dia).
+            {formatWaterMeterReadingValue(activeAlert.average_consumption)} m³/dia).
           </p>
         </div>
       )}
@@ -197,7 +198,7 @@ export function DoormanDashboard({
                 <p className="text-muted-foreground">Última leitura</p>
                 <p className="font-medium">
                   {latestReading
-                    ? `${latestReading.reading_value.toFixed(3)} m³ · ${latestReading.reading_date}`
+                    ? `${formatWaterMeterReadingValue(latestReading.reading_value)} m³ · ${latestReading.reading_date}`
                     : "Nenhuma registrada"}
                 </p>
               </div>
@@ -205,21 +206,23 @@ export function DoormanDashboard({
                 <p className="text-muted-foreground">Consumo do dia</p>
                 <p className="font-medium">
                   {latestReading?.daily_consumption != null
-                    ? `${latestReading.daily_consumption.toFixed(3)} m³`
+                    ? `${formatWaterMeterReadingValue(latestReading.daily_consumption)} m³`
                     : "—"}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Média recente</p>
                 <p className="font-medium">
-                  {averageConsumption != null ? `${averageConsumption.toFixed(3)} m³/dia` : "—"}
+                  {averageConsumption != null
+                    ? `${formatWaterMeterReadingValue(averageConsumption)} m³/dia`
+                    : "—"}
                 </p>
               </div>
             </div>
             {previousReading && latestReading?.daily_consumption != null && (
               <p className="text-xs text-muted-foreground">
                 Diferença em relação à leitura anterior ({previousReading.reading_date}):{" "}
-                {latestReading.daily_consumption.toFixed(3)} m³
+                {formatWaterMeterReadingValue(latestReading.daily_consumption)} m³
               </p>
             )}
             <Link href={`${base}/water-meters`} className="inline-flex text-sm font-medium text-primary hover:underline">

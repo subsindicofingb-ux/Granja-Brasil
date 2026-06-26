@@ -2,6 +2,8 @@ import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
+import { formatWaterMeterReadingValue } from "@/lib/water-meters/format";
+import { WaterMeterReadingEditForm } from "@/components/doorman/water-meter-reading-edit-form";
 import { WaterMeterReadingForm } from "@/components/doorman/water-meter-reading-form";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -16,6 +18,10 @@ interface WaterMetersPageProps {
 
 function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatConsumption(value: number | null | undefined): string {
+  return value == null ? "—" : `${formatWaterMeterReadingValue(value)} m³`;
 }
 
 export default async function WaterMetersPage({
@@ -57,7 +63,7 @@ export default async function WaterMetersPage({
       {alerta === "1" && summary.activeAlert && (
         <ErrorAlert
           title="Consumo acima da média"
-          message={`Consumo de ${summary.activeAlert.daily_consumption.toFixed(3)} m³ está ${summary.activeAlert.excess_percent.toFixed(1)}% acima da média (${summary.activeAlert.average_consumption.toFixed(3)} m³/dia). Portaria e síndico foram alertados.`}
+          message={`Consumo de ${formatWaterMeterReadingValue(summary.activeAlert.daily_consumption)} m³ está ${summary.activeAlert.excess_percent.toFixed(1)}% acima da média (${formatWaterMeterReadingValue(summary.activeAlert.average_consumption)} m³/dia). Portaria e síndico foram alertados.`}
         />
       )}
 
@@ -73,25 +79,19 @@ export default async function WaterMetersPage({
         <CardContent className="grid gap-4 sm:grid-cols-3 text-sm">
           <div>
             <p className="text-muted-foreground">Última leitura</p>
-            <p className="font-medium">
-              {summary.latestReading
-                ? `${summary.latestReading.reading_value.toFixed(3)} m³`
-                : "—"}
-            </p>
+            <p className="font-medium">{formatConsumption(summary.latestReading?.reading_value)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Consumo do dia</p>
             <p className="font-medium">
-              {summary.latestReading?.daily_consumption != null
-                ? `${summary.latestReading.daily_consumption.toFixed(3)} m³`
-                : "—"}
+              {formatConsumption(summary.latestReading?.daily_consumption)}
             </p>
           </div>
           <div>
             <p className="text-muted-foreground">Média recente</p>
             <p className="font-medium">
               {summary.averageConsumption != null
-                ? `${summary.averageConsumption.toFixed(3)} m³/dia`
+                ? `${formatWaterMeterReadingValue(summary.averageConsumption)} m³/dia`
                 : "—"}
             </p>
           </div>
@@ -117,16 +117,18 @@ export default async function WaterMetersPage({
               <div key={reading.id} className="rounded-lg border p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium">{reading.reading_date}</p>
-                  <p>{reading.reading_value.toFixed(3)} m³</p>
+                  <p>{formatWaterMeterReadingValue(reading.reading_value)} m³</p>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Consumo do dia:{" "}
-                  {reading.daily_consumption != null
-                    ? `${reading.daily_consumption.toFixed(3)} m³`
-                    : "—"}
+                  Consumo do dia: {formatConsumption(reading.daily_consumption)}
                   {reading.author && ` · ${reading.author.full_name}`}
                   {` · ${formatDateTime(reading.created_at)}`}
                 </p>
+                <WaterMeterReadingEditForm
+                  condoSlug={condoSlug}
+                  readingId={reading.id}
+                  readingValue={reading.reading_value}
+                />
               </div>
             ))}
           </CardContent>

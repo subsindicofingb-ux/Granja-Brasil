@@ -40,17 +40,19 @@ export function WaterMeterReadingForm({
           <Input
             id="reading_value"
             name="reading_value"
-            type="number"
-            step="0.001"
-            min="0"
+            type="text"
+            inputMode="decimal"
+            placeholder="1234,567"
+            autoComplete="off"
             required
           />
         </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        O consumo diário é calculado pela diferença em relação à leitura anterior. Se ultrapassar
-        10% da média recente, portaria e síndico serão alertados.
+        Informe a leitura com vírgula para os decimais (ex.: 1234,567). O consumo diário é calculado
+        pela diferença em relação à leitura anterior. Se registrar novamente na mesma data, a
+        medição será atualizada.
       </p>
 
       <Button type="submit" disabled={pending}>

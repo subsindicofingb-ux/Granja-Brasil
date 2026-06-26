@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildEmailLayout, textToHtmlParagraphs } from "@/lib/email/format";
+import { formatWaterMeterReadingValue } from "@/lib/water-meters/format";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import type { WaterMeterAlert } from "@/lib/water-meters/types";
 
@@ -79,8 +80,8 @@ export async function notifyWaterMeterAbnormalConsumption(input: {
     `Alerta de consumo de água no condomínio ${condo.name}.`,
     ``,
     `Data da leitura: ${input.readingDate}`,
-    `Consumo do dia: ${input.alert.daily_consumption.toFixed(3)} m³`,
-    `Média recente: ${input.alert.average_consumption.toFixed(3)} m³`,
+    `Consumo do dia: ${formatWaterMeterReadingValue(input.alert.daily_consumption)} m³`,
+    `Média recente: ${formatWaterMeterReadingValue(input.alert.average_consumption)} m³`,
     `Excesso: ${input.alert.excess_percent.toFixed(1)}% acima da média`,
     ``,
     `Verifique possíveis vazamentos ou uso anormal.`,
