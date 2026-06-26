@@ -42,4 +42,21 @@ export type UnitNotificationWithDetails = UnitNotificationRecord & {
     full_name: string;
   } | null;
   read_at: string | null;
+  recipient_read_at: string | null;
+  reply_count: number;
+  has_unread_activity: boolean;
+};
+
+export type UnitNotificationReply = {
+  id: string;
+  notification_id: string;
+  created_by: string;
+  body: string;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  created_at: string;
+  author: {
+    id: string;
+    full_name: string;
+  } | null;
 };

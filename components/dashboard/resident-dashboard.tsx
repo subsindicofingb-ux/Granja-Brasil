@@ -50,7 +50,7 @@ export type ResidentDashboardProps = {
   unreadReplyThreadIds: string[];
   reservationsByStatus: Record<ReservationStatus, number>;
   vehicleRequests: ResidentVehicleRequest[];
-  unreadNotificationCount?: number;
+  notificationAlertCount?: number;
 };
 
 function getFirstName(fullName: string): string {
@@ -79,7 +79,7 @@ export function ResidentDashboard({
   unreadReplyThreadIds,
   reservationsByStatus,
   vehicleRequests,
-  unreadNotificationCount = 0,
+  notificationAlertCount = 0,
 }: ResidentDashboardProps) {
   const base = `/app/${condoSlug}`;
   const firstName = getFirstName(residentName);
@@ -145,14 +145,14 @@ export function ResidentDashboard({
     quickActions.push({
       title: "Notificações",
       description:
-        unreadNotificationCount > 0
-          ? `${unreadNotificationCount} nova(s) notificação(ões) da unidade`
+        notificationAlertCount > 0
+          ? `${notificationAlertCount} notificação(ões) aguardando sua atenção`
           : "Notificações formais da unidade",
       href: `${base}/notifications`,
       icon: Bell,
       accent:
-        unreadNotificationCount > 0
-          ? "border-sky-300 bg-sky-50 text-sky-950 hover:border-sky-400 hover:bg-sky-100/80"
+        notificationAlertCount > 0
+          ? "border-red-300 bg-red-50 text-red-950 hover:border-red-400 hover:bg-red-100/80"
           : "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
     });
   }
@@ -192,12 +192,12 @@ export function ResidentDashboard({
     });
   }
 
-  if (permissions.canViewUnitNotifications && unreadNotificationCount > 0) {
+  if (permissions.canViewUnitNotifications && notificationAlertCount > 0) {
     attentionItems.push({
-      message: `${unreadNotificationCount} notificação(ões) formal(is) aguardando leitura.`,
+      message: `${notificationAlertCount} notificação(ões) formal(is) aguardando leitura ou resposta.`,
       href: `${base}/notifications`,
       cta: "Ver notificações",
-      tone: "border-sky-200 bg-sky-50 text-sky-950",
+      tone: "border-red-300 bg-red-50 text-red-950",
     });
   }
 

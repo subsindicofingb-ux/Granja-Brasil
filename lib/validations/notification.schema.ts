@@ -16,6 +16,18 @@ export function parseUnitNotificationFormData(formData: FormData) {
   });
 }
 
+export const unitNotificationReplySchema = z.object({
+  notification_id: z.string().uuid(),
+  body: z.string().trim().min(1, "Informe a resposta.").max(10000, "Resposta muito longa."),
+});
+
+export function parseUnitNotificationReplyFormData(formData: FormData) {
+  return unitNotificationReplySchema.safeParse({
+    notification_id: formData.get("notification_id"),
+    body: formData.get("body"),
+  });
+}
+
 export function getNotificationAttachmentFromForm(formData: FormData): File | null {
   const value = formData.get("attachment");
   return value instanceof File && value.size > 0 ? value : null;

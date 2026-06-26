@@ -50,6 +50,7 @@ export type StaffDashboardProps = {
   pendingVehicleCount: number;
   isGlobalRegistrationView: boolean;
   quickActions: Array<{ label: string; href: string }>;
+  notificationAlertCount?: number;
 };
 
 type QuickActionTile = {
@@ -101,6 +102,7 @@ export function StaffDashboard({
   pendingVehicleCount,
   isGlobalRegistrationView,
   quickActions,
+  notificationAlertCount = 0,
 }: StaffDashboardProps) {
   const base = `/app/${condoSlug}`;
   const unreadIncomingSet = new Set(unreadAnnouncementIds);
@@ -176,10 +178,16 @@ export function StaffDashboard({
   if (permissions.canSendUnitNotifications) {
     actionTiles.push({
       title: "Nova notificação",
-      description: "Formalize aviso à unidade com anexo",
+      description:
+        notificationAlertCount > 0
+          ? `${notificationAlertCount} notificação(ões) com pendências`
+          : "Formalize aviso à unidade com anexo",
       href: `${base}/notifications/new`,
       icon: Bell,
-      accent: "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
+      accent:
+        notificationAlertCount > 0
+          ? "border-red-300 bg-red-50 text-red-950 hover:border-red-400 hover:bg-red-100/80"
+          : "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
     });
   }
 
@@ -233,6 +241,18 @@ export function StaffDashboard({
       href: `${base}/announcements/${unreadReplyThreadIds[0]}`,
       cta: "Responder",
       tone: "border-purple-200 bg-purple-50 text-purple-950",
+    });
+  }
+
+  if (
+    (permissions.canSendUnitNotifications || permissions.canViewUnitNotifications) &&
+    notificationAlertCount > 0
+  ) {
+    attentionItems.push({
+      message: `${notificationAlertCount} notificação(ões) formal(is) aguardando leitura ou resposta.`,
+      href: `${base}/notifications`,
+      cta: "Ver notificações",
+      tone: "border-red-300 bg-red-50 text-red-950",
     });
   }
 
@@ -357,6 +377,19 @@ export function StaffDashboard({
             <p className="text-xs font-medium text-muted-foreground">Respostas aguardando</p>
             <p className="mt-1 text-2xl font-bold">{unreadReplyThreadIds.length}</p>
           </div>
+          {(permissions.canSendUnitNotifications || permissions.canViewUnitNotifications) && (
+            <Link
+              href={`${base}/notifications`}
+              className={`rounded-xl border px-4 py-3 shadow-sm transition-colors ${
+                notificationAlertCount > 0
+                  ? "border-red-300 bg-red-50 text-red-950 hover:border-red-400 hover:bg-red-100/80"
+                  : "border-white/80 bg-white/70"
+              }`}
+            >
+              <p className="text-xs font-medium text-muted-foreground">Notificações pendentes</p>
+              <p className="mt-1 text-2xl font-bold">{notificationAlertCount}</p>
+            </Link>
+          )}
           <div className="rounded-xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
             <p className="text-xs font-medium text-muted-foreground">Próximas reservas</p>
             <p className="mt-1 text-2xl font-bold">{approvedUpcoming}</p>

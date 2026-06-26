@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { RESIDENT_TYPES } from "@/lib/constants";
-import type { UnitNotificationWithDetails } from "@/lib/notifications/types";
+import type { UnitNotificationReply, UnitNotificationWithDetails } from "@/lib/notifications/types";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 
 const NOTIFICATION_SELECT = `
@@ -16,6 +16,7 @@ const NOTIFICATION_SELECT = `
   created_by,
   created_at,
   updated_at,
+  sender_last_seen_at,
   source_condominium:condominiums!unit_notifications_source_condominium_id_fkey (
     id,
     name,
@@ -50,6 +51,7 @@ type NotificationRow = {
   created_by: string;
   created_at: string;
   updated_at: string;
+  sender_last_seen_at: string | null;
   source_condominium: { id: string; name: string; slug: string };
   target_condominium: { id: string; name: string; slug: string };
   target_unit: {
@@ -111,12 +113,121 @@ async function getTargetResidentsMap(unitIds: string[]) {
   return map;
 }
 
+async function getRecipientReadMap(
+  rows: Pick<NotificationRow, "id" | "target_profile_id">[],
+): Promise<Map<string, string>> {
+  const notificationIds = rows.map((row) => row.id);
+  if (notificationIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("unit_notification_reads")
+    .select("notification_id, profile_id, read_at")
+    .in("notification_id", notificationIds);
+
+  const targetByNotification = new Map(rows.map((row) => [row.id, row.target_profile_id]));
+  const map = new Map<string, string>();
+
+  for (const read of data ?? []) {
+    if (read.profile_id === targetByNotification.get(read.notification_id)) {
+      map.set(read.notification_id, read.read_at);
+    }
+  }
+
+  return map;
+}
+
+type ReplySummary = {
+  count: number;
+  latestOtherReplyAt: string | null;
+};
+
+async function getReplySummaryMap(
+  notificationIds: string[],
+  viewerProfileId: string,
+): Promise<Map<string, ReplySummary>> {
+  if (notificationIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("unit_notification_replies")
+    .select("notification_id, created_by, created_at")
+    .in("notification_id", notificationIds)
+    .order("created_at", { ascending: false });
+
+  const map = new Map<string, ReplySummary>();
+
+  for (const reply of data ?? []) {
+    const current = map.get(reply.notification_id) ?? { count: 0, latestOtherReplyAt: null };
+    current.count += 1;
+
+    if (
+      reply.created_by !== viewerProfileId &&
+      (!current.latestOtherReplyAt || reply.created_at > current.latestOtherReplyAt)
+    ) {
+      current.latestOtherReplyAt = reply.created_at;
+    }
+
+    map.set(reply.notification_id, current);
+  }
+
+  return map;
+}
+
+function hasUnreadActivity(input: {
+  row: NotificationRow;
+  viewerProfileId: string;
+  readAt: string | null;
+  recipientReadAt: string | null;
+  replySummary: ReplySummary | undefined;
+}): boolean {
+  const { row, viewerProfileId, readAt, recipientReadAt, replySummary } = input;
+  const isRecipient = row.target_profile_id === viewerProfileId;
+  const isSender = row.created_by === viewerProfileId;
+  const baseline = row.sender_last_seen_at ?? row.created_at;
+
+  if (isRecipient) {
+    if (!readAt) {
+      return true;
+    }
+
+    if (
+      replySummary?.latestOtherReplyAt &&
+      replySummary.latestOtherReplyAt > readAt
+    ) {
+      return true;
+    }
+  }
+
+  if (isSender) {
+    if (recipientReadAt && (!row.sender_last_seen_at || recipientReadAt > row.sender_last_seen_at)) {
+      return true;
+    }
+
+    if (
+      replySummary?.latestOtherReplyAt &&
+      replySummary.latestOtherReplyAt > baseline
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function mapNotificationRow(
   row: NotificationRow,
   extras: {
     author: { id: string; full_name: string } | null;
     targetResident: { id: string; full_name: string } | null;
     readAt: string | null;
+    recipientReadAt: string | null;
+    replySummary: ReplySummary | undefined;
+    viewerProfileId: string;
   },
 ): UnitNotificationWithDetails {
   return {
@@ -138,6 +249,15 @@ function mapNotificationRow(
     target_resident: extras.targetResident,
     author: extras.author,
     read_at: extras.readAt,
+    recipient_read_at: extras.recipientReadAt,
+    reply_count: extras.replySummary?.count ?? 0,
+    has_unread_activity: hasUnreadActivity({
+      row,
+      viewerProfileId: extras.viewerProfileId,
+      readAt: extras.readAt,
+      recipientReadAt: extras.recipientReadAt,
+      replySummary: extras.replySummary,
+    }),
   };
 }
 
@@ -150,6 +270,11 @@ async function mapNotificationRows(
     rows.map((row) => row.id),
     profileId,
   );
+  const recipientReadMap = await getRecipientReadMap(rows);
+  const replySummaryMap = await getReplySummaryMap(
+    rows.map((row) => row.id),
+    profileId,
+  );
   const residentMap = await getTargetResidentsMap([...new Set(rows.map((row) => row.target_unit_id))]);
 
   return rows.map((row) =>
@@ -157,6 +282,9 @@ async function mapNotificationRows(
       author: authorMap.get(row.created_by) ?? null,
       targetResident: residentMap.get(row.target_unit_id) ?? null,
       readAt: readMap.get(row.id) ?? null,
+      recipientReadAt: recipientReadMap.get(row.id) ?? null,
+      replySummary: replySummaryMap.get(row.id),
+      viewerProfileId: profileId,
     }),
   );
 }
@@ -309,8 +437,17 @@ export async function createUnitNotification(input: {
 export async function markUnitNotificationAsRead(input: {
   notificationId: string;
   profileId: string;
-}): Promise<ServiceResult<{ read_at: string }>> {
+}): Promise<ServiceResult<{ read_at: string; firstRead: boolean }>> {
   const supabase = await createClient();
+
+  const { data: existing } = await supabase
+    .from("unit_notification_reads")
+    .select("read_at")
+    .eq("notification_id", input.notificationId)
+    .eq("profile_id", input.profileId)
+    .maybeSingle();
+
+  const readAt = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("unit_notification_reads")
@@ -318,7 +455,7 @@ export async function markUnitNotificationAsRead(input: {
       {
         notification_id: input.notificationId,
         profile_id: input.profileId,
-        read_at: new Date().toISOString(),
+        read_at: readAt,
       },
       { onConflict: "notification_id,profile_id" },
     )
@@ -329,7 +466,41 @@ export async function markUnitNotificationAsRead(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk({ read_at: data.read_at });
+  return serviceOk({
+    read_at: data.read_at,
+    firstRead: !existing?.read_at,
+  });
+}
+
+export async function markUnitNotificationReadReceiptSent(input: {
+  notificationId: string;
+  profileId: string;
+}): Promise<void> {
+  const supabase = await createClient();
+  await supabase
+    .from("unit_notification_reads")
+    .update({ read_receipt_sent_at: new Date().toISOString() })
+    .eq("notification_id", input.notificationId)
+    .eq("profile_id", input.profileId);
+}
+
+export async function markUnitNotificationSenderSeen(input: {
+  notificationId: string;
+  profileId: string;
+}): Promise<ServiceResult<true>> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("unit_notifications")
+    .update({ sender_last_seen_at: new Date().toISOString() })
+    .eq("id", input.notificationId)
+    .eq("created_by", input.profileId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(true);
 }
 
 export async function countUnreadUnitNotifications(profileId: string): Promise<ServiceResult<number>> {
@@ -361,6 +532,149 @@ export async function countUnreadUnitNotifications(profileId: string): Promise<S
 
   const readIds = new Set((reads ?? []).map((row) => row.notification_id));
   return serviceOk(ids.filter((id) => !readIds.has(id)).length);
+}
+
+export async function countNotificationDashboardAlerts(
+  profileId: string,
+  options?: { sourceCondominiumId?: string },
+): Promise<ServiceResult<number>> {
+  const [receivedResult, sentResult] = await Promise.all([
+    listUnitNotificationsForContext({
+      profileId,
+      recipientOnly: true,
+    }),
+    options?.sourceCondominiumId
+      ? listUnitNotificationsForContext({
+          profileId,
+          sourceCondominiumId: options.sourceCondominiumId,
+        })
+      : Promise.resolve({ ok: true as const, data: [] }),
+  ]);
+
+  if (!receivedResult.ok) {
+    return serviceError(receivedResult.error);
+  }
+
+  if (!sentResult.ok) {
+    return serviceError(sentResult.error);
+  }
+
+  const alerts = [...receivedResult.data, ...sentResult.data].filter(
+    (notification) => notification.has_unread_activity,
+  );
+
+  return serviceOk(new Set(alerts.map((notification) => notification.id)).size);
+}
+
+const REPLY_SELECT = `
+  id,
+  notification_id,
+  created_by,
+  body,
+  attachment_url,
+  attachment_name,
+  created_at
+`;
+
+export async function listUnitNotificationReplies(
+  notificationId: string,
+): Promise<ServiceResult<UnitNotificationReply[]>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("unit_notification_replies")
+    .select(REPLY_SELECT)
+    .eq("notification_id", notificationId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const authorMap = await getAuthorMap([...new Set((data ?? []).map((row) => row.created_by))]);
+
+  return serviceOk(
+    ((data ?? []) as Array<{
+      id: string;
+      notification_id: string;
+      created_by: string;
+      body: string;
+      attachment_url: string | null;
+      attachment_name: string | null;
+      created_at: string;
+    }>).map((row) => ({
+      id: row.id,
+      notification_id: row.notification_id,
+      created_by: row.created_by,
+      body: row.body,
+      attachment_url: row.attachment_url,
+      attachment_name: row.attachment_name,
+      created_at: row.created_at,
+      author: authorMap.get(row.created_by) ?? null,
+    })),
+  );
+}
+
+export async function createUnitNotificationReply(input: {
+  notificationId: string;
+  createdBy: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+}): Promise<ServiceResult<UnitNotificationReply>> {
+  const supabase = await createClient();
+
+  const { data: notification, error: notificationError } = await supabase
+    .from("unit_notifications")
+    .select("id, created_by, target_profile_id")
+    .eq("id", input.notificationId)
+    .maybeSingle();
+
+  if (notificationError) {
+    return serviceError(mapSupabaseError(notificationError));
+  }
+
+  if (!notification) {
+    return serviceError("Notificação não encontrada.");
+  }
+
+  if (
+    notification.created_by !== input.createdBy &&
+    notification.target_profile_id !== input.createdBy
+  ) {
+    return serviceError("Sem permissão para responder esta notificação.");
+  }
+
+  const { data, error } = await supabase
+    .from("unit_notification_replies")
+    .insert({
+      notification_id: input.notificationId,
+      created_by: input.createdBy,
+      body: input.body.trim(),
+      attachment_url: input.attachmentUrl ?? null,
+      attachment_name: input.attachmentName ?? null,
+    })
+    .select(REPLY_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const authorMap = await getAuthorMap([input.createdBy]);
+
+  return serviceOk({
+    ...(data as {
+      id: string;
+      notification_id: string;
+      created_by: string;
+      body: string;
+      attachment_url: string | null;
+      attachment_name: string | null;
+      created_at: string;
+    }),
+    author: authorMap.get(input.createdBy) ?? null,
+  });
 }
 
 export async function clearUnitResponsibleExcept(input: {

@@ -8,7 +8,7 @@ import {
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
-import { countUnreadUnitNotifications } from "@/lib/services/notifications";
+import { countNotificationDashboardAlerts } from "@/lib/services/notifications";
 import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
 import {
@@ -99,13 +99,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   if (access.role === ROLES.RESIDENT) {
     let vehicleRequests: ResidentVehicleRequest[] = [];
-    let unreadNotificationCount = 0;
+    let notificationAlertCount = 0;
 
     if (access.permissions.canViewUnitNotifications) {
-      const unreadNotificationsResult = await countUnreadUnitNotifications(access.profile.id);
-      unreadNotificationCount = unreadNotificationsResult.ok
-        ? (unreadNotificationsResult.data ?? 0)
-        : 0;
+      const alertsResult = await countNotificationDashboardAlerts(access.profile.id);
+      notificationAlertCount = alertsResult.ok ? (alertsResult.data ?? 0) : 0;
     }
 
     if (access.permissions.canViewUnitVehicles && unitFilter !== "none") {
@@ -144,7 +142,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         unreadReplyThreadIds={unreadReplyThreadIds}
         reservationsByStatus={metrics.reservationsByStatus}
         vehicleRequests={vehicleRequests}
-        unreadNotificationCount={unreadNotificationCount}
+        notificationAlertCount={notificationAlertCount}
       />
     );
   }
@@ -159,6 +157,16 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   }
 
   const generalOverview = generalOverviewResult?.ok ? generalOverviewResult.data : null;
+
+  let notificationAlertCount = 0;
+  if (access.permissions.canSendUnitNotifications || access.permissions.canViewUnitNotifications) {
+    const alertsResult = await countNotificationDashboardAlerts(access.profile.id, {
+      sourceCondominiumId: access.permissions.canSendUnitNotifications
+        ? access.condominium.id
+        : undefined,
+    });
+    notificationAlertCount = alertsResult.ok ? (alertsResult.data ?? 0) : 0;
+  }
 
   const [totalVehicleCount, pendingVehicleCount] =
     !isGeneralCondoDashboard && access.permissions.canManageVehicles
@@ -227,6 +235,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       pendingVehicleCount={pendingVehicleCount}
       isGlobalRegistrationView={isGlobalRegistrationView}
       quickActions={quickActions}
+      notificationAlertCount={notificationAlertCount}
     />
   );
 }

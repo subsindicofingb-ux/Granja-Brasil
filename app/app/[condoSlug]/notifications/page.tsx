@@ -101,6 +101,8 @@ async function NotificationsContent({ condoSlug }: { condoSlug: string }) {
                 condoSlug={condoSlug}
                 notification={notification}
                 showSource={isGranja}
+                showUnreadBadge
+                showSentStatus
               />
             ))}
           </div>

@@ -693,6 +693,7 @@ export interface Database {
           created_by: string;
           created_at: string;
           updated_at: string;
+          sender_last_seen_at: string | null;
         };
         Insert: {
           id?: string;
@@ -707,6 +708,7 @@ export interface Database {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          sender_last_seen_at?: string | null;
         };
         Update: {
           id?: string;
@@ -721,6 +723,7 @@ export interface Database {
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+          sender_last_seen_at?: string | null;
         };
         Relationships: [
           {
@@ -765,16 +768,19 @@ export interface Database {
           notification_id: string;
           profile_id: string;
           read_at: string;
+          read_receipt_sent_at: string | null;
         };
         Insert: {
           notification_id: string;
           profile_id: string;
           read_at?: string;
+          read_receipt_sent_at?: string | null;
         };
         Update: {
           notification_id?: string;
           profile_id?: string;
           read_at?: string;
+          read_receipt_sent_at?: string | null;
         };
         Relationships: [
           {
@@ -787,6 +793,51 @@ export interface Database {
           {
             foreignKeyName: "unit_notification_reads_profile_id_fkey";
             columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      unit_notification_replies: {
+        Row: {
+          id: string;
+          notification_id: string;
+          created_by: string;
+          body: string;
+          attachment_url: string | null;
+          attachment_name: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          notification_id: string;
+          created_by: string;
+          body: string;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          notification_id?: string;
+          created_by?: string;
+          body?: string;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "unit_notification_replies_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "unit_notifications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "unit_notification_replies_created_by_fkey";
+            columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
