@@ -8,7 +8,6 @@ import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import {
   notifyUnitNotificationCreated,
-  notifyUnitNotificationReadToSender,
   notifyUnitNotificationReply,
 } from "@/lib/email/notification-notifications";
 import type { UnitNotificationWithDetails } from "@/lib/notifications/types";
@@ -16,9 +15,6 @@ import {
   createUnitNotification,
   createUnitNotificationReply,
   getUnitNotificationById,
-  markUnitNotificationAsRead,
-  markUnitNotificationReadReceiptSent,
-  markUnitNotificationSenderSeen,
 } from "@/lib/services/notifications";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
@@ -191,53 +187,6 @@ export async function replyUnitNotificationAction(
   return { success: "Resposta registrada no histórico da notificação." };
 }
 
-export async function processUnitNotificationDetailSideEffects(input: {
-  condoSlug: string;
-  notificationId: string;
-  profileId: string;
-  isRecipient: boolean;
-  isSender: boolean;
-  readerName: string;
-}) {
-  if (input.isSender) {
-    await markUnitNotificationSenderSeen({
-      notificationId: input.notificationId,
-      profileId: input.profileId,
-    });
-  }
-
-  if (!input.isRecipient) {
-    revalidateNotificationPaths(input.condoSlug, input.notificationId);
-    return;
-  }
-
-  const readResult = await markUnitNotificationAsRead({
-    notificationId: input.notificationId,
-    profileId: input.profileId,
-  });
-
-  if (!readResult.ok || !readResult.data.firstRead) {
-    revalidateNotificationPaths(input.condoSlug, input.notificationId);
-    return;
-  }
-
-  const notificationResult = await getUnitNotificationById(
-    input.notificationId,
-    input.profileId,
-  );
-
-  if (notificationResult.ok) {
-    scheduleUnitNotificationReadEmail({
-      notification: notificationResult.data,
-      readerName: input.readerName,
-      readAt: readResult.data.read_at,
-      readerProfileId: input.profileId,
-    });
-  }
-
-  revalidateNotificationPaths(input.condoSlug, input.notificationId);
-}
-
 function scheduleUnitNotificationCreatedEmail(input: {
   notification: UnitNotificationWithDetails;
   senderName: string;
@@ -247,29 +196,6 @@ function scheduleUnitNotificationCreatedEmail(input: {
       await notifyUnitNotificationCreated(input);
     } catch (error) {
       console.error("[email:notification-created]", error);
-    }
-  });
-}
-
-function scheduleUnitNotificationReadEmail(input: {
-  notification: UnitNotificationWithDetails;
-  readerName: string;
-  readAt: string;
-  readerProfileId: string;
-}) {
-  after(async () => {
-    try {
-      await notifyUnitNotificationReadToSender({
-        notification: input.notification,
-        readerName: input.readerName,
-        readAt: input.readAt,
-      });
-      await markUnitNotificationReadReceiptSent({
-        notificationId: input.notification.id,
-        profileId: input.readerProfileId,
-      });
-    } catch (error) {
-      console.error("[email:notification-read]", error);
     }
   });
 }

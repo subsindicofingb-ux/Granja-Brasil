@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { formatUnitWithTower } from "@/lib/residents/labels";
-import { processUnitNotificationDetailSideEffects } from "@/lib/actions/notifications";
+import { handleUnitNotificationDetailView } from "@/lib/notifications/detail-view";
 import {
   getUnitNotificationById,
   listUnitNotificationReplies,
 } from "@/lib/services/notifications";
 import { AnnouncementAttachmentLink } from "@/components/announcements/announcement-attachment-link";
 import { NotificationReplyForm } from "@/components/notifications/notification-reply-form";
+import { NotificationViewTracker } from "@/components/notifications/notification-view-tracker";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -61,17 +62,18 @@ export default async function NotificationDetailPage({
   const isSender = notification.created_by === access.profile.id;
   const canReply = isRecipient || isSender;
 
-  await processUnitNotificationDetailSideEffects({
-    condoSlug,
+  await handleUnitNotificationDetailView({
     notificationId,
     profileId: access.profile.id,
     isRecipient,
     isSender,
     readerName: access.profile.fullName,
+    notification,
   });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <NotificationViewTracker />
       {enviado === "1" && (
         <SuccessAlert message="Notificação enviada ao morador responsável da unidade." />
       )}

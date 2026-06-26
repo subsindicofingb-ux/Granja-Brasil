@@ -150,10 +150,7 @@ export function ResidentDashboard({
           : "Notificações formais da unidade",
       href: `${base}/notifications`,
       icon: Bell,
-      accent:
-        notificationAlertCount > 0
-          ? "border-red-300 bg-red-50 text-red-950 hover:border-red-400 hover:bg-red-100/80"
-          : "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
+      accent: "border-red-300 bg-red-50 text-red-950 hover:border-red-400 hover:bg-red-100/80",
     });
   }
 
