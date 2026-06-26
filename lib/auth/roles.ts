@@ -26,6 +26,9 @@ export type RolePermissions = {
   canRegisterVisitorAuthorizations: boolean;
   canApproveVisitorAuthorizations: boolean;
   canConsultVisitorAuthorizations: boolean;
+  canBookReservationsForCondo: boolean;
+  canManageCorrespondence: boolean;
+  canManageWaterMeters: boolean;
 };
 
 export const ROLE_PERMISSIONS = {
@@ -51,6 +54,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: true,
     canApproveVisitorAuthorizations: true,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
   admin: {
     label: "Administrador",
@@ -74,6 +80,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: true,
     canApproveVisitorAuthorizations: true,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
   syndic: {
     label: "Síndico",
@@ -97,6 +106,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: true,
     canApproveVisitorAuthorizations: true,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
   sub_syndic: {
     label: "Sub-síndico",
@@ -120,6 +132,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: true,
     canApproveVisitorAuthorizations: true,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
   resident: {
     label: "Morador",
@@ -143,6 +158,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: true,
     canApproveVisitorAuthorizations: false,
     canConsultVisitorAuthorizations: false,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
   doorman: {
     label: "Portaria",
@@ -155,9 +173,9 @@ export const ROLE_PERMISSIONS = {
     canViewUnitVehicles: false,
     canRegisterUnitVehicles: false,
     canManageAreas: false,
-    canManageReservations: false,
-    canManageAnnouncements: false,
-    canSendAnnouncements: false,
+    canManageReservations: true,
+    canManageAnnouncements: true,
+    canSendAnnouncements: true,
     canSendUnitNotifications: false,
     canViewUnitNotifications: false,
     canApproveReservations: false,
@@ -166,6 +184,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: false,
     canApproveVisitorAuthorizations: false,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: true,
+    canManageCorrespondence: true,
+    canManageWaterMeters: true,
   },
   staff: {
     label: "Funcionário",
@@ -189,6 +210,9 @@ export const ROLE_PERMISSIONS = {
     canRegisterVisitorAuthorizations: false,
     canApproveVisitorAuthorizations: false,
     canConsultVisitorAuthorizations: true,
+    canBookReservationsForCondo: false,
+    canManageCorrespondence: false,
+    canManageWaterMeters: false,
   },
 } satisfies Record<Role, RolePermissions>;
 

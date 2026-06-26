@@ -824,6 +824,36 @@ export async function createStaffToGranjaAnnouncement(input: {
   });
 }
 
+export async function createDoormanToResidentAnnouncement(input: {
+  condominiumId: string;
+  createdBy: string;
+  targetProfileId: string;
+  title: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+}): Promise<ServiceResult<AnnouncementWithDetails>> {
+  const publishedAt = new Date().toISOString();
+
+  return insertAnnouncementRecord({
+    condominium_id: input.condominiumId,
+    created_by: input.createdBy,
+    staff_only: false,
+    title: input.title,
+    body: input.body,
+    priority: "normal",
+    publication_status: "published",
+    published_at: publishedAt,
+    expires_at: null,
+    target_profile_id: input.targetProfileId,
+    target_condominium_id: null,
+    tower_id: null,
+    parent_id: null,
+    attachment_url: input.attachmentUrl ?? null,
+    attachment_name: input.attachmentName ?? null,
+  });
+}
+
 export async function createAnnouncementReply(input: {
   parentAnnouncementId: string;
   createdBy: string;

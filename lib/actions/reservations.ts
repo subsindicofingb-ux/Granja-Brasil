@@ -80,7 +80,9 @@ export async function createReservationAction(
     return { error: "Dados inválidos." };
   }
 
-  const isStaff = access.permissions.canApproveReservations;
+  const isStaff =
+    access.permissions.canApproveReservations ||
+    access.permissions.canBookReservationsForCondo;
   const isResidentForm = String(formData.get("form_mode") ?? "staff") === "resident";
   const bookingContext = toBookingContext(access.condominium);
 
@@ -214,7 +216,9 @@ export async function cancelReservationAction(
   const reservationId = String(formData.get("reservation_id") ?? "");
 
   const access = await requireCondoAccess(condoSlug);
-  const isStaff = access.permissions.canApproveReservations;
+  const isStaff =
+    access.permissions.canApproveReservations ||
+    access.permissions.canBookReservationsForCondo;
 
   if (!isStaff && !access.permissions.canManageReservations) {
     redirect(`/app/${condoSlug}/reservations/${reservationId}`);
@@ -285,7 +289,9 @@ export async function submitReservationReceiptAction(
     return { error: "Esta reserva não está aguardando recibo." };
   }
 
-  const isStaff = access.permissions.canApproveReservations;
+  const isStaff =
+    access.permissions.canApproveReservations ||
+    access.permissions.canBookReservationsForCondo;
 
   if (!isStaff) {
     const unitsResult = await listUnitIdsForProfile(

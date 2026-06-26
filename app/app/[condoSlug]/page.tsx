@@ -21,7 +21,10 @@ import {
   ResidentDashboard,
   type ResidentVehicleRequest,
 } from "@/components/dashboard/resident-dashboard";
+import { DoormanDashboard } from "@/components/dashboard/doorman-dashboard";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
+import { countPendingCorrespondenceNotices } from "@/lib/services/correspondence";
+import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -42,6 +45,15 @@ async function DashboardHeader({ condoSlug }: { condoSlug: string }) {
       <PageHeader
         title="Início"
         description={`Seu painel no ${access.condominium.name}`}
+      />
+    );
+  }
+
+  if (access.role === ROLES.DOORMAN && !isGeneralCondominium(condoSlug)) {
+    return (
+      <PageHeader
+        title="Portaria"
+        description={`Operações diárias · ${access.condominium.name}`}
       />
     );
   }
@@ -143,6 +155,38 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         reservationsByStatus={metrics.reservationsByStatus}
         vehicleRequests={vehicleRequests}
         notificationAlertCount={notificationAlertCount}
+      />
+    );
+  }
+
+  if (access.role === ROLES.DOORMAN && !isGeneralCondoDashboard) {
+    const [pendingCorrespondenceResult, waterMeterSummaryResult] = await Promise.all([
+      countPendingCorrespondenceNotices(access.condominium.id),
+      getWaterMeterDashboardSummary(access.condominium.id),
+    ]);
+
+    return (
+      <DoormanDashboard
+        condoSlug={condoSlug}
+        condominiumName={access.condominium.name}
+        permissions={access.permissions}
+        upcomingReservations={upcomingReservations}
+        recentAnnouncements={recentAnnouncements}
+        unreadAnnouncementIds={unreadAnnouncementIds}
+        pendingCorrespondenceCount={
+          pendingCorrespondenceResult.ok ? (pendingCorrespondenceResult.data ?? 0) : 0
+        }
+        waterMeterSummary={
+          waterMeterSummaryResult.ok
+            ? waterMeterSummaryResult.data
+            : {
+                latestReading: null,
+                previousReading: null,
+                averageConsumption: null,
+                activeAlert: null,
+                recentReadings: [],
+              }
+        }
       />
     );
   }

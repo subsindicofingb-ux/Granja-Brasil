@@ -844,6 +844,105 @@ export interface Database {
           },
         ];
       };
+      correspondence_notices: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          unit_id: string;
+          target_profile_id: string;
+          description: string;
+          carrier: string | null;
+          notes: string | null;
+          created_by: string;
+          created_at: string;
+          picked_up_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          unit_id: string;
+          target_profile_id: string;
+          description: string;
+          carrier?: string | null;
+          notes?: string | null;
+          created_by: string;
+          created_at?: string;
+          picked_up_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          unit_id?: string;
+          target_profile_id?: string;
+          description?: string;
+          carrier?: string | null;
+          notes?: string | null;
+          created_by?: string;
+          created_at?: string;
+          picked_up_at?: string | null;
+        };
+        Relationships: [];
+      };
+      water_meter_readings: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          reading_date: string;
+          reading_value: number;
+          daily_consumption: number | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          reading_date: string;
+          reading_value: number;
+          daily_consumption?: number | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          reading_date?: string;
+          reading_value?: number;
+          daily_consumption?: number | null;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      water_meter_alerts: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          reading_id: string;
+          daily_consumption: number;
+          average_consumption: number;
+          excess_percent: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          reading_id: string;
+          daily_consumption: number;
+          average_consumption: number;
+          excess_percent: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          reading_id?: string;
+          daily_consumption?: number;
+          average_consumption?: number;
+          excess_percent?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       vehicles: {
         Row: {
           id: string;

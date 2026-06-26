@@ -119,7 +119,9 @@ export type NavIcon =
   | "Bell"
   | "UserCheck"
   | "Inbox"
-  | "Settings";
+  | "Settings"
+  | "Package"
+  | "Droplets";
 
 import type { NavVisibleContext } from "@/lib/nav-types";
 
@@ -176,6 +178,18 @@ export const NAV_ITEMS: NavItem[] = [
     visible: ({ permissions }) => permissions.canManageReservations,
   },
   { label: "Avisos", href: "announcements", icon: "Megaphone" },
+  {
+    label: "Correspondências",
+    href: "correspondence",
+    icon: "Package",
+    visible: ({ permissions }) => permissions.canManageCorrespondence,
+  },
+  {
+    label: "Hidrômetros",
+    href: "water-meters",
+    icon: "Droplets",
+    visible: ({ permissions }) => permissions.canManageWaterMeters,
+  },
   {
     label: "Notificações",
     href: "notifications",

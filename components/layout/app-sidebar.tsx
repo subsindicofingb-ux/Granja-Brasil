@@ -13,6 +13,8 @@ import {
   UserCheck,
   Inbox,
   Users,
+  Package,
+  Droplets,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -34,6 +36,8 @@ const iconMap = {
   UserCheck,
   Inbox,
   Settings,
+  Package,
+  Droplets,
 } as const;
 
 interface AppSidebarProps {

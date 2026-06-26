@@ -15,6 +15,7 @@ import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import {
   createAnnouncement,
   createAnnouncementReply,
+  createDoormanToResidentAnnouncement,
   createResidentAnnouncement,
   createStaffToGranjaAnnouncement,
   getAnnouncementById,
@@ -30,6 +31,7 @@ import {
   parseSyndicContactFormData,
   toAnnouncementPayload,
 } from "@/lib/validations/announcement.schema";
+import { parseDoormanResidentMessageFormData } from "@/lib/validations/doorman.schema";
 
 function revalidateAnnouncementPaths(condoSlug: string, announcementId?: string) {
   revalidatePath(`/app/${condoSlug}/announcements`);
@@ -219,6 +221,55 @@ export async function createStaffToGranjaAnnouncementAction(
   const result = await createStaffToGranjaAnnouncement({
     sourceCondominiumId: access.condominium.id,
     createdBy: access.profile.id,
+    title: parsed.data.title,
+    body: parsed.data.body,
+    attachmentUrl: attachment.url,
+    attachmentName: attachment.name,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  scheduleAnnouncementCreatedNotification({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  });
+
+  revalidateAnnouncementPaths(condoSlug, result.data.id);
+  redirect(`/app/${condoSlug}/announcements/${result.data.id}?enviado=1`);
+}
+
+export async function createDoormanToResidentAnnouncementAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canSendAnnouncements,
+    { redirectTo: `/app/${condoSlug}/announcements/doorman-contact` },
+  );
+
+  if (isGeneralCondominium(condoSlug)) {
+    return { error: "Use esta opção a partir do condomínio filho." };
+  }
+
+  const parsed = parseDoormanResidentMessageFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const attachment = await uploadAnnouncementAttachment(access.condominium.id, formData);
+  if (!attachment.ok) {
+    return { error: attachment.error };
+  }
+
+  const result = await createDoormanToResidentAnnouncement({
+    condominiumId: access.condominium.id,
+    createdBy: access.profile.id,
+    targetProfileId: parsed.data.target_profile_id,
     title: parsed.data.title,
     body: parsed.data.body,
     attachmentUrl: attachment.url,
