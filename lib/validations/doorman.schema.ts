@@ -1,22 +1,60 @@
 import { z } from "zod";
 
-export const correspondenceFormSchema = z.object({
-  target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
-  unit_id: z.string().uuid("Selecione a unidade."),
-  recipient_name: z.string().trim().max(120).optional(),
-  description: z.string().trim().min(1, "Informe a descrição da correspondência.").max(500),
-  carrier: z.string().trim().max(120).optional(),
-  notes: z.string().trim().max(2000).optional(),
-});
+export const CORRESPONDENCE_RECIPIENT_OTHER = "__other__";
+
+export const correspondenceFormSchema = z
+  .object({
+    target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
+    unit_id: z.string().uuid("Selecione a unidade."),
+    recipient_resident_id: z.string().min(1, "Selecione o destinatário."),
+    recipient_name: z.string().trim().max(120).optional(),
+    description: z.string().trim().min(1, "Informe a descrição da correspondência.").max(500),
+    carrier: z.string().trim().max(120).optional(),
+    notes: z.string().trim().max(2000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.recipient_resident_id === CORRESPONDENCE_RECIPIENT_OTHER && !data.recipient_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o nome do destinatário.",
+        path: ["recipient_name"],
+      });
+    }
+  });
 
 export function parseCorrespondenceFormData(formData: FormData) {
   return correspondenceFormSchema.safeParse({
     target_condominium_id: formData.get("target_condominium_id") || undefined,
     unit_id: formData.get("unit_id"),
+    recipient_resident_id: formData.get("recipient_resident_id"),
     recipient_name: formData.get("recipient_name") || undefined,
     description: formData.get("description"),
     carrier: formData.get("carrier") || undefined,
     notes: formData.get("notes") || undefined,
+  });
+}
+
+export const correspondencePickupSchema = z
+  .object({
+    notice_id: z.string().uuid("Correspondência inválida."),
+    picked_up_resident_id: z.string().min(1, "Informe quem retirou."),
+    picked_up_by_name: z.string().trim().max(120).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.picked_up_resident_id === CORRESPONDENCE_RECIPIENT_OTHER && !data.picked_up_by_name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Informe o nome de quem retirou.",
+        path: ["picked_up_by_name"],
+      });
+    }
+  });
+
+export function parseCorrespondencePickupFormData(formData: FormData) {
+  return correspondencePickupSchema.safeParse({
+    notice_id: formData.get("notice_id"),
+    picked_up_resident_id: formData.get("picked_up_resident_id"),
+    picked_up_by_name: formData.get("picked_up_by_name") || undefined,
   });
 }
 

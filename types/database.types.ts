@@ -858,6 +858,7 @@ export interface Database {
           created_by: string;
           created_at: string;
           picked_up_at: string | null;
+          picked_up_by_name: string | null;
         };
         Insert: {
           id?: string;
@@ -872,6 +873,7 @@ export interface Database {
           created_by: string;
           created_at?: string;
           picked_up_at?: string | null;
+          picked_up_by_name?: string | null;
         };
         Update: {
           id?: string;
@@ -886,6 +888,7 @@ export interface Database {
           created_by?: string;
           created_at?: string;
           picked_up_at?: string | null;
+          picked_up_by_name?: string | null;
         };
         Relationships: [];
       };

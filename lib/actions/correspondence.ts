@@ -14,7 +14,7 @@ import {
   resolveCorrespondenceTargetProfile,
 } from "@/lib/services/correspondence";
 import { resolveUnitContext } from "@/lib/services/unit-access";
-import { parseCorrespondenceFormData } from "@/lib/validations/doorman.schema";
+import { parseCorrespondenceFormData, parseCorrespondencePickupFormData } from "@/lib/validations/doorman.schema";
 
 function revalidateCorrespondencePaths(condoSlug: string, extraCondoSlugs: string[] = []) {
   revalidatePath(`/app/${condoSlug}/correspondence`);
@@ -60,6 +60,7 @@ export async function createCorrespondenceNoticeAction(
 
   const targetResult = await resolveCorrespondenceTargetProfile({
     unitId: parsed.data.unit_id,
+    recipientResidentId: parsed.data.recipient_resident_id,
     recipientName: parsed.data.recipient_name,
   });
   if (!targetResult.ok) {
@@ -116,7 +117,6 @@ export async function markCorrespondencePickedUpAction(
   formData: FormData,
 ): Promise<AuthActionState> {
   const condoSlug = String(formData.get("condo_slug") ?? "");
-  const noticeId = String(formData.get("notice_id") ?? "");
 
   await requireCondoPermission(
     condoSlug,
@@ -124,11 +124,17 @@ export async function markCorrespondencePickedUpAction(
     { redirectTo: `/app/${condoSlug}/correspondence` },
   );
 
-  if (!noticeId) {
-    return { error: "Correspondência inválida." };
+  const parsed = parseCorrespondencePickupFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const result = await markCorrespondenceAsPickedUp(noticeId);
+  const pickedUpByName = parsed.data.picked_up_by_name?.trim() ?? "";
+  if (!pickedUpByName) {
+    return { error: "Informe o nome de quem retirou." };
+  }
+
+  const result = await markCorrespondenceAsPickedUp(parsed.data.notice_id, pickedUpByName);
   if (!result.ok) {
     return { error: result.error };
   }

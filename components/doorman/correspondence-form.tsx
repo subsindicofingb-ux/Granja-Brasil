@@ -7,6 +7,7 @@ import { createCorrespondenceNoticeAction } from "@/lib/actions/correspondence";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { formatUnitOptionLabel, formatUnitWithTower } from "@/lib/residents/labels";
 import type { UnitWithTower } from "@/lib/services/units";
+import { CORRESPONDENCE_RECIPIENT_OTHER } from "@/lib/validations/doorman.schema";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,8 @@ export function CorrespondenceForm({
     isGranjaSource ? (condominiums[0]?.id ?? "") : "",
   );
   const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [recipientSelection, setRecipientSelection] = useState("");
+  const [manualRecipientName, setManualRecipientName] = useState("");
 
   const filteredUnits = useMemo(() => {
     if (!isGranjaSource) {
@@ -59,6 +62,8 @@ export function CorrespondenceForm({
     [selectedUnitId, unitResidents],
   );
 
+  const isOtherRecipient = recipientSelection === CORRESPONDENCE_RECIPIENT_OTHER;
+
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
@@ -75,6 +80,8 @@ export function CorrespondenceForm({
             onChange={(event) => {
               setSelectedCondominiumId(event.target.value);
               setSelectedUnitId("");
+              setRecipientSelection("");
+              setManualRecipientName("");
             }}
             className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
             required
@@ -97,7 +104,11 @@ export function CorrespondenceForm({
           id="unit_id"
           name="unit_id"
           value={selectedUnitId}
-          onChange={(event) => setSelectedUnitId(event.target.value)}
+          onChange={(event) => {
+            setSelectedUnitId(event.target.value);
+            setRecipientSelection("");
+            setManualRecipientName("");
+          }}
           className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
           required
           disabled={isGranjaSource && !selectedCondominiumId}
@@ -113,26 +124,57 @@ export function CorrespondenceForm({
         </select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="recipient_name">Destinatário (opcional)</Label>
-        <Input
-          id="recipient_name"
-          name="recipient_name"
-          list="correspondence-recipient-options"
-          placeholder="Nome conforme consta na encomenda"
-        />
-        {residentsForUnit.length > 0 && (
-          <datalist id="correspondence-recipient-options">
-            {residentsForUnit.map((resident) => (
-              <option key={resident.id} value={resident.full_name} />
-            ))}
-          </datalist>
-        )}
-        <p className="text-xs text-muted-foreground">
-          Se o nome coincidir com um morador da unidade, ele recebe o aviso. Caso contrário, o
-          morador responsável será notificado.
-        </p>
-      </div>
+      {selectedUnitId && (
+        <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/50 p-4">
+          <div className="space-y-2">
+            <Label htmlFor="recipient_resident_id">Destinatário</Label>
+            <select
+              id="recipient_resident_id"
+              name="recipient_resident_id"
+              value={recipientSelection}
+              onChange={(event) => {
+                setRecipientSelection(event.target.value);
+                if (event.target.value !== CORRESPONDENCE_RECIPIENT_OTHER) {
+                  setManualRecipientName("");
+                }
+              }}
+              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm shadow-sm"
+              required
+            >
+              <option value="">Selecione o destinatário</option>
+              {residentsForUnit.map((resident) => (
+                <option key={resident.id} value={resident.id}>
+                  {resident.full_name}
+                </option>
+              ))}
+              <option value={CORRESPONDENCE_RECIPIENT_OTHER}>Outros (informar nome manualmente)</option>
+            </select>
+          </div>
+
+          {isOtherRecipient && (
+            <div className="space-y-2">
+              <Label htmlFor="recipient_name">Nome do destinatário</Label>
+              <Input
+                id="recipient_name"
+                name="recipient_name"
+                value={manualRecipientName}
+                onChange={(event) => setManualRecipientName(event.target.value)}
+                placeholder="Nome conforme consta na encomenda"
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Se o nome não constar na unidade, o aviso será encaminhado ao morador responsável.
+              </p>
+            </div>
+          )}
+
+          {recipientSelection && !isOtherRecipient && (
+            <p className="text-xs text-muted-foreground">
+              O morador selecionado receberá o aviso por e-mail e no painel.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="description">Descrição da correspondência</Label>
@@ -157,11 +199,6 @@ export function CorrespondenceForm({
           rows={3}
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
         />
-      </div>
-
-      <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm text-amber-950">
-        O destinatário identificado ou, se não constar na unidade, o morador responsável receberá um
-        e-mail e verá o aviso no painel.
       </div>
 
       <div className="flex gap-2 pt-2">

@@ -7,7 +7,8 @@ import {
   listCorrespondenceNotices,
   listCorrespondenceNoticesForGranjaDoorman,
 } from "@/lib/services/correspondence";
-import { CorrespondencePickupButton } from "@/components/doorman/correspondence-pickup-button";
+import { listResidentsByCondominium } from "@/lib/services/residents";
+import { CorrespondencePickupForm } from "@/components/doorman/correspondence-pickup-button";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";
@@ -32,15 +33,26 @@ export default async function CorrespondencePage({
     (ctx) => ctx.permissions.canManageCorrespondence,
   );
 
-  const result = isGranjaSource
-    ? await listCorrespondenceNoticesForGranjaDoorman()
-    : await listCorrespondenceNotices(access.condominium.id);
+  const [result, residentsResult] = await Promise.all([
+    isGranjaSource
+      ? listCorrespondenceNoticesForGranjaDoorman()
+      : listCorrespondenceNotices(access.condominium.id),
+    isGranjaSource
+      ? listResidentsByCondominium()
+      : listResidentsByCondominium({ condominiumId: access.condominium.id }),
+  ]);
 
   if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar correspondências" />;
   }
 
   const notices = result.data;
+  const unitResidents = (residentsResult.ok ? residentsResult.data : []).map((resident) => ({
+    id: resident.id,
+    unit_id: resident.unit_id,
+    full_name: resident.full_name,
+    profile_id: resident.profile_id,
+  }));
 
   return (
     <div className="space-y-6">
@@ -110,7 +122,12 @@ export default async function CorrespondencePage({
                   </p>
                 </div>
                 {!notice.picked_up_at && (
-                  <CorrespondencePickupButton condoSlug={condoSlug} noticeId={notice.id} />
+                  <CorrespondencePickupForm
+                    condoSlug={condoSlug}
+                    noticeId={notice.id}
+                    unitId={notice.unit_id}
+                    unitResidents={unitResidents}
+                  />
                 )}
               </div>
               {notice.carrier && (
@@ -122,6 +139,7 @@ export default async function CorrespondencePage({
               {notice.picked_up_at && (
                 <p className="mt-2 text-xs text-muted-foreground">
                   Retirada em {formatDateTime(notice.picked_up_at)}
+                  {notice.picked_up_by_name && ` por ${notice.picked_up_by_name}`}
                 </p>
               )}
             </div>

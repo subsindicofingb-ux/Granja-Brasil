@@ -11,6 +11,7 @@ export type CorrespondenceNotice = {
   created_by: string;
   created_at: string;
   picked_up_at: string | null;
+  picked_up_by_name: string | null;
   condominium_name?: string;
   unit?: {
     id: string;

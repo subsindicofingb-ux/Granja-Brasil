@@ -3,6 +3,7 @@ import { DEMO_CONDO_SLUG, RESIDENT_TYPES } from "@/lib/constants";
 import type { CorrespondenceNotice } from "@/lib/correspondence/types";
 import { listResidentsByCondominium } from "@/lib/services/residents";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
+import { CORRESPONDENCE_RECIPIENT_OTHER } from "@/lib/validations/doorman.schema";
 
 const CORRESPONDENCE_SELECT = `
   id,
@@ -16,7 +17,8 @@ const CORRESPONDENCE_SELECT = `
   notes,
   created_by,
   created_at,
-  picked_up_at
+  picked_up_at,
+  picked_up_by_name
 `;
 
 type CorrespondenceRow = {
@@ -32,6 +34,7 @@ type CorrespondenceRow = {
   created_by: string;
   created_at: string;
   picked_up_at: string | null;
+  picked_up_by_name: string | null;
 };
 
 function normalizeResidentName(value: string): string {
@@ -135,6 +138,7 @@ function mapCorrespondenceRow(
     created_by: row.created_by,
     created_at: row.created_at,
     picked_up_at: row.picked_up_at,
+    picked_up_by_name: row.picked_up_by_name,
     unit: extras.unit,
     target_resident: extras.targetProfile
       ? { id: extras.targetProfile.id, full_name: extras.targetProfile.full_name }
@@ -201,6 +205,7 @@ export async function getUnitResponsibleProfileId(
 
 export async function resolveCorrespondenceTargetProfile(input: {
   unitId: string;
+  recipientResidentId?: string | null;
   recipientName?: string | null;
 }): Promise<
   ServiceResult<{
@@ -210,6 +215,30 @@ export async function resolveCorrespondenceTargetProfile(input: {
   }>
 > {
   const recipientName = input.recipientName?.trim() || null;
+
+  if (
+    input.recipientResidentId &&
+    input.recipientResidentId !== CORRESPONDENCE_RECIPIENT_OTHER
+  ) {
+    const residentsResult = await listResidentsByCondominium({ unitId: input.unitId });
+    if (!residentsResult.ok) {
+      return serviceError(residentsResult.error);
+    }
+
+    const selectedResident = residentsResult.data.find(
+      (resident) => resident.id === input.recipientResidentId && resident.profile_id,
+    );
+
+    if (!selectedResident?.profile_id) {
+      return serviceError("Morador inválido para esta unidade.");
+    }
+
+    return serviceOk({
+      profileId: selectedResident.profile_id,
+      recipientName: selectedResident.full_name,
+      notifiedViaResponsible: false,
+    });
+  }
 
   if (recipientName) {
     const residentsResult = await listResidentsByCondominium({ unitId: input.unitId });
@@ -356,12 +385,21 @@ export async function createCorrespondenceNotice(input: {
 
 export async function markCorrespondenceAsPickedUp(
   noticeId: string,
+  pickedUpByName: string,
 ): Promise<ServiceResult<CorrespondenceNotice>> {
   const supabase = await createClient();
+  const normalizedName = pickedUpByName.trim();
+
+  if (!normalizedName) {
+    return serviceError("Informe o nome de quem retirou.");
+  }
 
   const { data, error } = await supabase
     .from("correspondence_notices")
-    .update({ picked_up_at: new Date().toISOString() })
+    .update({
+      picked_up_at: new Date().toISOString(),
+      picked_up_by_name: normalizedName,
+    })
     .eq("id", noticeId)
     .is("picked_up_at", null)
     .select(CORRESPONDENCE_SELECT)
