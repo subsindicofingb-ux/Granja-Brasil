@@ -235,7 +235,7 @@ export async function createStaffToGranjaAnnouncementAction(
   });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
-  redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
+  redirect(`/app/${condoSlug}/announcements/${result.data.id}?enviado=1`);
 }
 
 export async function replyAnnouncementAction(

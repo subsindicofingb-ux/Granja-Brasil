@@ -28,7 +28,7 @@ import { AnnouncementForm } from "@/components/announcements/announcement-form";
 import { AnnouncementReadReceipts } from "@/components/announcements/announcement-read-receipts";
 import { AnnouncementReadTracker } from "@/components/announcements/announcement-read-tracker";
 import { AnnouncementReplyForm } from "@/components/announcements/announcement-reply-form";
-import { ErrorAlert } from "@/components/shared/feedback";
+import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,10 +37,15 @@ import { formatDateTime } from "@/lib/utils";
 
 interface AnnouncementDetailPageProps {
   params: Promise<{ condoSlug: string; announcementId: string }>;
+  searchParams: Promise<{ enviado?: string }>;
 }
 
-export default async function AnnouncementDetailPage({ params }: AnnouncementDetailPageProps) {
+export default async function AnnouncementDetailPage({
+  params,
+  searchParams,
+}: AnnouncementDetailPageProps) {
   const { condoSlug, announcementId } = await params;
+  const { enviado } = await searchParams;
   const access = await requireCondoAccess(condoSlug);
   const isGranjaSource = isGeneralCondominium(condoSlug);
 
@@ -156,6 +161,9 @@ export default async function AnnouncementDetailPage({ params }: AnnouncementDet
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {enviado === "1" && (
+        <SuccessAlert message="Mensagem enviada com sucesso. Acompanhe a conversa abaixo." />
+      )}
       {shouldTrackRead && (
         <AnnouncementReadTracker condoSlug={condoSlug} announcementId={announcementId} />
       )}
