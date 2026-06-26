@@ -15,6 +15,7 @@ import {
 } from "@/lib/vehicles/labels";
 import { VEHICLE_STATUS } from "@/lib/constants";
 import { VehicleReviewActions } from "@/components/vehicles/vehicle-review-actions";
+import { VehicleDeleteButton } from "@/components/vehicles/vehicle-delete-button";
 import { Badge } from "@/components/ui/badge";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -84,6 +85,7 @@ export default async function VehicleDetailPage({ params, searchParams }: Vehicl
 
   const vehicle = vehicleResult.data;
   const canEdit = access.permissions.canManageVehicles;
+  const canDelete = access.permissions.canManageVehicles || access.permissions.canViewUnitVehicles;
   const units = "units" in unitsResult.data ? unitsResult.data.units : [];
   const condominiumNamesById =
     "condominiumNamesById" in unitsResult.data ? unitsResult.data.condominiumNamesById : {};
@@ -172,6 +174,15 @@ export default async function VehicleDetailPage({ params, searchParams }: Vehicl
           )}
 
           {canEdit && <VehicleReviewActions condoSlug={condoSlug} vehicle={vehicle} />}
+
+          {canDelete && (
+            <VehicleDeleteButton
+              condoSlug={condoSlug}
+              vehicleId={vehicle.id}
+              vehicleLabel={`${vehicle.brand} ${vehicle.model}`}
+              licensePlate={vehicle.license_plate}
+            />
+          )}
         </CardContent>
       </Card>
 

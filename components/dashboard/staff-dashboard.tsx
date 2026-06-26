@@ -282,7 +282,10 @@ export function StaffDashboard({
             description: formatGranjaPendingVehiclesDescription(
               generalOverview.pendingVehiclesByCondominium,
             ),
-            href: `${base}/vehicles/consult`,
+            href:
+              granjaPendingVehicles > 0
+                ? `${base}/vehicles/consult?status=${VEHICLE_STATUS.PENDING}`
+                : `${base}/vehicles/consult`,
             icon: Car,
             accent:
               granjaPendingVehicles > 0

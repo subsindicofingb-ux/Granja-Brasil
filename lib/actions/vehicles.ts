@@ -8,7 +8,7 @@ import type { AuthActionState } from "@/lib/auth/types";
 import { VEHICLE_STATUS } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getLinkedResidentForProfile } from "@/lib/services/residents";
-import { createVehicle, reviewVehicle, updateVehicle } from "@/lib/services/vehicles";
+import { createVehicle, deleteVehicle, reviewVehicle, updateVehicle } from "@/lib/services/vehicles";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
@@ -19,6 +19,7 @@ import { vehicleFormSchema } from "@/lib/validations/vehicle.schema";
 
 function revalidateVehiclePaths(condoSlug: string) {
   revalidatePath(`/app/${condoSlug}/vehicles`);
+  revalidatePath(`/app/${condoSlug}/vehicles/consult`);
 }
 
 function getPhotoFile(formData: FormData): File | null {
@@ -248,4 +249,34 @@ export async function reviewVehicleAction(
         ? "Veículo aprovado e liberado para consulta."
         : "Cadastro de veículo recusado.",
   };
+}
+
+export async function deleteVehicleAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const vehicleId = String(formData.get("vehicle_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+    { redirectTo: `/app/${condoSlug}/vehicles/${vehicleId}` },
+  );
+
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+
+  const result = await deleteVehicle({
+    vehicleId,
+    scopeCondominiumId,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateVehiclePaths(condoSlug);
+  revalidatePath(`/app/${condoSlug}/vehicles/${vehicleId}`);
+  redirect(`/app/${condoSlug}/vehicles`);
 }

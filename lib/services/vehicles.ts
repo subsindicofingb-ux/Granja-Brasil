@@ -305,6 +305,48 @@ export async function searchVehiclesForConsult(options?: {
   );
 }
 
+export async function listPendingVehiclesForConsult(): Promise<
+  ServiceResult<VehicleWithUnitAndCondominium[]>
+> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("vehicles")
+    .select(VEHICLE_CONSULT_SELECT)
+    .eq("status", VEHICLE_STATUS.PENDING)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(
+    ((data as unknown as VehicleConsultRow[] | null) ?? []).map(mapVehicleConsultRow),
+  );
+}
+
+export async function deleteVehicle(input: {
+  vehicleId: string;
+  scopeCondominiumId?: string;
+}): Promise<ServiceResult<true>> {
+  const vehicleResult = await getVehicleById(input.vehicleId, {
+    condominiumId: input.scopeCondominiumId,
+  });
+
+  if (!vehicleResult.ok) {
+    return serviceError(vehicleResult.error);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("vehicles").delete().eq("id", input.vehicleId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(true);
+}
+
 export async function getVehicleById(
   vehicleId: string,
   options?: { condominiumId?: string },

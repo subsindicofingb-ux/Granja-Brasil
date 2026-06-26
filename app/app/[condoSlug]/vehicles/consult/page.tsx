@@ -8,7 +8,7 @@ import {
   isGeneralCondominium,
 } from "@/lib/condominiums/display";
 import { formatUnitWithTower } from "@/lib/residents/labels";
-import { searchVehiclesForConsult } from "@/lib/services/vehicles";
+import { searchVehiclesForConsult, listPendingVehiclesForConsult } from "@/lib/services/vehicles";
 import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
 import { VEHICLE_STATUS } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -20,15 +20,17 @@ import { Button } from "@/components/ui/button";
 
 interface VehiclesConsultPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ plate?: string }>;
+  searchParams: Promise<{ plate?: string; status?: string }>;
 }
 
 async function ConsultContent({
   condoSlug,
   plate,
+  status,
 }: {
   condoSlug: string;
   plate?: string;
+  status?: string;
 }) {
   const access = await requireCondoPermission(
     condoSlug,
@@ -36,6 +38,8 @@ async function ConsultContent({
   );
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
   const includeUnapproved = isGeneralCondoPage && access.permissions.canManageVehicles;
+  const isPendingView =
+    includeUnapproved && status === VEHICLE_STATUS.PENDING;
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
   const normalizedPlate = plate?.trim() ?? "";
 
@@ -61,25 +65,113 @@ async function ConsultContent({
               ? { unitIds: unitQuery.unitIds }
               : {}),
       })
-    : { ok: true as const, data: [] };
+    : isPendingView
+      ? await listPendingVehiclesForConsult()
+      : { ok: true as const, data: [] };
 
   if (!vehiclesResult.ok) {
     return <ErrorAlert message={vehiclesResult.error} title="Erro na consulta" />;
   }
 
   const vehicles = vehiclesResult.data;
+  const showPendingList = isPendingView && !normalizedPlate;
 
   return (
     <div className="space-y-4">
       {includeUnapproved && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          A consulta da Granja inclui veículos pendentes de aprovação do síndico.
+          {showPendingList
+            ? "Veículos aguardando aprovação do síndico, com condomínio e unidade de origem."
+            : "A consulta da Granja inclui veículos pendentes de aprovação do síndico."}
         </p>
       )}
 
-      <VehiclePlateSearch plate={normalizedPlate} />
+      <VehiclePlateSearch plate={normalizedPlate} status={showPendingList ? status : undefined} />
 
-      {!normalizedPlate ? (
+      {showPendingList && vehicles.length === 0 ? (
+        <EmptyState
+          title="Nenhum veículo aguardando aprovação"
+          description="Não há solicitações pendentes nos condomínios no momento."
+        />
+      ) : showPendingList ? (
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/40">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Placa</th>
+                <th className="px-4 py-3 text-left font-medium">Veículo</th>
+                <th className="px-4 py-3 text-left font-medium">Condomínio</th>
+                <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                <th className="px-4 py-3 text-left font-medium">Responsável</th>
+                <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-right font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vehicles.map((vehicle) => (
+                <tr key={vehicle.id} className="border-b last:border-0">
+                  <td className="px-4 py-3 font-medium">
+                    {formatLicensePlate(vehicle.license_plate)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {vehicle.photo_url ? (
+                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                          <Image
+                            src={vehicle.photo_url}
+                            alt={`${vehicle.brand} ${vehicle.model}`}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : null}
+                      <div>
+                        <div className="font-medium">
+                          {vehicle.brand} {vehicle.model}
+                        </div>
+                        {vehicle.tag_number && (
+                          <div className="text-xs text-muted-foreground">
+                            TAG: {vehicle.tag_number}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {formatCondominiumDisplayName(
+                      vehicle.condominium.name,
+                      vehicle.condominium.slug,
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {formatUnitWithTower(vehicle.unit)}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {vehicle.resident?.full_name ?? "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge
+                      className={getVehicleStatusBadgeClass(
+                        vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                      )}
+                    >
+                      {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                        Ver cadastro
+                      </Link>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !normalizedPlate ? (
         <EmptyState
           title="Informe a placa do veículo"
           description="Digite a placa para localizar rapidamente a unidade e o responsável cadastrado."
@@ -185,13 +277,18 @@ export default async function VehiclesConsultPage({
   searchParams,
 }: VehiclesConsultPageProps) {
   const { condoSlug } = await params;
-  const { plate } = await searchParams;
+  const { plate, status } = await searchParams;
+  const isPendingView = status === VEHICLE_STATUS.PENDING;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Consulta por placa"
-        description="Localize rapidamente o responsável pelo veículo cadastrado."
+        title={isPendingView ? "Veículos aguardando aprovação" : "Consulta por placa"}
+        description={
+          isPendingView
+            ? "Pendências de cadastro por condomínio e unidade."
+            : "Localize rapidamente o responsável pelo veículo cadastrado."
+        }
         action={
           <Button variant="outline" asChild>
             <Link href={`/app/${condoSlug}/vehicles`}>Lista de veículos</Link>
@@ -200,7 +297,11 @@ export default async function VehiclesConsultPage({
       />
 
       <Suspense fallback={<TableSkeleton rows={4} cols={5} />}>
-        <ConsultContent condoSlug={condoSlug} plate={plate?.trim() || undefined} />
+        <ConsultContent
+          condoSlug={condoSlug}
+          plate={plate?.trim() || undefined}
+          status={status}
+        />
       </Suspense>
     </div>
   );
