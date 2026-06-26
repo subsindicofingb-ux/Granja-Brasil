@@ -23,7 +23,8 @@ import {
 } from "@/components/dashboard/resident-dashboard";
 import { DoormanDashboard } from "@/components/dashboard/doorman-dashboard";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
-import { countPendingCorrespondenceNotices } from "@/lib/services/correspondence";
+import type { CorrespondenceNotice } from "@/lib/correspondence/types";
+import { countPendingCorrespondenceNotices, listPendingCorrespondenceForProfile } from "@/lib/services/correspondence";
 import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -54,6 +55,15 @@ async function DashboardHeader({ condoSlug }: { condoSlug: string }) {
       <PageHeader
         title="Portaria"
         description={`Operações diárias · ${access.condominium.name}`}
+      />
+    );
+  }
+
+  if (access.role === ROLES.DOORMAN && isGeneralCondominium(condoSlug)) {
+    return (
+      <PageHeader
+        title="Portaria Granja"
+        description="Correspondências e operações nos condomínios filhos"
       />
     );
   }
@@ -112,6 +122,15 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   if (access.role === ROLES.RESIDENT) {
     let vehicleRequests: ResidentVehicleRequest[] = [];
     let notificationAlertCount = 0;
+    let pendingCorrespondence: CorrespondenceNotice[] = [];
+
+    const pendingCorrespondenceResult = await listPendingCorrespondenceForProfile(
+      access.profile.id,
+      { condominiumId: access.condominium.id },
+    );
+    pendingCorrespondence = pendingCorrespondenceResult.ok
+      ? (pendingCorrespondenceResult.data ?? [])
+      : [];
 
     if (access.permissions.canViewUnitNotifications) {
       const alertsResult = await countNotificationDashboardAlerts(access.profile.id);
@@ -155,6 +174,40 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
         reservationsByStatus={metrics.reservationsByStatus}
         vehicleRequests={vehicleRequests}
         notificationAlertCount={notificationAlertCount}
+        pendingCorrespondence={pendingCorrespondence}
+      />
+    );
+  }
+
+  if (access.role === ROLES.DOORMAN && isGeneralCondoDashboard) {
+    const [pendingCorrespondenceResult, waterMeterSummaryResult] = await Promise.all([
+      countPendingCorrespondenceNotices(),
+      getWaterMeterDashboardSummary(access.condominium.id),
+    ]);
+
+    return (
+      <DoormanDashboard
+        condoSlug={condoSlug}
+        condominiumName={access.condominium.name}
+        permissions={access.permissions}
+        upcomingReservations={upcomingReservations}
+        recentAnnouncements={recentAnnouncements}
+        unreadAnnouncementIds={unreadAnnouncementIds}
+        pendingCorrespondenceCount={
+          pendingCorrespondenceResult.ok ? (pendingCorrespondenceResult.data ?? 0) : 0
+        }
+        waterMeterSummary={
+          waterMeterSummaryResult.ok
+            ? waterMeterSummaryResult.data
+            : {
+                latestReading: null,
+                previousReading: null,
+                averageConsumption: null,
+                activeAlert: null,
+                recentReadings: [],
+              }
+        }
+        isGranjaSource
       />
     );
   }

@@ -58,6 +58,12 @@ export async function notifyCorrespondenceCreated(input: {
   const condoSlug = await getCondominiumSlug(input.notice.condominium_id);
   const link = condoSlug ? `${getSiteUrl()}/app/${condoSlug}` : getSiteUrl();
   const unitLabel = input.notice.unit ? formatUnitWithTower(input.notice.unit) : "sua unidade";
+  const recipientLine = input.notice.recipient_name
+    ? `Destinatário: ${input.notice.recipient_name}`
+    : null;
+  const notifiedLine = input.notice.notified_via_responsible
+    ? "O aviso foi encaminhado ao morador responsável da unidade."
+    : null;
 
   const bodyText = [
     `Olá,`,
@@ -65,9 +71,11 @@ export async function notifyCorrespondenceCreated(input: {
     `Há uma correspondência aguardando retirada na portaria do ${input.condominiumName}.`,
     ``,
     `Unidade: ${unitLabel}`,
+    recipientLine,
     `Descrição: ${input.notice.description}`,
     input.notice.carrier ? `Transportadora/remetente: ${input.notice.carrier}` : null,
     input.notice.notes ? `Observações: ${input.notice.notes}` : null,
+    notifiedLine,
     ``,
     `Acesse o sistema para mais detalhes.`,
   ]

@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { formatUnitWithTower } from "@/lib/residents/labels";
-import { listCorrespondenceNotices } from "@/lib/services/correspondence";
+import {
+  listCorrespondenceNotices,
+  listCorrespondenceNoticesForGranjaDoorman,
+} from "@/lib/services/correspondence";
+import { CorrespondencePickupButton } from "@/components/doorman/correspondence-pickup-button";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";
@@ -11,7 +16,7 @@ import { formatDateTime } from "@/lib/utils";
 
 interface CorrespondencePageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ enviado?: string }>;
+  searchParams: Promise<{ enviado?: string; retirada?: string }>;
 }
 
 export default async function CorrespondencePage({
@@ -19,14 +24,17 @@ export default async function CorrespondencePage({
   searchParams,
 }: CorrespondencePageProps) {
   const { condoSlug } = await params;
-  const { enviado } = await searchParams;
+  const { enviado, retirada } = await searchParams;
+  const isGranjaSource = isGeneralCondominium(condoSlug);
 
   const access = await requireCondoPermission(
     condoSlug,
     (ctx) => ctx.permissions.canManageCorrespondence,
   );
 
-  const result = await listCorrespondenceNotices(access.condominium.id);
+  const result = isGranjaSource
+    ? await listCorrespondenceNoticesForGranjaDoorman()
+    : await listCorrespondenceNotices(access.condominium.id);
 
   if (!result.ok) {
     return <ErrorAlert message={result.error} title="Erro ao carregar correspondências" />;
@@ -39,10 +47,17 @@ export default async function CorrespondencePage({
       {enviado === "1" && (
         <SuccessAlert message="Correspondência registrada e morador avisado por e-mail." />
       )}
+      {retirada === "1" && (
+        <SuccessAlert message="Correspondência marcada como retirada." />
+      )}
 
       <PageHeader
         title="Correspondências"
-        description="Registro de encomendas e avisos de retirada na portaria."
+        description={
+          isGranjaSource
+            ? "Registro de encomendas nos condomínios filhos."
+            : "Registro de encomendas e avisos de retirada na portaria."
+        }
         action={
           <Button asChild>
             <Link href={`/app/${condoSlug}/correspondence/new`}>
@@ -56,7 +71,11 @@ export default async function CorrespondencePage({
       {notices.length === 0 ? (
         <EmptyState
           title="Nenhuma correspondência registrada"
-          description="Registre encomendas e cartas para avisar o morador responsável da unidade."
+          description={
+            isGranjaSource
+              ? "Registre encomendas informando condomínio, unidade e destinatário."
+              : "Registre encomendas e cartas para avisar o destinatário ou o morador responsável."
+          }
           action={
             <Button asChild>
               <Link href={`/app/${condoSlug}/correspondence/new`}>Registrar correspondência</Link>
@@ -71,22 +90,39 @@ export default async function CorrespondencePage({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-medium">{notice.description}</h3>
-                    {!notice.picked_up_at && (
+                    {!notice.picked_up_at ? (
                       <Badge className="bg-amber-600 hover:bg-amber-600">Aguardando retirada</Badge>
+                    ) : (
+                      <Badge className="bg-muted text-muted-foreground hover:bg-muted">Retirada</Badge>
                     )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatDateTime(notice.created_at)}
+                    {isGranjaSource && notice.condominium_name && ` · ${notice.condominium_name}`}
                     {notice.unit && ` · ${formatUnitWithTower(notice.unit)}`}
-                    {notice.target_resident && ` · ${notice.target_resident.full_name}`}
+                    {notice.recipient_name && ` · Dest.: ${notice.recipient_name}`}
+                    {notice.target_resident &&
+                      notice.notified_via_responsible &&
+                      ` · Aviso ao responsável (${notice.target_resident.full_name})`}
+                    {notice.target_resident &&
+                      !notice.notified_via_responsible &&
+                      ` · ${notice.target_resident.full_name}`}
                   </p>
                 </div>
+                {!notice.picked_up_at && (
+                  <CorrespondencePickupButton condoSlug={condoSlug} noticeId={notice.id} />
+                )}
               </div>
               {notice.carrier && (
                 <p className="mt-2 text-sm text-muted-foreground">Remetente: {notice.carrier}</p>
               )}
               {notice.notes && (
                 <p className="mt-2 text-sm text-muted-foreground">{notice.notes}</p>
+              )}
+              {notice.picked_up_at && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Retirada em {formatDateTime(notice.picked_up_at)}
+                </p>
               )}
             </div>
           ))}

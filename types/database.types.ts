@@ -850,6 +850,8 @@ export interface Database {
           condominium_id: string;
           unit_id: string;
           target_profile_id: string;
+          recipient_name: string | null;
+          notified_via_responsible: boolean;
           description: string;
           carrier: string | null;
           notes: string | null;
@@ -862,6 +864,8 @@ export interface Database {
           condominium_id: string;
           unit_id: string;
           target_profile_id: string;
+          recipient_name?: string | null;
+          notified_via_responsible?: boolean;
           description: string;
           carrier?: string | null;
           notes?: string | null;
@@ -874,6 +878,8 @@ export interface Database {
           condominium_id?: string;
           unit_id?: string;
           target_profile_id?: string;
+          recipient_name?: string | null;
+          notified_via_responsible?: boolean;
           description?: string;
           carrier?: string | null;
           notes?: string | null;

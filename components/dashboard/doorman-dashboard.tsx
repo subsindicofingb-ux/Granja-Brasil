@@ -26,6 +26,7 @@ export type DoormanDashboardProps = {
   unreadAnnouncementIds: string[];
   pendingCorrespondenceCount: number;
   waterMeterSummary: WaterMeterDashboardSummary;
+  isGranjaSource?: boolean;
 };
 
 type QuickAction = {
@@ -45,6 +46,7 @@ export function DoormanDashboard({
   unreadAnnouncementIds,
   pendingCorrespondenceCount,
   waterMeterSummary,
+  isGranjaSource = false,
 }: DoormanDashboardProps) {
   const base = `/app/${condoSlug}`;
   const unreadAnnouncementCount = unreadAnnouncementIds.length;
@@ -118,7 +120,9 @@ export function DoormanDashboard({
         <p className="text-sm font-medium text-slate-600">Portaria</p>
         <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{condominiumName}</h2>
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
-          Operações diárias: reservas, avisos, correspondências e leitura de hidrômetros.
+          {isGranjaSource
+            ? "Registre correspondências nos condomínios filhos e acompanhe hidrômetros da Granja."
+            : "Operações diárias: reservas, avisos, correspondências e leitura de hidrômetros."}
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">

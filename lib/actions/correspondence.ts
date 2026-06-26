@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
@@ -9,14 +10,21 @@ import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { notifyCorrespondenceCreated } from "@/lib/email/correspondence-notifications";
 import {
   createCorrespondenceNotice,
-  getUnitResponsibleProfileId,
+  markCorrespondenceAsPickedUp,
+  resolveCorrespondenceTargetProfile,
 } from "@/lib/services/correspondence";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import { parseCorrespondenceFormData } from "@/lib/validations/doorman.schema";
 
-function revalidateCorrespondencePaths(condoSlug: string) {
+function revalidateCorrespondencePaths(condoSlug: string, extraCondoSlugs: string[] = []) {
   revalidatePath(`/app/${condoSlug}/correspondence`);
   revalidatePath(`/app/${condoSlug}`);
+  for (const slug of extraCondoSlugs) {
+    if (slug !== condoSlug) {
+      revalidatePath(`/app/${slug}`);
+      revalidatePath(`/app/${slug}/correspondence`);
+    }
+  }
 }
 
 export async function createCorrespondenceNoticeAction(
@@ -31,29 +39,39 @@ export async function createCorrespondenceNoticeAction(
     { redirectTo: `/app/${condoSlug}/correspondence` },
   );
 
-  if (isGeneralCondominium(condoSlug)) {
-    return { error: "Correspondências são registradas nos condomínios filhos." };
-  }
-
   const parsed = parseCorrespondenceFormData(formData);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const unitContext = await resolveUnitContext(parsed.data.unit_id, access.condominium.id);
+  const isGranjaSource = isGeneralCondominium(condoSlug);
+  const targetCondominiumId = isGranjaSource
+    ? parsed.data.target_condominium_id
+    : access.condominium.id;
+
+  if (!targetCondominiumId) {
+    return { error: "Selecione o condomínio de destino." };
+  }
+
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, targetCondominiumId);
   if (!unitContext.ok) {
     return { error: unitContext.error ?? "Unidade inválida." };
   }
 
-  const responsibleResult = await getUnitResponsibleProfileId(parsed.data.unit_id);
-  if (!responsibleResult.ok) {
-    return { error: responsibleResult.error };
+  const targetResult = await resolveCorrespondenceTargetProfile({
+    unitId: parsed.data.unit_id,
+    recipientName: parsed.data.recipient_name,
+  });
+  if (!targetResult.ok) {
+    return { error: targetResult.error };
   }
 
   const result = await createCorrespondenceNotice({
-    condominiumId: access.condominium.id,
+    condominiumId: targetCondominiumId,
     unitId: parsed.data.unit_id,
-    targetProfileId: responsibleResult.data,
+    targetProfileId: targetResult.data.profileId,
+    recipientName: targetResult.data.recipientName,
+    notifiedViaResponsible: targetResult.data.notifiedViaResponsible,
     description: parsed.data.description,
     carrier: parsed.data.carrier,
     notes: parsed.data.notes,
@@ -68,7 +86,7 @@ export async function createCorrespondenceNoticeAction(
     try {
       await notifyCorrespondenceCreated({
         notice: result.data,
-        condominiumName: access.condominium.name,
+        condominiumName: result.data.condominium_name ?? access.condominium.name,
       });
     } catch (error) {
       console.error("[email:correspondence-created]", error);
@@ -76,5 +94,52 @@ export async function createCorrespondenceNoticeAction(
   });
 
   revalidateCorrespondencePaths(condoSlug);
+
+  if (isGranjaSource) {
+    const supabase = await createClient();
+    const { data: targetCondo } = await supabase
+      .from("condominiums")
+      .select("slug")
+      .eq("id", targetCondominiumId)
+      .maybeSingle();
+
+    if (targetCondo?.slug) {
+      revalidatePath(`/app/${targetCondo.slug}`);
+    }
+  }
+
   redirect(`/app/${condoSlug}/correspondence?enviado=1`);
+}
+
+export async function markCorrespondencePickedUpAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const noticeId = String(formData.get("notice_id") ?? "");
+
+  await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageCorrespondence,
+    { redirectTo: `/app/${condoSlug}/correspondence` },
+  );
+
+  if (!noticeId) {
+    return { error: "Correspondência inválida." };
+  }
+
+  const result = await markCorrespondenceAsPickedUp(noticeId);
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  const supabase = await createClient();
+  const { data: targetCondo } = await supabase
+    .from("condominiums")
+    .select("slug")
+    .eq("id", result.data.condominium_id)
+    .maybeSingle();
+
+  revalidateCorrespondencePaths(condoSlug, targetCondo?.slug ? [targetCondo.slug] : []);
+  return { success: "Correspondência marcada como retirada." };
 }

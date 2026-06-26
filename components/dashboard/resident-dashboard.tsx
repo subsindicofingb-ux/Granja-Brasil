@@ -6,9 +6,11 @@ import {
   Megaphone,
   MessageSquarePlus,
   Bell,
+  Package,
   UserCheck,
 } from "lucide-react";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
+import type { CorrespondenceNotice } from "@/lib/correspondence/types";
 import {
   getAnnouncementPriorityBadgeClass,
   getAnnouncementPriorityLabel,
@@ -21,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
+import { formatUnitWithTower } from "@/lib/residents/labels";
 import {
   formatVehicleSummary,
   getVehicleStatusBadgeClass,
@@ -51,6 +54,7 @@ export type ResidentDashboardProps = {
   reservationsByStatus: Record<ReservationStatus, number>;
   vehicleRequests: ResidentVehicleRequest[];
   notificationAlertCount?: number;
+  pendingCorrespondence?: CorrespondenceNotice[];
 };
 
 function getFirstName(fullName: string): string {
@@ -80,6 +84,7 @@ export function ResidentDashboard({
   reservationsByStatus,
   vehicleRequests,
   notificationAlertCount = 0,
+  pendingCorrespondence = [],
 }: ResidentDashboardProps) {
   const base = `/app/${condoSlug}`;
   const firstName = getFirstName(residentName);
@@ -405,7 +410,36 @@ export function ResidentDashboard({
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentAnnouncements.length === 0 ? (
+            {pendingCorrespondence.map((notice) => (
+              <div
+                key={notice.id}
+                className="rounded-lg border border-amber-300 bg-amber-50/70 p-3"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Package className="h-4 w-4 text-amber-700" />
+                      <p className="font-medium">{notice.description}</p>
+                      <Badge className="bg-amber-600 text-white hover:bg-amber-600">
+                        Aguardando retirada
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatDateTime(notice.created_at)}
+                      {notice.unit && ` · ${formatUnitWithTower(notice.unit)}`}
+                      {notice.recipient_name && ` · Dest.: ${notice.recipient_name}`}
+                    </p>
+                    {notice.carrier && (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        Remetente: {notice.carrier}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {recentAnnouncements.length === 0 && pendingCorrespondence.length === 0 ? (
               <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
                 <p className="text-sm font-medium">Nenhum aviso publicado</p>
                 <p className="mt-1 text-sm text-muted-foreground">

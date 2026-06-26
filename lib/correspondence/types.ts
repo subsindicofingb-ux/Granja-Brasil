@@ -3,12 +3,15 @@ export type CorrespondenceNotice = {
   condominium_id: string;
   unit_id: string;
   target_profile_id: string;
+  recipient_name: string | null;
+  notified_via_responsible: boolean;
   description: string;
   carrier: string | null;
   notes: string | null;
   created_by: string;
   created_at: string;
   picked_up_at: string | null;
+  condominium_name?: string;
   unit?: {
     id: string;
     number: string;

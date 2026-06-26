@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 export const correspondenceFormSchema = z.object({
+  target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
   unit_id: z.string().uuid("Selecione a unidade."),
+  recipient_name: z.string().trim().max(120).optional(),
   description: z.string().trim().min(1, "Informe a descrição da correspondência.").max(500),
   carrier: z.string().trim().max(120).optional(),
   notes: z.string().trim().max(2000).optional(),
@@ -9,7 +11,9 @@ export const correspondenceFormSchema = z.object({
 
 export function parseCorrespondenceFormData(formData: FormData) {
   return correspondenceFormSchema.safeParse({
+    target_condominium_id: formData.get("target_condominium_id") || undefined,
     unit_id: formData.get("unit_id"),
+    recipient_name: formData.get("recipient_name") || undefined,
     description: formData.get("description"),
     carrier: formData.get("carrier") || undefined,
     notes: formData.get("notes") || undefined,
