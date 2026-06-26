@@ -44,6 +44,7 @@ export {
   getAnnouncementById,
   createAnnouncement,
   createResidentAnnouncement,
+  createStaffToGranjaAnnouncement,
   createAnnouncementReply,
   updateAnnouncement,
   markAnnouncementAsRead,

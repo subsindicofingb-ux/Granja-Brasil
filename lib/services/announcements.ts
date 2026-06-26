@@ -785,6 +785,45 @@ export async function createResidentAnnouncement(input: {
   });
 }
 
+export async function createStaffToGranjaAnnouncement(input: {
+  sourceCondominiumId: string;
+  createdBy: string;
+  title: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+}): Promise<ServiceResult<AnnouncementWithDetails>> {
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId) {
+    return serviceError("Administração Granja Brasil não configurada.");
+  }
+
+  if (input.sourceCondominiumId === granjaCondominiumId) {
+    return serviceError("Use esta opção a partir do condomínio que você gerencia.");
+  }
+
+  const publishedAt = new Date().toISOString();
+
+  return insertAnnouncementRecord({
+    condominium_id: granjaCondominiumId,
+    created_by: input.createdBy,
+    staff_only: true,
+    title: input.title,
+    body: input.body,
+    priority: "normal",
+    publication_status: "published",
+    published_at: publishedAt,
+    expires_at: null,
+    target_profile_id: null,
+    target_condominium_id: input.sourceCondominiumId,
+    tower_id: null,
+    parent_id: null,
+    attachment_url: input.attachmentUrl ?? null,
+    attachment_name: input.attachmentName ?? null,
+  });
+}
+
 export async function createAnnouncementReply(input: {
   parentAnnouncementId: string;
   createdBy: string;

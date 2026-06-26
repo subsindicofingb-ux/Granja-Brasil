@@ -8,6 +8,7 @@ import {
   Home,
   Inbox,
   Megaphone,
+  MessageSquarePlus,
   Plus,
   Users,
 } from "lucide-react";
@@ -124,6 +125,16 @@ export function StaffDashboard({
       href: `${base}/announcements/new`,
       icon: Megaphone,
       accent: "border-indigo-200 bg-indigo-50 text-indigo-900 hover:border-indigo-300 hover:bg-indigo-100/80",
+    });
+  }
+
+  if (permissions.canManageAnnouncements && !isGeneralCondo) {
+    actionTiles.push({
+      title: "Fale com o condomínio",
+      description: "Mensagem à administração Granja Brasil",
+      href: `${base}/announcements/contact`,
+      icon: MessageSquarePlus,
+      accent: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100/80",
     });
   }
 

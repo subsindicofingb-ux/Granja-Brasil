@@ -108,6 +108,11 @@ export const residentAnnouncementFormSchema = z.object({
   destination: z.enum(["condominium", "granja"]),
 });
 
+export const syndicContactFormSchema = z.object({
+  title: z.string().trim().min(1, "Informe o assunto.").max(200, "Assunto muito longo."),
+  body: z.string().trim().min(1, "Informe a mensagem.").max(10000, "Mensagem muito longa."),
+});
+
 export const announcementReplySchema = z.object({
   body: z.string().trim().min(1, "Informe a resposta.").max(10000, "Resposta muito longa."),
   parent_announcement_id: z.string().uuid("Aviso inválido."),
@@ -118,6 +123,13 @@ export function parseResidentAnnouncementFormData(formData: FormData) {
     title: formData.get("title"),
     body: formData.get("body"),
     destination: formData.get("destination"),
+  });
+}
+
+export function parseSyndicContactFormData(formData: FormData) {
+  return syndicContactFormSchema.safeParse({
+    title: formData.get("title"),
+    body: formData.get("body"),
   });
 }
 

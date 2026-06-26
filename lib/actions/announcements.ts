@@ -16,6 +16,7 @@ import {
   createAnnouncement,
   createAnnouncementReply,
   createResidentAnnouncement,
+  createStaffToGranjaAnnouncement,
   getAnnouncementById,
   listAnnouncementReplies,
   markAnnouncementAsRead,
@@ -26,6 +27,7 @@ import {
   parseAnnouncementFormData,
   parseAnnouncementReplyFormData,
   parseResidentAnnouncementFormData,
+  parseSyndicContactFormData,
   toAnnouncementPayload,
 } from "@/lib/validations/announcement.schema";
 
@@ -167,6 +169,56 @@ export async function createResidentAnnouncementAction(
     contextCondominiumId: access.condominium.id,
     createdBy: access.profile.id,
     destination: parsed.data.destination,
+    title: parsed.data.title,
+    body: parsed.data.body,
+    attachmentUrl: attachment.url,
+    attachmentName: attachment.name,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  scheduleAnnouncementCreatedNotification({
+    announcement: result.data,
+    senderProfileId: access.profile.id,
+  });
+
+  revalidateAnnouncementPaths(condoSlug, result.data.id);
+  redirect(`/app/${condoSlug}/announcements/${result.data.id}`);
+}
+
+export async function createStaffToGranjaAnnouncementAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageAnnouncements,
+    { redirectTo: `/app/${condoSlug}/announcements` },
+  );
+
+  if (isGeneralCondominium(condoSlug)) {
+    return { error: "A administração geral recebe mensagens dos condomínios em Avisos." };
+  }
+
+  const parsed = parseSyndicContactFormData(formData);
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const attachment = await uploadAnnouncementAttachment(access.condominium.id, formData);
+
+  if (!attachment.ok) {
+    return { error: attachment.error };
+  }
+
+  const result = await createStaffToGranjaAnnouncement({
+    sourceCondominiumId: access.condominium.id,
+    createdBy: access.profile.id,
     title: parsed.data.title,
     body: parsed.data.body,
     attachmentUrl: attachment.url,

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus } from "lucide-react";
+import { MessageSquarePlus, Plus } from "lucide-react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listAnnouncementsByCondominium, getAnnouncementUnreadState } from "@/lib/services/announcements";
@@ -21,19 +21,36 @@ interface AnnouncementsPageProps {
 async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const canCreate = access.permissions.canManageAnnouncements;
+  const canContactGranja = canCreate && !isGeneralCondominium(condoSlug);
 
   return (
     <PageHeader
       title="Avisos"
-      description="Comunicados do condomínio para moradores e portaria."
+      description={
+        canContactGranja
+          ? "Comunicados com moradores, mensagens recebidas e conversas com a Granja Brasil."
+          : "Comunicados do condomínio para moradores e portaria."
+      }
       action={
-        canCreate ? (
-          <Button asChild>
-            <Link href={`/app/${condoSlug}/announcements/new`}>
-              <Plus className="h-4 w-4" />
-              Novo aviso
-            </Link>
-          </Button>
+        canCreate || canContactGranja ? (
+          <div className="flex flex-wrap gap-2">
+            {canContactGranja && (
+              <Button variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/announcements/contact`}>
+                  <MessageSquarePlus className="h-4 w-4" />
+                  Fale com o condomínio
+                </Link>
+              </Button>
+            )}
+            {canCreate && (
+              <Button asChild>
+                <Link href={`/app/${condoSlug}/announcements/new`}>
+                  <Plus className="h-4 w-4" />
+                  Novo aviso
+                </Link>
+              </Button>
+            )}
+          </div>
         ) : undefined
       }
     />
