@@ -12,6 +12,7 @@ import { ResidentAccessDeviceFields } from "@/components/access-devices/resident
 import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
 import { suggestDefaultAccessDeviceIdsFromOptions } from "@/lib/access-devices/suggested-grants";
 import { FormAlert } from "@/components/shared/feedback";
+import { PhotoField } from "@/components/shared/photo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,13 +54,14 @@ export function DoormanRegistrationRequestForm({
   }, [isBlockSource, selectedCondominiumId, units]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
 
       <FormAlert error={state.error} success={state.success} />
 
-      <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-        A solicitação será enviada ao síndico para aprovação antes de liberar o acesso do morador.
+      <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        O morador será cadastrado na hora. Nos locais de acesso marcados, o ControlID será
+        sincronizado automaticamente. O síndico receberá um e-mail informativo.
       </p>
 
       {isBlockSource && (
@@ -135,6 +137,12 @@ export function DoormanRegistrationRequestForm({
         </select>
       </div>
 
+      <PhotoField
+        label="Foto do morador"
+        inputName="photo"
+        enableCamera
+      />
+
       {isBlockSource ? (
         <DoormanAccessDeviceSelector
           devicesByCondominiumId={accessDevicesByCondominiumId}
@@ -149,7 +157,7 @@ export function DoormanRegistrationRequestForm({
 
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? "Enviando..." : "Enviar para aprovação"}
+          {pending ? "Cadastrando..." : "Cadastrar e liberar acesso"}
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/app/${condoSlug}`}>Cancelar</Link>

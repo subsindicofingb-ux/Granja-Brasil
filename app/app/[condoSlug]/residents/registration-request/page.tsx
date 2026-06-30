@@ -53,12 +53,12 @@ export default async function RegistrationRequestPage({
     return (
       <div className="mx-auto max-w-lg space-y-6">
         {enviado === "1" && (
-          <SuccessAlert message="Solicitação enviada. O síndico analisará o cadastro em breve." />
+          <SuccessAlert message="Morador cadastrado. Acesso ControlID liberado nos locais selecionados e síndico notificado por e-mail." />
         )}
 
         <PageHeader
           title="Solicitar cadastro de morador"
-          description={`Envie os dados para aprovação do síndico no bloco ${panel.block.label}.`}
+          description={`Cadastre o morador e libere o ControlID nos locais selecionados. O síndico do bloco ${panel.block.label} será notificado por e-mail.`}
         />
 
         <Card>
@@ -93,12 +93,12 @@ export default async function RegistrationRequestPage({
   return (
     <div className="mx-auto max-w-lg space-y-6">
       {enviado === "1" && (
-        <SuccessAlert message="Solicitação enviada. O síndico analisará o cadastro em breve." />
+        <SuccessAlert message="Morador cadastrado. Acesso ControlID liberado nos locais selecionados e síndico notificado por e-mail." />
       )}
 
       <PageHeader
         title="Solicitar cadastro de morador"
-        description="Envie os dados para aprovação do síndico antes de liberar o acesso."
+        description="Cadastre o morador, envie a foto e libere o ControlID nos locais marcados. O síndico receberá um e-mail informativo."
       />
 
       <Card>

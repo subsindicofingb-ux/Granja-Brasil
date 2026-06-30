@@ -92,6 +92,9 @@ export async function notifyNewRegistrationRequest(input: {
   unitLabel: string;
   profileType: import("@/lib/constants").RegistrationProfileType;
   residentType: "owner" | "tenant" | "dependent" | "responsible";
+  source?: "doorman" | "signup";
+  fulfilledImmediately?: boolean;
+  accessDeviceNames?: string[];
 }) {
   await notifyRegistrationRequestEvent({
     type: "registration_request_created",
@@ -103,5 +106,8 @@ export async function notifyNewRegistrationRequest(input: {
     unitLabel: input.unitLabel,
     profileType: input.profileType,
     residentType: input.residentType,
+    source: input.source,
+    fulfilledImmediately: input.fulfilledImmediately,
+    accessDeviceNames: input.accessDeviceNames,
   });
 }

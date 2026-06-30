@@ -11,6 +11,9 @@ export type RegistrationRequestNotificationEvent = {
   unitLabel: string;
   profileType: RegistrationProfileType;
   residentType: ResidentType;
+  source?: "doorman" | "signup";
+  fulfilledImmediately?: boolean;
+  accessDeviceNames?: string[];
 };
 
 export type RegistrationRequestRecord = {

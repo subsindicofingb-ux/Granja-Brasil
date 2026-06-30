@@ -320,9 +320,11 @@ export async function createDoormanRegistrationRequest(input: {
   fullName: string;
   email: string;
   phone?: string | null;
+  photoUrl?: string | null;
   residentType: ResidentType;
   accessDeviceIds?: string[];
-}): Promise<ServiceResult<RegistrationRequestRecord>> {
+  doormanProfileId: string;
+}): Promise<ServiceResult<{ request: RegistrationRequestRecord; residentId: string }>> {
   const profileResult = await resolveProfileIdForRegistrationEmail(input.fullName, input.email);
   if (!profileResult.ok) {
     return profileResult;
@@ -335,6 +337,7 @@ export async function createDoormanRegistrationRequest(input: {
     fullName: input.fullName,
     email: input.email,
     phone: input.phone,
+    photoUrl: input.photoUrl,
     unitId: input.unitId,
     residentType: input.residentType,
   });
@@ -358,7 +361,146 @@ export async function createDoormanRegistrationRequest(input: {
     }
   }
 
-  return requestResult;
+  const fulfillResult = await fulfillDoormanRegistrationRequest({
+    requestId: requestResult.data.id,
+    condominiumId: input.condominiumId,
+    doormanProfileId: input.doormanProfileId,
+    accessDeviceIds: input.accessDeviceIds,
+  });
+
+  if (!fulfillResult.ok) {
+    return serviceError(fulfillResult.error ?? "Não foi possível concluir o cadastro do morador.");
+  }
+
+  return serviceOk({
+    request: requestResult.data,
+    residentId: fulfillResult.data.residentId,
+  });
+}
+
+export async function fulfillDoormanRegistrationRequest(input: {
+  requestId: string;
+  condominiumId: string;
+  doormanProfileId: string;
+  accessDeviceIds?: string[];
+}): Promise<ServiceResult<{ residentId: string }>> {
+  const admin = createAdminClient();
+
+  const { data: requestRow, error: requestError } = await admin
+    .from("registration_requests")
+    .select(REQUEST_SELECT)
+    .eq("id", input.requestId)
+    .eq("condominium_id", input.condominiumId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (requestError) {
+    return serviceError(mapSupabaseError(requestError));
+  }
+
+  if (!requestRow) {
+    return serviceError("Solicitação não encontrada ou já analisada.");
+  }
+
+  const request = mapRequestRow(requestRow as RequestRow);
+  const resolvedUnitId = request.requested_unit_id;
+
+  if (!resolvedUnitId) {
+    return serviceError("Unidade da solicitação não encontrada.");
+  }
+
+  const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
+  if (!unitCheck.ok) {
+    return serviceError(unitCheck.error ?? "Unidade inválida.");
+  }
+
+  const { data: createdResident, error: residentError } = await admin
+    .from("residents")
+    .insert({
+      unit_id: resolvedUnitId,
+      profile_id: request.profile_id,
+      full_name: request.full_name,
+      email: request.email,
+      phone: request.phone,
+      photo_url: request.photo_url,
+      type: request.resident_type,
+    })
+    .select("id")
+    .single();
+
+  if (residentError) {
+    return serviceError(mapSupabaseError(residentError));
+  }
+
+  let accessDeviceIds = input.accessDeviceIds ?? [];
+
+  if (accessDeviceIds.length === 0) {
+    const { getRegistrationRequestAccessDeviceIds } = await import(
+      "@/lib/services/resident-access-grants"
+    );
+    const requestedGrants = await getRegistrationRequestAccessDeviceIds(input.requestId);
+
+    if (requestedGrants.ok) {
+      accessDeviceIds = requestedGrants.data;
+    }
+  }
+
+  if (accessDeviceIds.length > 0) {
+    const { replaceResidentAccessGrants } = await import("@/lib/services/resident-access-grants");
+    const grantsResult = await replaceResidentAccessGrants({
+      residentId: createdResident.id,
+      condominiumId: input.condominiumId,
+      accessDeviceIds,
+    });
+
+    if (!grantsResult.ok) {
+      return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+    }
+  }
+
+  const { data: existingMembership } = await admin
+    .from("memberships")
+    .select("id")
+    .eq("profile_id", request.profile_id)
+    .eq("condominium_id", input.condominiumId)
+    .maybeSingle();
+
+  if (!existingMembership) {
+    const { error: membershipError } = await admin.from("memberships").insert({
+      profile_id: request.profile_id,
+      condominium_id: input.condominiumId,
+      role: mapProfileTypeToMembershipRole(request.profile_type),
+    });
+
+    if (membershipError) {
+      return serviceError(mapSupabaseError(membershipError));
+    }
+  }
+
+  const { data: approvedRequest, error: approveError } = await admin
+    .from("registration_requests")
+    .update({
+      status: "approved",
+      reviewed_by: input.doormanProfileId,
+      reviewed_at: new Date().toISOString(),
+      review_notes: "Cadastro realizado pela portaria.",
+      unit_id: resolvedUnitId,
+    })
+    .eq("id", input.requestId)
+    .eq("condominium_id", input.condominiumId)
+    .eq("status", "pending")
+    .select(REQUEST_SELECT)
+    .maybeSingle();
+
+  if (approveError) {
+    return serviceError(mapSupabaseError(approveError));
+  }
+
+  if (!approvedRequest) {
+    return serviceError("Não foi possível concluir a aprovação da solicitação.");
+  }
+
+  return serviceOk({ residentId: createdResident.id });
 }
 
 export async function createRegistrationRequestAsAdmin(input: {

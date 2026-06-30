@@ -558,6 +558,7 @@ export async function signUpAction(
         unitLabel,
         profileType: preQualification.data.profile_type as RegistrationProfileType,
         residentType: requestResult.data.resident_type,
+        source: "signup",
       });
     }
 

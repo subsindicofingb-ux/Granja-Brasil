@@ -117,8 +117,8 @@ export function DoormanDashboard({
 
   if (permissions.canRegisterResidentsWithApproval) {
     quickActions.push({
-      title: "Solicitar cadastro",
-      description: "Enviar morador para aprovação do síndico",
+      title: "Cadastrar morador",
+      description: "Cadastro com foto e liberação ControlID nos locais selecionados",
       href: `${base}/residents/registration-request`,
       icon: Users,
       accent: "border-teal-200 bg-teal-50 text-teal-900 hover:border-teal-300 hover:bg-teal-100/80",
@@ -138,7 +138,7 @@ export function DoormanDashboard({
   if (permissions.canRegisterVehiclesWithApproval) {
     quickActions.push({
       title: "Cadastrar veículo",
-      description: "Solicitar cadastro para aprovação do síndico",
+      description: "Cadastro com foto e liberação ControlID",
       href: `${base}/vehicles/new`,
       icon: Car,
       accent: "border-blue-200 bg-blue-50 text-blue-900 hover:border-blue-300 hover:bg-blue-100/80",
