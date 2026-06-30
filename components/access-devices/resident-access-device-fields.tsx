@@ -117,7 +117,7 @@ export function ResidentAccessDeviceSummary({ grants }: ResidentAccessDeviceSumm
             <Badge className={`shrink-0 ${SYNC_STATUS_CLASSES[grant.sync_status]}`}>
               {SYNC_STATUS_LABELS[grant.sync_status]}
             </Badge>
-            {grant.sync_error && grant.sync_status === "error" && (
+            {grant.sync_error && (
               <p className="mt-1 max-w-[12rem] text-xs text-red-700">{grant.sync_error}</p>
             )}
           </div>

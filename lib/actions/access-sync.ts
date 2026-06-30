@@ -9,7 +9,10 @@ import {
   enqueueResidentAccessSyncJobs,
   processPendingAccessSyncJobs,
 } from "@/lib/services/access-sync";
-import { getResidentAccessDeviceIds } from "@/lib/services/resident-access-grants";
+import {
+  getResidentAccessDeviceIds,
+  listResidentAccessGrants,
+} from "@/lib/services/resident-access-grants";
 import { getResidentById } from "@/lib/services/residents";
 
 export async function syncResidentAccessAction(
@@ -62,8 +65,22 @@ export async function syncResidentAccessAction(
   const { completed, failed, skipped } = processResult.data;
 
   if (failed > 0) {
+    const grantsResult = await listResidentAccessGrants(residentId);
+    const errorDetails =
+      grantsResult.ok
+        ? grantsResult.data
+            .filter((grant) => grant.sync_error)
+            .map(
+              (grant) =>
+                `${grant.access_device?.display_name ?? "Local"}: ${grant.sync_error}`,
+            )
+            .join(" · ")
+        : "";
+
     return {
-      error: "Sync concluído com erro em um ou mais locais. Verifique a ficha do morador.",
+      error:
+        errorDetails ||
+        "Sync concluído com erro em um ou mais locais. Verifique a ficha do morador.",
     };
   }
 
