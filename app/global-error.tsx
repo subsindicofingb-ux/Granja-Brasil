@@ -15,15 +15,27 @@ export default function GlobalError({
     console.error(error);
   }, [error]);
 
+  const isServerActionMismatch = error.message.includes("was not found on the server");
+
   return (
     <html lang="pt-BR">
       <body className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-md space-y-4 text-center">
           <h1 className="text-xl font-semibold">Erro ao carregar a aplicação</h1>
-          <p className="text-sm text-muted-foreground">
-            Verifique se as variáveis de ambiente do Supabase estão configuradas na Vercel e se
-            o banco foi migrado com <code>supabase db push</code>.
-          </p>
+          {isServerActionMismatch ? (
+            <p className="text-sm text-muted-foreground">
+              A página estava desatualizada após um deploy recente. Atualize com{" "}
+              <strong>Ctrl+F5</strong> (ou abra uma janela anônima) e tente entrar de novo.
+              Se persistir, confira na Vercel se{" "}
+              <code className="text-xs">NEXT_SERVER_ACTIONS_ENCRYPTION_KEY</code> está definida e
+              faça redeploy.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Verifique se as variáveis de ambiente do Supabase estão configuradas na Vercel e se
+              o banco foi migrado com <code>supabase db push</code>.
+            </p>
+          )}
           {error.digest && (
             <p className="text-xs text-muted-foreground">Digest: {error.digest}</p>
           )}
