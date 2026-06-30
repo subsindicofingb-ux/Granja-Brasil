@@ -4,6 +4,10 @@ import {
   listAllPendingRegistrationRequests,
   listRegistrationRequestsByCondominium,
 } from "@/lib/services/registration-requests";
+import {
+  loadActiveAccessDevicesByCondominiumIds,
+  loadRegistrationRequestAccessDeviceIdsByRequestIds,
+} from "@/lib/services/resident-access-grants";
 import { RegistrationRequestList } from "@/components/registrations/registration-request-list";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -26,6 +30,16 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
     ? await listAllPendingRegistrationRequests()
     : await listRegistrationRequestsByCondominium(access.condominium.id);
 
+  const requests = requestsResult.ok ? (requestsResult.data ?? []) : [];
+  const condominiumIds = Array.from(new Set(requests.map((request) => request.condominium_id)));
+  const requestIds = requests.map((request) => request.id);
+  const [accessDevicesResult, requestAccessDevicesResult] = requestsResult.ok
+    ? await Promise.all([
+        loadActiveAccessDevicesByCondominiumIds(condominiumIds),
+        loadRegistrationRequestAccessDeviceIdsByRequestIds(requestIds),
+      ])
+    : [{ ok: false as const, error: "" }, { ok: false as const, error: "" }];
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
@@ -44,8 +58,14 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
       {requestsResult.ok && (
         <RegistrationRequestList
           condoSlug={condoSlug}
-          requests={requestsResult.data ?? []}
+          requests={requests}
           showCondominium={isGlobalView}
+          accessDevicesByCondominiumId={
+            accessDevicesResult.ok ? accessDevicesResult.data : {}
+          }
+          requestAccessDeviceIdsByRequestId={
+            requestAccessDevicesResult.ok ? requestAccessDevicesResult.data : {}
+          }
         />
       )}
     </div>

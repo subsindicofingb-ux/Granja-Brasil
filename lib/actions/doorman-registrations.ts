@@ -9,6 +9,7 @@ import { notifyNewRegistrationRequest } from "@/lib/actions/registration-request
 import { REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
+import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import { createDoormanRegistrationRequest } from "@/lib/services/registration-requests";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import { getSupabaseServiceRoleKey, isSupabaseConfigured } from "@/lib/supabase/env";
@@ -68,6 +69,7 @@ export async function createDoormanRegistrationRequestAction(
     email: parsed.data.email,
     phone: parsed.data.phone,
     residentType: parsed.data.resident_type,
+    accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
   });
 
   if (!result.ok) {

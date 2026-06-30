@@ -6,7 +6,9 @@ import { requireCondoPermission, requireCondoAccess } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import { createResident, deleteResident, updateResident } from "@/lib/services/residents";
+import { replaceResidentAccessGrants } from "@/lib/services/resident-access-grants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
   formDataHasRemovePhoto,
@@ -80,6 +82,16 @@ export async function createResidentAction(
     return { error: result.error };
   }
 
+  const grantsResult = await replaceResidentAccessGrants({
+    residentId: result.data.id,
+    condominiumId: unitContext.data.unitCondominiumId,
+    accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
+  });
+
+  if (!grantsResult.ok) {
+    return { error: grantsResult.error ?? "Morador criado, mas locais de acesso não foram salvos." };
+  }
+
   revalidateResidentPaths(condoSlug);
   redirect(`/app/${condoSlug}/residents/${result.data.id}`);
 }
@@ -145,6 +157,16 @@ export async function updateResidentAction(
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  const grantsResult = await replaceResidentAccessGrants({
+    residentId,
+    condominiumId: unitContext.data.unitCondominiumId,
+    accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
+  });
+
+  if (!grantsResult.ok) {
+    return { error: grantsResult.error ?? "Morador atualizado, mas locais de acesso não foram salvos." };
   }
 
   revalidateResidentPaths(condoSlug);

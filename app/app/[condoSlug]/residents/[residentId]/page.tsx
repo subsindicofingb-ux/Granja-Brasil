@@ -6,11 +6,17 @@ import { ROLES } from "@/lib/constants";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { getResidentById } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
+import {
+  getResidentAccessDeviceIds,
+  listActiveAccessDevicesForCondominium,
+  listResidentAccessGrants,
+} from "@/lib/services/resident-access-grants";
 import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
 import { ResidentDeleteButton } from "@/components/residents/resident-delete-button";
+import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -69,6 +75,17 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
   }
 
   const resident = residentResult.data;
+  const residentCondominiumId = resident.unit.tower.condominium_id;
+  const [accessDevicesResult, accessGrantsResult, residentAccessDeviceIdsResult] = await Promise.all([
+    listActiveAccessDevicesForCondominium(residentCondominiumId),
+    listResidentAccessGrants(resident.id),
+    getResidentAccessDeviceIds(resident.id),
+  ]);
+  const accessDevices = accessDevicesResult.ok ? accessDevicesResult.data : [];
+  const accessGrants = accessGrantsResult.ok ? accessGrantsResult.data : [];
+  const defaultAccessDeviceIds = residentAccessDeviceIdsResult.ok
+    ? residentAccessDeviceIdsResult.data
+    : [];
   const canEdit = access.permissions.canManageResidents;
   const canDelete =
     canEdit && (access.role === ROLES.SYNDIC || access.role === ROLES.SUPER_ADMIN);
@@ -97,6 +114,8 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                 units={units}
                 condominiumNamesById={condominiumNamesById}
                 mode="edit"
+                accessDevices={accessDevices}
+                defaultAccessDeviceIds={defaultAccessDeviceIds}
                 defaultValues={{
                   residentId: resident.id,
                   unitId: resident.unit_id,
@@ -143,6 +162,10 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                   <span className="font-medium text-green-700">Sim</span>
                 </div>
               )}
+              <div className="border-t pt-3">
+                <p className="mb-2 text-muted-foreground">Locais de acesso</p>
+                <ResidentAccessDeviceSummary grants={accessGrants} />
+              </div>
             </div>
           )}
         </CardContent>

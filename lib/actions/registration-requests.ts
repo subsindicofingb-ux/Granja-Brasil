@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { notifyRegistrationRequestEvent } from "@/lib/registrations/notifications";
+import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import {
   approveRegistrationRequest,
   rejectRegistrationRequest,
@@ -47,6 +48,8 @@ export async function reviewRegistrationRequestAction(
   const { request_id, action, review_notes, unit_id, resident_type, mark_as_unit_responsible } =
     parsed.data;
 
+  const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
+
   const result =
     action === "approve"
       ? await approveRegistrationRequest({
@@ -57,6 +60,7 @@ export async function reviewRegistrationRequestAction(
           reviewNotes: review_notes,
           residentType: resident_type,
           markAsUnitResponsible: mark_as_unit_responsible,
+          accessDeviceIds,
         })
       : await rejectRegistrationRequest({
           requestId: request_id,

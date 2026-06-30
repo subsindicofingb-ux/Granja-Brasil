@@ -12,6 +12,8 @@ import type { ResidentType } from "@/types";
 import type { UnitWithTower } from "@/lib/services/units";
 import { FormAlert } from "@/components/shared/feedback";
 import { PhotoField } from "@/components/shared/photo-field";
+import { ResidentAccessDeviceFields } from "@/components/access-devices/resident-access-device-fields";
+import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +23,8 @@ interface ResidentFormProps {
   units: UnitWithTower[];
   mode: "create" | "edit";
   condominiumNamesById?: Record<string, string>;
+  accessDevices?: AccessDeviceOption[];
+  defaultAccessDeviceIds?: string[];
   defaultValues?: {
     residentId?: string;
     unitId?: string;
@@ -37,6 +41,8 @@ export function ResidentForm({
   units,
   mode,
   condominiumNamesById,
+  accessDevices = [],
+  defaultAccessDeviceIds = [],
   defaultValues,
 }: ResidentFormProps) {
   const action = mode === "create" ? createResidentAction : updateResidentAction;
@@ -135,6 +141,11 @@ export function ResidentForm({
           defaultValue={defaultValues?.phone ?? ""}
         />
       </div>
+
+      <ResidentAccessDeviceFields
+        devices={accessDevices}
+        defaultSelectedIds={defaultAccessDeviceIds}
+      />
 
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={pending}>

@@ -3,6 +3,10 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitsByCondominium } from "@/lib/services/units";
+import {
+  listActiveAccessDevicesForCondominium,
+} from "@/lib/services/resident-access-grants";
+import { suggestDefaultAccessDeviceIdsFromOptions } from "@/lib/access-devices/suggested-grants";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
@@ -69,6 +73,9 @@ export default async function NewResidentPage({ params, searchParams }: NewResid
   }
 
   const unitsResult = await listUnitsByCondominium(access.condominium.id);
+  const accessDevicesResult = await listActiveAccessDevicesForCondominium(access.condominium.id);
+  const accessDevices = accessDevicesResult.ok ? accessDevicesResult.data : [];
+  const defaultAccessDeviceIds = suggestDefaultAccessDeviceIdsFromOptions(accessDevices);
 
   if (!unitsResult.ok) {
     return (
@@ -97,6 +104,8 @@ export default async function NewResidentPage({ params, searchParams }: NewResid
             condoSlug={condoSlug}
             units={unitsResult.data}
             mode="create"
+            accessDevices={accessDevices}
+            defaultAccessDeviceIds={defaultAccessDeviceIds}
             defaultValues={{ unitId: preselectedUnitId }}
           />
         </CardContent>

@@ -1036,6 +1036,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      resident_access_grants: {
+        Row: {
+          id: string;
+          resident_id: string;
+          access_device_id: string;
+          sync_status: Database["public"]["Enums"]["access_grant_sync_status"];
+          sync_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          resident_id: string;
+          access_device_id: string;
+          sync_status?: Database["public"]["Enums"]["access_grant_sync_status"];
+          sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          resident_id?: string;
+          access_device_id?: string;
+          sync_status?: Database["public"]["Enums"]["access_grant_sync_status"];
+          sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      registration_request_access_devices: {
+        Row: {
+          id: string;
+          registration_request_id: string;
+          access_device_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          registration_request_id: string;
+          access_device_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          registration_request_id?: string;
+          access_device_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       vehicles: {
         Row: {
           id: string;
@@ -1264,6 +1315,7 @@ export interface Database {
         | "visitor_temp"
         | "staff_maintenance";
       access_device_direction: "entry" | "exit" | "both";
+      access_grant_sync_status: "pending" | "synced" | "error";
     };
   };
 }

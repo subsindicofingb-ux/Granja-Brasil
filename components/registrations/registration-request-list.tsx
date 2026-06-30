@@ -15,6 +15,8 @@ import { RESIDENT_TYPE_OPTIONS } from "@/lib/residents/labels";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 import { FormAlert } from "@/components/shared/feedback";
+import { ResidentAccessDeviceFields } from "@/components/access-devices/resident-access-device-fields";
+import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +27,8 @@ interface RegistrationRequestListProps {
   condoSlug: string;
   requests: RegistrationRequestRecord[];
   showCondominium?: boolean;
+  accessDevicesByCondominiumId?: Record<string, AccessDeviceOption[]>;
+  requestAccessDeviceIdsByRequestId?: Record<string, string[]>;
 }
 
 function formatRequestedUnit(request: RegistrationRequestRecord): string {
@@ -36,7 +40,17 @@ function formatRequestedUnit(request: RegistrationRequestRecord): string {
   });
 }
 
-function ReviewForm({ condoSlug, request }: { condoSlug: string; request: RegistrationRequestRecord }) {
+function ReviewForm({
+  condoSlug,
+  request,
+  accessDevices,
+  defaultAccessDeviceIds,
+}: {
+  condoSlug: string;
+  request: RegistrationRequestRecord;
+  accessDevices: AccessDeviceOption[];
+  defaultAccessDeviceIds: string[];
+}) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(reviewRegistrationRequestAction, {});
   const requestCondoSlug = request.condominium?.slug ?? condoSlug;
@@ -93,6 +107,11 @@ function ReviewForm({ condoSlug, request }: { condoSlug: string; request: Regist
         </div>
       )}
 
+      <ResidentAccessDeviceFields
+        devices={accessDevices}
+        defaultSelectedIds={defaultAccessDeviceIds}
+      />
+
       <div className="space-y-2">
         <Label htmlFor={`review_notes_${request.id}`}>Observações (opcional)</Label>
         <Input
@@ -118,6 +137,8 @@ export function RegistrationRequestList({
   condoSlug,
   requests,
   showCondominium = false,
+  accessDevicesByCondominiumId = {},
+  requestAccessDeviceIdsByRequestId = {},
 }: RegistrationRequestListProps) {
   if (requests.length === 0) {
     return (
@@ -196,7 +217,12 @@ export function RegistrationRequestList({
           )}
 
           {request.status === "pending" && (
-            <ReviewForm condoSlug={condoSlug} request={request} />
+            <ReviewForm
+              condoSlug={condoSlug}
+              request={request}
+              accessDevices={accessDevicesByCondominiumId[request.condominium_id] ?? []}
+              defaultAccessDeviceIds={requestAccessDeviceIdsByRequestId[request.id] ?? []}
+            />
           )}
         </div>
       ))}

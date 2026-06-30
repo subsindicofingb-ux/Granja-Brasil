@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { listUnitsByCondominium } from "@/lib/services/units";
+import { loadActiveAccessDevicesByCondominiumIds } from "@/lib/services/resident-access-grants";
 import { DoormanRegistrationRequestForm } from "@/components/doorman/doorman-registration-request-form";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -44,6 +45,10 @@ export default async function RegistrationRequestPage({
 
   if (panelResult.data.mode === "block") {
     const { panel } = panelResult.data;
+    const accessDevicesResult = await loadActiveAccessDevicesByCondominiumIds(
+      panel.condominiums.map((condominium) => condominium.id),
+    );
+    const accessDevicesByCondominiumId = accessDevicesResult.ok ? accessDevicesResult.data : {};
 
     return (
       <div className="mx-auto max-w-lg space-y-6">
@@ -67,6 +72,7 @@ export default async function RegistrationRequestPage({
               condominiums={panel.condominiums}
               units={panel.units}
               condominiumNamesById={panel.condominiumNamesById}
+              accessDevicesByCondominiumId={accessDevicesByCondominiumId}
             />
           </CardContent>
         </Card>
@@ -75,6 +81,10 @@ export default async function RegistrationRequestPage({
   }
 
   const unitsResult = await listUnitsByCondominium(access.condominium.id);
+  const accessDevicesResult = await loadActiveAccessDevicesByCondominiumIds([access.condominium.id]);
+  const accessDevices = accessDevicesResult.ok
+    ? (accessDevicesResult.data[access.condominium.id] ?? [])
+    : [];
 
   if (!unitsResult.ok) {
     return <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />;
@@ -96,7 +106,11 @@ export default async function RegistrationRequestPage({
           <CardTitle className="text-base">Dados do morador</CardTitle>
         </CardHeader>
         <CardContent>
-          <DoormanRegistrationRequestForm condoSlug={condoSlug} units={unitsResult.data} />
+          <DoormanRegistrationRequestForm
+            condoSlug={condoSlug}
+            units={unitsResult.data}
+            accessDevices={accessDevices}
+          />
         </CardContent>
       </Card>
     </div>

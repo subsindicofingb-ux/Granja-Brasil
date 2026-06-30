@@ -7,6 +7,10 @@ import { createDoormanRegistrationRequestAction } from "@/lib/actions/doorman-re
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { RESIDENT_TYPE_OPTIONS, formatUnitOptionLabel } from "@/lib/residents/labels";
 import type { UnitWithTower } from "@/lib/services/units";
+import { DoormanAccessDeviceSelector } from "@/components/doorman/doorman-access-device-selector";
+import { ResidentAccessDeviceFields } from "@/components/access-devices/resident-access-device-fields";
+import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
+import { suggestDefaultAccessDeviceIdsFromOptions } from "@/lib/access-devices/suggested-grants";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +22,8 @@ interface DoormanRegistrationRequestFormProps {
   condominiums?: Array<{ id: string; name: string; slug: string }>;
   units: UnitWithTower[];
   condominiumNamesById?: Record<string, string>;
+  accessDevicesByCondominiumId?: Record<string, AccessDeviceOption[]>;
+  accessDevices?: AccessDeviceOption[];
 }
 
 export function DoormanRegistrationRequestForm({
@@ -26,6 +32,8 @@ export function DoormanRegistrationRequestForm({
   condominiums = [],
   units,
   condominiumNamesById = {},
+  accessDevicesByCondominiumId = {},
+  accessDevices = [],
 }: DoormanRegistrationRequestFormProps) {
   const [state, formAction, pending] = useActionState(createDoormanRegistrationRequestAction, {});
   const [selectedCondominiumId, setSelectedCondominiumId] = useState(
@@ -126,6 +134,18 @@ export function DoormanRegistrationRequestForm({
           ))}
         </select>
       </div>
+
+      {isBlockSource ? (
+        <DoormanAccessDeviceSelector
+          devicesByCondominiumId={accessDevicesByCondominiumId}
+          selectedCondominiumId={selectedCondominiumId}
+        />
+      ) : (
+        <ResidentAccessDeviceFields
+          devices={accessDevices}
+          defaultSelectedIds={suggestDefaultAccessDeviceIdsFromOptions(accessDevices)}
+        />
+      )}
 
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending}>

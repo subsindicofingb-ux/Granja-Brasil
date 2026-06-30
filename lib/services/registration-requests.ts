@@ -321,13 +321,14 @@ export async function createDoormanRegistrationRequest(input: {
   email: string;
   phone?: string | null;
   residentType: ResidentType;
+  accessDeviceIds?: string[];
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   const profileResult = await resolveProfileIdForRegistrationEmail(input.fullName, input.email);
   if (!profileResult.ok) {
     return profileResult;
   }
 
-  return createRegistrationRequestAsAdmin({
+  const requestResult = await createRegistrationRequestAsAdmin({
     profileId: profileResult.data,
     condominiumId: input.condominiumId,
     profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
@@ -337,6 +338,27 @@ export async function createDoormanRegistrationRequest(input: {
     unitId: input.unitId,
     residentType: input.residentType,
   });
+
+  if (!requestResult.ok) {
+    return requestResult;
+  }
+
+  if (input.accessDeviceIds && input.accessDeviceIds.length > 0) {
+    const { replaceRegistrationRequestAccessDevices } = await import(
+      "@/lib/services/resident-access-grants"
+    );
+    const grantsResult = await replaceRegistrationRequestAccessDevices({
+      registrationRequestId: requestResult.data.id,
+      condominiumId: input.condominiumId,
+      accessDeviceIds: input.accessDeviceIds,
+    });
+
+    if (!grantsResult.ok) {
+      return serviceError(grantsResult.error ?? "Solicitação criada, mas locais de acesso falharam.");
+    }
+  }
+
+  return requestResult;
 }
 
 export async function createRegistrationRequestAsAdmin(input: {
@@ -714,6 +736,7 @@ export async function approveRegistrationRequest(input: {
   reviewNotes?: string;
   residentType?: ResidentType;
   markAsUnitResponsible?: boolean;
+  accessDeviceIds?: string[];
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   const requestResult = await getRegistrationRequestById(input.requestId, input.condominiumId);
   if (!requestResult.ok) {
@@ -778,18 +801,62 @@ export async function approveRegistrationRequest(input: {
       }
     }
 
-    const { error: residentError } = await supabase.from("residents").insert({
-      unit_id: resolvedUnitId,
-      profile_id: request.profile_id,
-      full_name: request.full_name,
-      email: request.email,
-      phone: request.phone,
-      photo_url: request.photo_url,
-      type: resolvedResidentType,
-    });
+    const { data: createdResident, error: residentError } = await supabase
+      .from("residents")
+      .insert({
+        unit_id: resolvedUnitId,
+        profile_id: request.profile_id,
+        full_name: request.full_name,
+        email: request.email,
+        phone: request.phone,
+        photo_url: request.photo_url,
+        type: resolvedResidentType,
+      })
+      .select("id")
+      .single();
 
     if (residentError) {
       return serviceError(mapSupabaseError(residentError));
+    }
+
+    if (createdResident?.id) {
+      const { replaceResidentAccessGrants, replaceRegistrationRequestAccessDevices } =
+        await import("@/lib/services/resident-access-grants");
+
+      if (input.accessDeviceIds !== undefined) {
+        const grantsResult = await replaceResidentAccessGrants({
+          residentId: createdResident.id,
+          condominiumId: input.condominiumId,
+          accessDeviceIds: input.accessDeviceIds,
+        });
+
+        if (!grantsResult.ok) {
+          return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+        }
+
+        await replaceRegistrationRequestAccessDevices({
+          registrationRequestId: input.requestId,
+          condominiumId: input.condominiumId,
+          accessDeviceIds: input.accessDeviceIds,
+        });
+      } else {
+        const { getRegistrationRequestAccessDeviceIds } = await import(
+          "@/lib/services/resident-access-grants"
+        );
+        const requestedGrants = await getRegistrationRequestAccessDeviceIds(input.requestId);
+
+        if (requestedGrants.ok && requestedGrants.data.length > 0) {
+          const grantsResult = await replaceResidentAccessGrants({
+            residentId: createdResident.id,
+            condominiumId: input.condominiumId,
+            accessDeviceIds: requestedGrants.data,
+          });
+
+          if (!grantsResult.ok) {
+            return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+          }
+        }
+      }
     }
   }
 
