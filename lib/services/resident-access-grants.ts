@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { AccessDeviceOption, ResidentAccessGrantRecord } from "@/lib/access-devices/grant-types";
 import { mapDevicesToOptions } from "@/lib/access-devices/suggested-grants";
 import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
@@ -261,9 +262,9 @@ export async function replaceRegistrationRequestAccessDevices(input: {
   }
 
   try {
-    const supabase = await createClient();
+    const admin = createAdminClient();
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await admin
       .from("registration_request_access_devices")
       .delete()
       .eq("registration_request_id", input.registrationRequestId);
@@ -276,7 +277,7 @@ export async function replaceRegistrationRequestAccessDevices(input: {
       return serviceOk(undefined);
     }
 
-    const { error: insertError } = await supabase.from("registration_request_access_devices").insert(
+    const { error: insertError } = await admin.from("registration_request_access_devices").insert(
       input.accessDeviceIds.map((accessDeviceId) => ({
         registration_request_id: input.registrationRequestId,
         access_device_id: accessDeviceId,
