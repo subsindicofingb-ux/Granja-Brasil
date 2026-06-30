@@ -2,9 +2,11 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel, getOperationalCondominiumIds } from "@/lib/condominiums/doorman-panel";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import {
   listCorrespondenceNotices,
+  listCorrespondenceNoticesForCondominiumIds,
   listCorrespondenceNoticesForGranjaDoorman,
 } from "@/lib/services/correspondence";
 import { listResidentsByCondominium } from "@/lib/services/residents";
@@ -33,11 +35,22 @@ export default async function CorrespondencePage({
     (ctx) => ctx.permissions.canManageCorrespondence,
   );
 
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  const isBlockSource = panelResult.ok && panelResult.data.mode === "block";
+  const blockLabel =
+    panelResult.ok && panelResult.data.mode === "block"
+      ? panelResult.data.panel.block.label
+      : null;
+
   const [result, residentsResult] = await Promise.all([
     isGranjaSource
       ? listCorrespondenceNoticesForGranjaDoorman()
-      : listCorrespondenceNotices(access.condominium.id),
-    isGranjaSource
+      : isBlockSource
+        ? listCorrespondenceNoticesForCondominiumIds(
+            getOperationalCondominiumIds(panelResult.data, access.condominium.id),
+          )
+        : listCorrespondenceNotices(access.condominium.id),
+    isGranjaSource || isBlockSource
       ? listResidentsByCondominium()
       : listResidentsByCondominium({ condominiumId: access.condominium.id }),
   ]);
@@ -47,7 +60,17 @@ export default async function CorrespondencePage({
   }
 
   const notices = result.data;
-  const unitResidents = (residentsResult.ok ? residentsResult.data : []).map((resident) => ({
+  const blockCondominiumIds =
+    isBlockSource && panelResult.ok
+      ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
+      : null;
+  const unitResidents = (residentsResult.ok ? residentsResult.data : [])
+    .filter(
+      (resident) =>
+        !blockCondominiumIds ||
+        blockCondominiumIds.includes(resident.unit.tower.condominium_id),
+    )
+    .map((resident) => ({
     id: resident.id,
     unit_id: resident.unit_id,
     full_name: resident.full_name,
@@ -68,7 +91,9 @@ export default async function CorrespondencePage({
         description={
           isGranjaSource
             ? "Registro de encomendas nos condomínios filhos."
-            : "Registro de encomendas e avisos de retirada na portaria."
+            : isBlockSource
+              ? `Registro de encomendas no bloco ${blockLabel}.`
+              : "Registro de encomendas e avisos de retirada na portaria."
         }
         action={
           <Button asChild>
@@ -110,7 +135,9 @@ export default async function CorrespondencePage({
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {formatDateTime(notice.created_at)}
-                    {isGranjaSource && notice.condominium_name && ` · ${notice.condominium_name}`}
+                    {(isGranjaSource || isBlockSource) &&
+                      notice.condominium_name &&
+                      ` · ${notice.condominium_name}`}
                     {notice.unit && ` · ${formatUnitWithTower(notice.unit)}`}
                     {notice.recipient_name && ` · Dest.: ${notice.recipient_name}`}
                     {notice.target_resident &&

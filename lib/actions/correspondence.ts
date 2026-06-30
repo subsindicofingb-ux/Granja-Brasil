@@ -7,6 +7,7 @@ import { after } from "next/server";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
 import { notifyCorrespondenceCreated } from "@/lib/email/correspondence-notifications";
 import {
   createCorrespondenceNotice,
@@ -45,9 +46,12 @@ export async function createCorrespondenceNoticeAction(
   }
 
   const isGranjaSource = isGeneralCondominium(condoSlug);
-  const targetCondominiumId = isGranjaSource
-    ? parsed.data.target_condominium_id
-    : access.condominium.id;
+  const blockPanelResult = !isGranjaSource ? await loadDoormanBlockPanelData(condoSlug) : null;
+  const isBlockSource = Boolean(blockPanelResult?.ok && blockPanelResult.data);
+  const targetCondominiumId =
+    isGranjaSource || isBlockSource
+      ? parsed.data.target_condominium_id
+      : access.condominium.id;
 
   if (!targetCondominiumId) {
     return { error: "Selecione o condomínio de destino." };

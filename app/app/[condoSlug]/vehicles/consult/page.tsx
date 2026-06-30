@@ -7,6 +7,7 @@ import {
   formatCondominiumDisplayName,
   isGeneralCondominium,
 } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel, getOperationalCondominiumIds } from "@/lib/condominiums/doorman-panel";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { searchVehiclesForConsult, listPendingVehiclesForConsult } from "@/lib/services/vehicles";
 import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
@@ -34,16 +35,25 @@ async function ConsultContent({
 }) {
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+    (ctx) =>
+      ctx.permissions.canManageVehicles ||
+      ctx.permissions.canViewUnitVehicles ||
+      ctx.permissions.canConsultVehicles,
   );
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
+  const panelResult = !isGeneralCondoPage ? await resolveDoormanOperationalPanel(condoSlug) : null;
+  const isBlockSource = panelResult?.ok && panelResult.data.mode === "block";
+  const blockCondominiumIds =
+    isBlockSource && panelResult?.ok
+      ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
+      : null;
   const includeUnapproved = isGeneralCondoPage && access.permissions.canManageVehicles;
   const isPendingView =
     includeUnapproved && status === VEHICLE_STATUS.PENDING;
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
   const normalizedPlate = plate?.trim() ?? "";
 
-  if (unitQuery === "none" && !access.permissions.canManageVehicles) {
+  if (unitQuery === "none" && !access.permissions.canManageVehicles && !access.permissions.canConsultVehicles) {
     return (
       <EmptyState
         title="Unidade não vinculada"
@@ -54,7 +64,11 @@ async function ConsultContent({
 
   const vehiclesResult = normalizedPlate
     ? await searchVehiclesForConsult({
-        condominiumId: isGeneralCondoPage ? undefined : access.condominium.id,
+        condominiumId:
+          isGeneralCondoPage || blockCondominiumIds
+            ? undefined
+            : access.condominium.id,
+        condominiumIds: blockCondominiumIds ?? undefined,
         plate: normalizedPlate,
         includeUnapproved,
         ...(unitQuery === "none"
@@ -193,9 +207,9 @@ async function ConsultContent({
                 {includeUnapproved && (
                   <th className="px-4 py-3 text-left font-medium">Status</th>
                 )}
-                {isGeneralCondoPage && (
+                {isGeneralCondoPage || isBlockSource ? (
                   <th className="px-4 py-3 text-left font-medium">Condomínio</th>
-                )}
+                ) : null}
                 <th className="px-4 py-3 text-right font-medium">Ações</th>
               </tr>
             </thead>
@@ -247,14 +261,14 @@ async function ConsultContent({
                       </Badge>
                     </td>
                   )}
-                  {isGeneralCondoPage && (
+                  {isGeneralCondoPage || isBlockSource ? (
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatCondominiumDisplayName(
                         vehicle.condominium.name,
                         vehicle.condominium.slug,
                       )}
                     </td>
-                  )}
+                  ) : null}
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>

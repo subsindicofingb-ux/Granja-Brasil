@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
-import { requireCondoAccess } from "@/lib/auth/access";
+import { requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { getCondominiumBySlug } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { listUnitsByCondominium } from "@/lib/services/units";
@@ -23,18 +24,32 @@ interface ResidentsPageProps {
 }
 
 async function ResidentsHeader({ condoSlug }: { condoSlug: string }) {
-  const access = await requireCondoAccess(condoSlug);
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageResidents || ctx.permissions.canConsultResidents,
+    { redirectTo: `/app/${condoSlug}` },
+  );
 
   return (
     <PageHeader
       title="Moradores"
-      description="Proprietários, inquilinos, dependentes e responsáveis."
+      description={
+        access.permissions.canConsultResidents && !access.permissions.canManageResidents
+          ? "Consulta de moradores cadastrados nas unidades."
+          : "Proprietários, inquilinos, dependentes e responsáveis."
+      }
       action={
         access.permissions.canManageResidents ? (
           <Button asChild>
             <Link href={`/app/${condoSlug}/residents/new`}>
               <Plus className="h-4 w-4" />
               Novo morador
+            </Link>
+          </Button>
+        ) : access.permissions.canRegisterResidentsWithApproval ? (
+          <Button asChild>
+            <Link href={`/app/${condoSlug}/residents/registration-request`}>
+              Solicitar cadastro
             </Link>
           </Button>
         ) : undefined
@@ -54,7 +69,11 @@ async function ResidentsContent({
   unitId?: string;
   selectedCondominiumSlug?: string;
 }) {
-  const access = await requireCondoAccess(condoSlug);
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageResidents || ctx.permissions.canConsultResidents,
+    { redirectTo: `/app/${condoSlug}` },
+  );
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
 
   if (isGeneralCondoPage) {
@@ -161,6 +180,106 @@ async function ResidentsContent({
                     <td className="px-4 py-3 font-medium">{resident.full_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge className="border bg-background">
+                        {getResidentTypeLabel(resident.type)}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {resident.email ?? resident.phone ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                          {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  if (panelResult.ok && panelResult.data.mode === "block") {
+    const { panel } = panelResult.data;
+    const filteredCondominium = selectedCondominiumSlug
+      ? panel.condominiums.find((condominium) => condominium.slug === selectedCondominiumSlug)
+      : undefined;
+
+    const residentsResult = await listResidentsByCondominium({
+      condominiumId: filteredCondominium?.id,
+      unitId,
+    });
+
+    if (!residentsResult.ok) {
+      return <ErrorAlert message={residentsResult.error} title="Erro ao carregar moradores" />;
+    }
+
+    const residents = residentsResult.data;
+
+    return (
+      <div className="space-y-4">
+        <ResidentFilters
+          condoSlug={condoSlug}
+          units={panel.units}
+          condominiums={panel.condominiums}
+          condominiumNamesById={panel.condominiumNamesById}
+          selectedCondominiumSlug={selectedCondominiumSlug}
+          selectedUnitId={unitId}
+        />
+
+        {panel.units.length === 0 ? (
+          <EmptyState
+            title="Nenhuma unidade cadastrada"
+            description="Não há unidades nos condomínios deste bloco."
+          />
+        ) : residents.length === 0 ? (
+          <EmptyState
+            title={
+              unitId || selectedCondominiumSlug
+                ? "Nenhum morador neste filtro"
+                : "Nenhum morador cadastrado"
+            }
+            description={
+              unitId || selectedCondominiumSlug
+                ? "Não há moradores para os filtros selecionados."
+                : "Não há moradores cadastrados neste bloco."
+            }
+            action={
+              access.permissions.canRegisterResidentsWithApproval ? (
+                <Button asChild>
+                  <Link href={`/app/${condoSlug}/residents/registration-request`}>
+                    Solicitar cadastro
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Nome</th>
+                  <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                  <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                  <th className="px-4 py-3 text-left font-medium">Contato</th>
+                  <th className="px-4 py-3 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {residents.map((resident) => (
+                  <tr key={resident.id} className="border-b last:border-0">
+                    <td className="px-4 py-3 font-medium">{resident.full_name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge className="border bg-background">
@@ -314,17 +433,34 @@ export default async function ResidentsPage({ params, searchParams }: ResidentsP
   const unitId = isValidUuid(unit) ? unit : undefined;
   const selectedCondominiumSlug = condominium?.trim().toLowerCase() || undefined;
 
-  if (selectedCondominiumSlug && isGeneralCondominium(condoSlug)) {
-    const condominiumResult = await getCondominiumBySlug(selectedCondominiumSlug);
-    if (!condominiumResult.ok) {
-      return (
-        <div className="space-y-6">
-          <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
-            <ResidentsHeader condoSlug={condoSlug} />
-          </Suspense>
-          <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
-        </div>
-      );
+  if (selectedCondominiumSlug) {
+    if (isGeneralCondominium(condoSlug)) {
+      const condominiumResult = await getCondominiumBySlug(selectedCondominiumSlug);
+      if (!condominiumResult.ok) {
+        return (
+          <div className="space-y-6">
+            <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
+              <ResidentsHeader condoSlug={condoSlug} />
+            </Suspense>
+            <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
+          </div>
+        );
+      }
+    } else {
+      const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+      if (panelResult.ok && panelResult.data.mode === "block") {
+        const validSlugs = panelResult.data.panel.condominiums.map((condominium) => condominium.slug);
+        if (!validSlugs.includes(selectedCondominiumSlug)) {
+          return (
+            <div className="space-y-6">
+              <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
+                <ResidentsHeader condoSlug={condoSlug} />
+              </Suspense>
+              <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
+            </div>
+          );
+        }
+      }
     }
   }
 

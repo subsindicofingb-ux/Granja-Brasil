@@ -7,6 +7,7 @@ import { getUnitListFilterForAccess, getScopedUnitIds } from "@/lib/auth/unit-sc
 import type { AuthActionState } from "@/lib/auth/types";
 import { VEHICLE_STATUS } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
 import { getLinkedResidentForProfile } from "@/lib/services/residents";
 import { createVehicle, deleteVehicle, reviewVehicle, updateVehicle } from "@/lib/services/vehicles";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -35,11 +36,17 @@ export async function createVehicleAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canRegisterUnitVehicles,
+    (ctx) =>
+      ctx.permissions.canManageVehicles ||
+      ctx.permissions.canRegisterUnitVehicles ||
+      ctx.permissions.canRegisterVehiclesWithApproval,
     { redirectTo: `/app/${condoSlug}/vehicles` },
   );
 
   const isResidentRegistration = access.permissions.canRegisterUnitVehicles;
+  const isDoormanRegistration =
+    access.permissions.canRegisterVehiclesWithApproval && !access.permissions.canManageVehicles;
+  const needsApproval = isResidentRegistration || isDoormanRegistration;
   const parsed = vehicleFormSchema.safeParse({
     unit_id: formData.get("unit_id"),
     resident_id: formData.get("resident_id") ?? "",
@@ -55,7 +62,9 @@ export async function createVehicleAction(
   }
 
   const isGeneralCondo = isGeneralCondominium(condoSlug);
-  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const blockPanelResult = !isGeneralCondo ? await loadDoormanBlockPanelData(condoSlug) : null;
+  const isBlockSource = Boolean(blockPanelResult?.ok && blockPanelResult.data);
+  const scopeCondominiumId = isGeneralCondo || isBlockSource ? undefined : access.condominium.id;
 
   let unitId = parsed.data.unit_id;
   let residentId = parsed.data.resident_id;
@@ -117,7 +126,7 @@ export async function createVehicleAction(
     licensePlate: parsed.data.license_plate,
     tagNumber: parsed.data.tag_number,
     photoUrl: uploadResult.data,
-    status: isResidentRegistration ? VEHICLE_STATUS.PENDING : VEHICLE_STATUS.APPROVED,
+    status: needsApproval ? VEHICLE_STATUS.PENDING : VEHICLE_STATUS.APPROVED,
   });
 
   if (!result.ok) {
@@ -126,7 +135,7 @@ export async function createVehicleAction(
 
   revalidateVehiclePaths(condoSlug);
 
-  if (isResidentRegistration) {
+  if (needsApproval) {
     redirect(
       `/app/${condoSlug}/vehicles/${result.data.id}?submitted=1`,
     );

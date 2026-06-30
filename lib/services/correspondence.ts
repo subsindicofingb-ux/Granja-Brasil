@@ -293,6 +293,28 @@ export async function listCorrespondenceNotices(
   return serviceOk(await enrichCorrespondenceRows((data as CorrespondenceRow[] | null) ?? []));
 }
 
+export async function listCorrespondenceNoticesForCondominiumIds(
+  condominiumIds: string[],
+): Promise<ServiceResult<CorrespondenceNotice[]>> {
+  if (condominiumIds.length === 0) {
+    return serviceOk([]);
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("correspondence_notices")
+    .select(CORRESPONDENCE_SELECT)
+    .in("condominium_id", condominiumIds)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(await enrichCorrespondenceRows((data as CorrespondenceRow[] | null) ?? []));
+}
+
 export async function listCorrespondenceNoticesForGranjaDoorman(): Promise<
   ServiceResult<CorrespondenceNotice[]>
 > {
@@ -422,6 +444,7 @@ export async function markCorrespondenceAsPickedUp(
 
 export async function countPendingCorrespondenceNotices(
   condominiumId?: string,
+  condominiumIds?: string[],
 ): Promise<ServiceResult<number>> {
   const supabase = await createClient();
 
@@ -430,7 +453,9 @@ export async function countPendingCorrespondenceNotices(
     .select("id", { count: "exact", head: true })
     .is("picked_up_at", null);
 
-  if (condominiumId) {
+  if (condominiumIds && condominiumIds.length > 0) {
+    query = query.in("condominium_id", condominiumIds);
+  } else if (condominiumId) {
     query = query.eq("condominium_id", condominiumId);
   } else {
     const granjaId = await getGranjaCondominiumId();

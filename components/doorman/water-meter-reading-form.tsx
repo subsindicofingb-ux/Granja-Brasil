@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createWaterMeterReadingAction } from "@/lib/actions/water-meters";
+import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +11,15 @@ import { Label } from "@/components/ui/label";
 interface WaterMeterReadingFormProps {
   condoSlug: string;
   defaultDate: string;
+  isBlockSource?: boolean;
+  condominiums?: Array<{ id: string; name: string; slug: string }>;
 }
 
 export function WaterMeterReadingForm({
   condoSlug,
   defaultDate,
+  isBlockSource = false,
+  condominiums = [],
 }: WaterMeterReadingFormProps) {
   const [state, formAction, pending] = useActionState(createWaterMeterReadingAction, {});
 
@@ -23,6 +28,25 @@ export function WaterMeterReadingForm({
       <input type="hidden" name="condo_slug" value={condoSlug} />
 
       <FormAlert error={state.error} success={state.success} />
+
+      {isBlockSource && (
+        <div className="space-y-2">
+          <Label htmlFor="target_condominium_id">Condomínio</Label>
+          <select
+            id="target_condominium_id"
+            name="target_condominium_id"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            defaultValue={condominiums[0]?.id ?? ""}
+            required
+          >
+            {condominiums.map((condominium) => (
+              <option key={condominium.id} value={condominium.id}>
+                {formatCondominiumDisplayName(condominium.name, condominium.slug)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

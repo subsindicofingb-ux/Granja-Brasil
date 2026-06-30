@@ -25,6 +25,7 @@ import { DoormanDashboard } from "@/components/dashboard/doorman-dashboard";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
 import type { CorrespondenceNotice } from "@/lib/correspondence/types";
 import { countPendingCorrespondenceNotices, listPendingCorrespondenceForProfile } from "@/lib/services/correspondence";
+import { resolveDoormanOperationalPanel, getOperationalCondominiumIds } from "@/lib/condominiums/doorman-panel";
 import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -213,8 +214,20 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   }
 
   if (access.role === ROLES.DOORMAN && !isGeneralCondoDashboard) {
+    const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+    const blockLabel =
+      panelResult.ok && panelResult.data.mode === "block"
+        ? panelResult.data.panel.block.label
+        : undefined;
+    const operationalCondoIds =
+      panelResult.ok && panelResult.data.mode !== "single"
+        ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
+        : [access.condominium.id];
+
     const [pendingCorrespondenceResult, waterMeterSummaryResult] = await Promise.all([
-      countPendingCorrespondenceNotices(access.condominium.id),
+      operationalCondoIds.length > 1
+        ? countPendingCorrespondenceNotices(undefined, operationalCondoIds)
+        : countPendingCorrespondenceNotices(access.condominium.id),
       getWaterMeterDashboardSummary(access.condominium.id),
     ]);
 
@@ -222,6 +235,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       <DoormanDashboard
         condoSlug={condoSlug}
         condominiumName={access.condominium.name}
+        blockLabel={blockLabel}
         permissions={access.permissions}
         upcomingReservations={upcomingReservations}
         recentAnnouncements={recentAnnouncements}

@@ -3,6 +3,7 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import { getUnitListFilterForAccess, getScopedUnitIds } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { listResidentsByCondominium } from "@/lib/services/residents";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -21,11 +22,16 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canRegisterUnitVehicles,
+    (ctx) =>
+      ctx.permissions.canManageVehicles ||
+      ctx.permissions.canRegisterUnitVehicles ||
+      ctx.permissions.canRegisterVehiclesWithApproval,
     { redirectTo: `/app/${condoSlug}/vehicles` },
   );
 
   const isResidentSubmission = access.permissions.canRegisterUnitVehicles;
+  const isDoormanSubmission =
+    access.permissions.canRegisterVehiclesWithApproval && !access.permissions.canManageVehicles;
 
   if (isResidentSubmission) {
     const unitFilter = await getUnitListFilterForAccess(access);
@@ -81,6 +87,116 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
               residents={[]}
               mode="create"
               isResidentSubmission
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isDoormanSubmission) {
+    const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+    if (!panelResult.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={panelResult.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (panelResult.data.mode === "granja") {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message="Cadastro de veículos é feito nos condomínios filhos." />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (panelResult.data.mode === "block") {
+      const { panel } = panelResult.data;
+      const residentsResult = await listResidentsByCondominium();
+      const blockCondominiumIds = panel.condominiums.map((condominium) => condominium.id);
+      const residents = (residentsResult.ok ? residentsResult.data : []).filter((resident) =>
+        blockCondominiumIds.includes(resident.unit.tower.condominium_id),
+      );
+
+      return (
+        <div className="mx-auto max-w-lg space-y-6">
+          <PageHeader
+            title="Novo veículo"
+            description={`Cadastre placa e TAG para aprovação do síndico no bloco ${panel.block.label}.`}
+          />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Dados do veículo</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <VehicleForm
+                condoSlug={condoSlug}
+                units={panel.units}
+                residents={residents}
+                condominiumNamesById={panel.condominiumNamesById}
+                mode="create"
+                isPendingApproval
+              />
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    const [unitsResult, residentsResult] = await Promise.all([
+      listUnitsByCondominium(access.condominium.id),
+      listResidentsByCondominium({ condominiumId: access.condominium.id }),
+    ]);
+
+    if (!unitsResult.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={unitsResult.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (!residentsResult.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={residentsResult.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/vehicles`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <PageHeader
+          title="Novo veículo"
+          description="Cadastre placa e TAG para aprovação do síndico."
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Dados do veículo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VehicleForm
+              condoSlug={condoSlug}
+              units={unitsResult.data}
+              residents={residentsResult.data}
+              mode="create"
+              isPendingApproval
             />
           </CardContent>
         </Card>

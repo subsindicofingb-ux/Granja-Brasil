@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
 import { notifyWaterMeterAbnormalConsumption } from "@/lib/email/water-meter-notifications";
 import { createWaterMeterReading, updateWaterMeterReading } from "@/lib/services/water-meters";
 import {
@@ -39,8 +40,25 @@ export async function createWaterMeterReadingAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
+  const blockPanelResult = await loadDoormanBlockPanelData(condoSlug);
+  const isBlockSource = Boolean(blockPanelResult.ok && blockPanelResult.data);
+  const targetCondominiumId = isBlockSource
+    ? parsed.data.target_condominium_id
+    : access.condominium.id;
+
+  if (!targetCondominiumId) {
+    return { error: "Selecione o condomínio de destino." };
+  }
+
+  if (isBlockSource && blockPanelResult?.ok && blockPanelResult.data) {
+    const allowedIds = blockPanelResult.data.condominiums.map((condominium) => condominium.id);
+    if (!allowedIds.includes(targetCondominiumId)) {
+      return { error: "Condomínio inválido para este bloco." };
+    }
+  }
+
   const result = await createWaterMeterReading({
-    condominiumId: access.condominium.id,
+    condominiumId: targetCondominiumId,
     readingDate: parsed.data.reading_date,
     readingValue: parsed.data.reading_value,
     createdBy: access.profile.id,

@@ -260,6 +260,7 @@ export async function countVehicles(options?: {
 
 export async function searchVehiclesForConsult(options?: {
   condominiumId?: string;
+  condominiumIds?: string[];
   plate?: string;
   unitId?: string;
   unitIds?: string[];
@@ -284,7 +285,9 @@ export async function searchVehiclesForConsult(options?: {
     query = query.eq("status", VEHICLE_STATUS.APPROVED);
   }
 
-  if (options?.condominiumId) {
+  if (options?.condominiumIds?.length) {
+    query = query.in("condominium_id", options.condominiumIds);
+  } else if (options?.condominiumId) {
     query = query.eq("condominium_id", options.condominiumId);
   }
 

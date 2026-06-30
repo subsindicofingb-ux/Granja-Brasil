@@ -23,6 +23,7 @@ type UnitResidentOption = {
 interface CorrespondenceFormProps {
   condoSlug: string;
   isGranjaSource?: boolean;
+  isBlockSource?: boolean;
   condominiums?: Array<{ id: string; name: string; slug: string }>;
   units: UnitWithTower[];
   unitResidents: UnitResidentOption[];
@@ -32,21 +33,23 @@ interface CorrespondenceFormProps {
 export function CorrespondenceForm({
   condoSlug,
   isGranjaSource = false,
+  isBlockSource = false,
   condominiums = [],
   units,
   unitResidents,
   condominiumNamesById = {},
 }: CorrespondenceFormProps) {
+  const isMultiCondoSource = isGranjaSource || isBlockSource;
   const [state, formAction, pending] = useActionState(createCorrespondenceNoticeAction, {});
   const [selectedCondominiumId, setSelectedCondominiumId] = useState(
-    isGranjaSource ? (condominiums[0]?.id ?? "") : "",
+    isMultiCondoSource ? (condominiums[0]?.id ?? "") : "",
   );
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [recipientSelection, setRecipientSelection] = useState("");
   const [manualRecipientName, setManualRecipientName] = useState("");
 
   const filteredUnits = useMemo(() => {
-    if (!isGranjaSource) {
+    if (!isMultiCondoSource) {
       return units;
     }
 
@@ -55,7 +58,7 @@ export function CorrespondenceForm({
     }
 
     return units.filter((unit) => unit.tower.condominium_id === selectedCondominiumId);
-  }, [isGranjaSource, selectedCondominiumId, units]);
+  }, [isMultiCondoSource, selectedCondominiumId, units]);
 
   const residentsForUnit = useMemo(
     () => unitResidents.filter((resident) => resident.profile_id && resident.unit_id === selectedUnitId),
@@ -70,7 +73,7 @@ export function CorrespondenceForm({
 
       <FormAlert error={state.error} success={state.success} />
 
-      {isGranjaSource && (
+      {isMultiCondoSource && (
         <div className="space-y-2">
           <Label htmlFor="target_condominium_id">Condomínio</Label>
           <select
@@ -88,7 +91,7 @@ export function CorrespondenceForm({
           >
             <option value="">Selecione o condomínio</option>
             {condominiums
-              .filter((condominium) => condominium.slug !== condoSlug)
+              .filter((condominium) => isBlockSource || condominium.slug !== condoSlug)
               .map((condominium) => (
                 <option key={condominium.id} value={condominium.id}>
                   {formatCondominiumDisplayName(condominium.name, condominium.slug)}
@@ -111,12 +114,12 @@ export function CorrespondenceForm({
           }}
           className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
           required
-          disabled={isGranjaSource && !selectedCondominiumId}
+          disabled={isMultiCondoSource && !selectedCondominiumId}
         >
           <option value="">Selecione a unidade</option>
           {filteredUnits.map((unit) => (
             <option key={unit.id} value={unit.id}>
-              {isGranjaSource
+              {isMultiCondoSource
                 ? formatUnitOptionLabel(unit, condominiumNamesById)
                 : formatUnitWithTower(unit)}
             </option>

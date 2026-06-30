@@ -3,12 +3,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import type { RegistrationRequestRecord } from "@/lib/registrations/types";
 import {
+  REGISTRATION_PROFILE_TYPES,
   REGISTRATION_UNIT_KIND,
   RESIDENT_TYPES,
   ROLES,
   type RegistrationProfileType,
   type Role,
 } from "@/lib/constants";
+import crypto from "crypto";
 import type { RegistrationRequestStatus, RegistrationUnitKind, ResidentType } from "@/types";
 import { isHouseTower, formatUnitWithTower } from "@/lib/residents/labels";
 import {
@@ -256,6 +258,87 @@ async function ensureRegistrationProfile(
   }
 }
 
+async function resolveProfileIdForRegistrationEmail(
+  fullName: string,
+  email: string,
+): Promise<ServiceResult<string>> {
+  try {
+    const admin = createAdminClient();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data, error } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    const existingUser =
+      data.users.find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
+
+    if (existingUser) {
+      const profileResult = await ensureRegistrationProfile(existingUser.id, fullName);
+      if (!profileResult.ok) {
+        return serviceError(profileResult.error ?? "Não foi possível preparar o perfil.");
+      }
+
+      return serviceOk(existingUser.id);
+    }
+
+    const tempPassword = crypto.randomUUID();
+    const { data: created, error: createError } = await admin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name: fullName.trim() },
+    });
+
+    if (createError) {
+      return serviceError(mapSupabaseError(createError));
+    }
+
+    if (!created.user) {
+      return serviceError("Não foi possível preparar o cadastro do morador.");
+    }
+
+    const profileResult = await ensureRegistrationProfile(created.user.id, fullName);
+    if (!profileResult.ok) {
+      return serviceError(profileResult.error ?? "Não foi possível preparar o perfil.");
+    }
+
+    return serviceOk(created.user.id);
+  } catch {
+    return serviceError("Não foi possível preparar o cadastro do morador.");
+  }
+}
+
+export async function createDoormanRegistrationRequest(input: {
+  condominiumId: string;
+  unitId: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  residentType: ResidentType;
+}): Promise<ServiceResult<RegistrationRequestRecord>> {
+  const profileResult = await resolveProfileIdForRegistrationEmail(input.fullName, input.email);
+  if (!profileResult.ok) {
+    return profileResult;
+  }
+
+  return createRegistrationRequestAsAdmin({
+    profileId: profileResult.data,
+    condominiumId: input.condominiumId,
+    profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
+    fullName: input.fullName,
+    email: input.email,
+    phone: input.phone,
+    unitId: input.unitId,
+    residentType: input.residentType,
+  });
+}
+
 export async function createRegistrationRequestAsAdmin(input: {
   profileId: string;
   condominiumId: string;
@@ -267,6 +350,7 @@ export async function createRegistrationRequestAsAdmin(input: {
   unitId?: string;
   unitNumber?: string;
   unitKind?: RegistrationUnitKind;
+  residentType?: ResidentType;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   let unitKind: RegistrationUnitKind;
   let unitNumber: string;
@@ -291,7 +375,7 @@ export async function createRegistrationRequestAsAdmin(input: {
     return serviceError("Informe a unidade.");
   }
 
-  const residentType = mapProfileTypeToResidentType(input.profileType);
+  const residentType = input.residentType ?? mapProfileTypeToResidentType(input.profileType);
 
   try {
     const admin = createAdminClient();

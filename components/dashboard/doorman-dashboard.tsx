@@ -2,10 +2,12 @@ import Link from "next/link";
 import {
   ArrowRight,
   CalendarDays,
+  Car,
   Droplets,
   Megaphone,
   MessageSquarePlus,
   Package,
+  Users,
 } from "lucide-react";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import type { getRolePermissions } from "@/lib/auth/roles";
@@ -21,6 +23,7 @@ type DoormanPermissions = ReturnType<typeof getRolePermissions>;
 export type DoormanDashboardProps = {
   condoSlug: string;
   condominiumName: string;
+  blockLabel?: string;
   permissions: DoormanPermissions;
   upcomingReservations: ReservationWithDetails[];
   recentAnnouncements: AnnouncementWithDetails[];
@@ -41,6 +44,7 @@ type QuickAction = {
 export function DoormanDashboard({
   condoSlug,
   condominiumName,
+  blockLabel,
   permissions,
   upcomingReservations,
   recentAnnouncements,
@@ -101,6 +105,46 @@ export function DoormanDashboard({
     });
   }
 
+  if (permissions.canConsultResidents) {
+    quickActions.push({
+      title: "Consultar moradores",
+      description: "Ver moradores cadastrados nas unidades",
+      href: `${base}/residents`,
+      icon: Users,
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+    });
+  }
+
+  if (permissions.canRegisterResidentsWithApproval) {
+    quickActions.push({
+      title: "Solicitar cadastro",
+      description: "Enviar morador para aprovação do síndico",
+      href: `${base}/residents/registration-request`,
+      icon: Users,
+      accent: "border-teal-200 bg-teal-50 text-teal-900 hover:border-teal-300 hover:bg-teal-100/80",
+    });
+  }
+
+  if (permissions.canConsultVehicles) {
+    quickActions.push({
+      title: "Consultar veículos",
+      description: "Buscar placa e responsável na portaria",
+      href: `${base}/vehicles/consult`,
+      icon: Car,
+      accent: "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-300 hover:bg-slate-100/80",
+    });
+  }
+
+  if (permissions.canRegisterVehiclesWithApproval) {
+    quickActions.push({
+      title: "Cadastrar veículo",
+      description: "Solicitar cadastro para aprovação do síndico",
+      href: `${base}/vehicles/new`,
+      icon: Car,
+      accent: "border-blue-200 bg-blue-50 text-blue-900 hover:border-blue-300 hover:bg-blue-100/80",
+    });
+  }
+
   if (permissions.canManageWaterMeters) {
     quickActions.push({
       title: "Hidrômetros",
@@ -120,10 +164,15 @@ export function DoormanDashboard({
       <section className="rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-6 shadow-sm">
         <p className="text-sm font-medium text-slate-600">Portaria</p>
         <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{condominiumName}</h2>
+        {blockLabel && (
+          <p className="mt-1 text-sm font-medium text-cyan-800">Bloco: {blockLabel}</p>
+        )}
         <p className="mt-2 max-w-2xl text-sm text-slate-600">
           {isGranjaSource
             ? "Registre correspondências nos condomínios filhos e acompanhe hidrômetros da Granja."
-            : "Operações diárias: reservas, avisos, correspondências e leitura de hidrômetros."}
+            : blockLabel
+              ? `Portaria compartilhada do bloco ${blockLabel}. Selecione o condomínio ao registrar correspondências, hidrômetros e cadastros.`
+              : "Operações diárias: reservas, avisos, correspondências e leitura de hidrômetros."}
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">

@@ -90,14 +90,36 @@ const waterMeterReadingValueSchema = z
   });
 
 export const waterMeterReadingSchema = z.object({
+  target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
   reading_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data da leitura."),
   reading_value: waterMeterReadingValueSchema,
 });
 
 export function parseWaterMeterReadingFormData(formData: FormData) {
   return waterMeterReadingSchema.safeParse({
+    target_condominium_id: formData.get("target_condominium_id") || undefined,
     reading_date: formData.get("reading_date"),
     reading_value: formData.get("reading_value"),
+  });
+}
+
+export const doormanRegistrationRequestSchema = z.object({
+  target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
+  unit_id: z.string().uuid("Selecione a unidade."),
+  full_name: z.string().trim().min(1, "Informe o nome completo.").max(200),
+  email: z.string().trim().email("Informe um e-mail válido."),
+  phone: z.string().trim().max(40).optional(),
+  resident_type: z.enum(["owner", "tenant", "dependent", "responsible"]),
+});
+
+export function parseDoormanRegistrationRequestFormData(formData: FormData) {
+  return doormanRegistrationRequestSchema.safeParse({
+    target_condominium_id: formData.get("target_condominium_id") || undefined,
+    unit_id: formData.get("unit_id"),
+    full_name: formData.get("full_name"),
+    email: formData.get("email"),
+    phone: formData.get("phone") || undefined,
+    resident_type: formData.get("resident_type"),
   });
 }
 

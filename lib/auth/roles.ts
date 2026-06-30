@@ -30,6 +30,10 @@ export type RolePermissions = {
   canManageCorrespondence: boolean;
   canManageWaterMeters: boolean;
   canViewWaterMeters: boolean;
+  canConsultResidents: boolean;
+  canRegisterResidentsWithApproval: boolean;
+  canConsultVehicles: boolean;
+  canRegisterVehiclesWithApproval: boolean;
 };
 
 export const ROLE_PERMISSIONS = {
@@ -59,6 +63,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
   admin: {
     label: "Administrador",
@@ -86,6 +94,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: true,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
   syndic: {
     label: "Síndico",
@@ -113,6 +125,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: true,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
   sub_syndic: {
     label: "Sub-síndico",
@@ -140,6 +156,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: true,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
   resident: {
     label: "Morador",
@@ -167,6 +187,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
   doorman: {
     label: "Portaria",
@@ -194,6 +218,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: true,
     canManageWaterMeters: true,
     canViewWaterMeters: false,
+    canConsultResidents: true,
+    canRegisterResidentsWithApproval: true,
+    canConsultVehicles: true,
+    canRegisterVehiclesWithApproval: true,
   },
   staff: {
     label: "Funcionário",
@@ -221,6 +249,10 @@ export const ROLE_PERMISSIONS = {
     canManageCorrespondence: false,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
+    canConsultResidents: false,
+    canRegisterResidentsWithApproval: false,
+    canConsultVehicles: false,
+    canRegisterVehiclesWithApproval: false,
   },
 } satisfies Record<Role, RolePermissions>;
 

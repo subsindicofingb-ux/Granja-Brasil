@@ -18,6 +18,7 @@ interface VehicleFormProps {
   residents: ResidentWithUnit[];
   mode: "create" | "edit";
   isResidentSubmission?: boolean;
+  isPendingApproval?: boolean;
   condominiumNamesById?: Record<string, string>;
   defaultValues?: {
     vehicleId?: string;
@@ -38,6 +39,7 @@ export function VehicleForm({
   residents,
   mode,
   isResidentSubmission = false,
+  isPendingApproval = false,
   condominiumNamesById,
   defaultValues,
 }: VehicleFormProps) {
@@ -67,7 +69,7 @@ export function VehicleForm({
 
       <FormAlert error={state.error} success={state.success} />
 
-      {isResidentSubmission && mode === "create" && (
+      {(isResidentSubmission || isPendingApproval) && mode === "create" && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Após o cadastro, o síndico precisa aprovar o veículo antes de liberar na portaria.
         </p>

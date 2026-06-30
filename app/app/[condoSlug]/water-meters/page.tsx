@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
 import { formatWaterMeterReadingValue } from "@/lib/water-meters/format";
 import { WaterMeterReadingEditForm } from "@/components/doorman/water-meter-reading-edit-form";
@@ -9,11 +10,12 @@ import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/lib/utils";
 
 interface WaterMetersPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ registrado?: string; alerta?: string }>;
+  searchParams: Promise<{ registrado?: string; alerta?: string; condominium?: string }>;
 }
 
 function todayIsoDate(): string {
@@ -29,7 +31,7 @@ export default async function WaterMetersPage({
   searchParams,
 }: WaterMetersPageProps) {
   const { condoSlug } = await params;
-  const { registrado, alerta } = await searchParams;
+  const { registrado, alerta, condominium: selectedCondominiumSlug } = await searchParams;
 
   const access = await requireCondoPermission(
     condoSlug,
@@ -49,13 +51,35 @@ export default async function WaterMetersPage({
     );
   }
 
-  const summaryResult = await getWaterMeterDashboardSummary(access.condominium.id);
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  if (!panelResult.ok) {
+    return <ErrorAlert message={panelResult.error} title="Erro ao carregar hidrômetros" />;
+  }
+
+  const blockPanel = panelResult.data.mode === "block" ? panelResult.data.panel : null;
+  const selectedCondominium =
+    blockPanel
+      ? blockPanel.condominiums.find(
+          (condominium) => condominium.slug === selectedCondominiumSlug?.trim().toLowerCase(),
+        ) ?? blockPanel.condominiums[0]
+      : null;
+  const targetCondominiumId = selectedCondominium?.id ?? access.condominium.id;
+
+  const summaryResult = await getWaterMeterDashboardSummary(targetCondominiumId);
 
   if (!summaryResult.ok) {
     return <ErrorAlert message={summaryResult.error} title="Erro ao carregar hidrômetros" />;
   }
 
   const summary = summaryResult.data;
+  const pageDescription = blockPanel
+    ? `Bloco ${blockPanel.block.label} · ${formatCondominiumDisplayName(
+        selectedCondominium!.name,
+        selectedCondominium!.slug,
+      )}`
+    : canManageWaterMeters
+      ? "Leitura diária acumulada, consumo do dia e alertas de gasto anormal."
+      : "Consulte as leituras registradas pela portaria, consumo diário e alertas.";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -71,12 +95,31 @@ export default async function WaterMetersPage({
 
       <PageHeader
         title="Hidrômetros"
-        description={
-          canManageWaterMeters
-            ? "Leitura diária acumulada, consumo do dia e alertas de gasto anormal."
-            : "Consulte as leituras registradas pela portaria, consumo diário e alertas."
-        }
+        description={pageDescription}
       />
+
+      {blockPanel && (
+        <form method="get" className="flex flex-wrap items-end gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="condominium">Condomínio</Label>
+            <select
+              id="condominium"
+              name="condominium"
+              defaultValue={selectedCondominium?.slug ?? ""}
+              className="flex h-9 min-w-[220px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            >
+              {blockPanel.condominiums.map((condominium) => (
+                <option key={condominium.id} value={condominium.slug}>
+                  {formatCondominiumDisplayName(condominium.name, condominium.slug)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button type="submit" variant="outline">
+            Filtrar
+          </Button>
+        </form>
+      )}
 
       <Card className={summary.activeAlert ? "border-red-300 bg-red-50/30" : undefined}>
         <CardHeader>
@@ -110,7 +153,12 @@ export default async function WaterMetersPage({
             <CardTitle className="text-base">Registrar leitura</CardTitle>
           </CardHeader>
           <CardContent>
-            <WaterMeterReadingForm condoSlug={condoSlug} defaultDate={todayIsoDate()} />
+            <WaterMeterReadingForm
+              condoSlug={condoSlug}
+              defaultDate={todayIsoDate()}
+              isBlockSource={panelResult.data.mode === "block"}
+              condominiums={blockPanel?.condominiums}
+            />
           </CardContent>
         </Card>
       )}
