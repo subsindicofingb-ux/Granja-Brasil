@@ -34,6 +34,7 @@ export type RolePermissions = {
   canRegisterResidentsWithApproval: boolean;
   canConsultVehicles: boolean;
   canRegisterVehiclesWithApproval: boolean;
+  canManageAccessDevices: boolean;
 };
 
 export const ROLE_PERMISSIONS = {
@@ -67,6 +68,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: true,
   },
   admin: {
     label: "Administrador",
@@ -98,6 +100,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: true,
   },
   syndic: {
     label: "Síndico",
@@ -129,6 +132,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: true,
   },
   sub_syndic: {
     label: "Sub-síndico",
@@ -160,6 +164,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: true,
   },
   resident: {
     label: "Morador",
@@ -191,6 +196,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: false,
   },
   doorman: {
     label: "Portaria",
@@ -222,6 +228,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: true,
     canConsultVehicles: true,
     canRegisterVehiclesWithApproval: true,
+    canManageAccessDevices: false,
   },
   staff: {
     label: "Funcionário",
@@ -253,6 +260,7 @@ export const ROLE_PERMISSIONS = {
     canRegisterResidentsWithApproval: false,
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
+    canManageAccessDevices: false,
   },
 } satisfies Record<Role, RolePermissions>;
 

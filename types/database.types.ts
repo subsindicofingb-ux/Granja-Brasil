@@ -952,6 +952,90 @@ export interface Database {
         };
         Relationships: [];
       };
+      access_devices: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          display_name: string;
+          access_type: Database["public"]["Enums"]["access_device_type"];
+          manufacturer: string;
+          model: string;
+          host_url: string;
+          api_username: string;
+          api_password_encrypted: string;
+          direction: Database["public"]["Enums"]["access_device_direction"];
+          entry_kind: string;
+          is_active: boolean;
+          is_pilot: boolean;
+          last_connection_ok_at: string | null;
+          last_connection_error: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          display_name: string;
+          access_type?: Database["public"]["Enums"]["access_device_type"];
+          manufacturer?: string;
+          model?: string;
+          host_url: string;
+          api_username?: string;
+          api_password_encrypted: string;
+          direction?: Database["public"]["Enums"]["access_device_direction"];
+          entry_kind?: string;
+          is_active?: boolean;
+          is_pilot?: boolean;
+          last_connection_ok_at?: string | null;
+          last_connection_error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          display_name?: string;
+          access_type?: Database["public"]["Enums"]["access_device_type"];
+          manufacturer?: string;
+          model?: string;
+          host_url?: string;
+          api_username?: string;
+          api_password_encrypted?: string;
+          direction?: Database["public"]["Enums"]["access_device_direction"];
+          entry_kind?: string;
+          is_active?: boolean;
+          is_pilot?: boolean;
+          last_connection_ok_at?: string | null;
+          last_connection_error?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      access_device_shares: {
+        Row: {
+          id: string;
+          access_device_id: string;
+          condominium_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          access_device_id: string;
+          condominium_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          access_device_id?: string;
+          condominium_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       vehicles: {
         Row: {
           id: string;
@@ -1173,6 +1257,13 @@ export interface Database {
       registration_request_status: RegistrationRequestStatus;
       registration_unit_kind: RegistrationUnitKind;
       registration_profile_type: RegistrationProfileType;
+      access_device_type:
+        | "facial_pedestrian"
+        | "facial_vehicle"
+        | "tag_vehicle"
+        | "visitor_temp"
+        | "staff_maintenance";
+      access_device_direction: "entry" | "exit" | "both";
     };
   };
 }

@@ -87,6 +87,27 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
       <PermissionGate
         access={access}
+        allow={(ctx) => ctx.permissions.canManageAccessDevices}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Locais de acesso ControlID</CardTitle>
+            <CardDescription>
+              Cadastre portaria, garagem, academia e outros pontos com nomes livres e tipos de uso.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/settings/access-devices`}>
+                Gerenciar locais de acesso
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PermissionGate>
+
+      <PermissionGate
+        access={access}
         allow={(ctx) => ctx.permissions.canManageRegistrationRequests}
       >
         <Card>
