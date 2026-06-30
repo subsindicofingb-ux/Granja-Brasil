@@ -22,6 +22,7 @@ import {
 } from "@/lib/registrations/profile-type";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
+import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
 
 export type PublicCondominiumOption = {
   id: string;
@@ -210,28 +211,46 @@ export async function createRegistrationRequest(input: {
   }
 
   const supabase = await createClient();
+  const normalizedEmail = input.email.trim().toLowerCase();
 
-  const { data, error } = await supabase
+  const { data: existingPending } = await supabase
     .from("registration_requests")
-    .insert({
-      profile_id: input.profileId,
-      condominium_id: input.condominiumId,
-      resident_type: input.residentType,
-      requested_unit_id: input.unitId,
-      unit_kind: unitMeta.data.unitKind,
-      unit_number: unitMeta.data.unitNumber,
-      full_name: input.fullName.trim(),
-      email: input.email.trim().toLowerCase(),
-      status: "pending",
-    })
-    .select(REQUEST_SELECT)
-    .single();
+    .select("id")
+    .eq("profile_id", input.profileId)
+    .eq("condominium_id", input.condominiumId)
+    .eq("status", "pending")
+    .maybeSingle();
 
-  if (error) {
-    return serviceError(mapSupabaseError(error));
+  const basePayload = {
+    profile_id: input.profileId,
+    condominium_id: input.condominiumId,
+    resident_type: input.residentType,
+    requested_unit_id: input.unitId,
+    unit_kind: unitMeta.data.unitKind,
+    unit_number: unitMeta.data.unitNumber,
+    full_name: input.fullName.trim(),
+    email: normalizedEmail,
+    status: "pending" as const,
+  };
+
+  const result = existingPending
+    ? await supabase
+        .from("registration_requests")
+        .update(basePayload)
+        .eq("id", existingPending.id)
+        .select(REQUEST_SELECT)
+        .single()
+    : await supabase
+        .from("registration_requests")
+        .insert(basePayload)
+        .select(REQUEST_SELECT)
+        .single();
+
+  if (result.error) {
+    return serviceError(mapSupabaseError(result.error));
   }
 
-  return serviceOk(mapRequestRow(data as RequestRow));
+  return serviceOk(mapRequestRow(result.data as RequestRow));
 }
 
 async function ensureRegistrationProfile(
@@ -324,7 +343,13 @@ export async function createDoormanRegistrationRequest(input: {
   residentType: ResidentType;
   accessDeviceIds?: string[];
   doormanProfileId: string;
-}): Promise<ServiceResult<{ request: RegistrationRequestRecord; residentId: string }>> {
+}): Promise<
+  ServiceResult<{
+    request: RegistrationRequestRecord;
+    residentId: string | null;
+    queued: boolean;
+  }>
+> {
   const profileResult = await resolveProfileIdForRegistrationEmail(input.fullName, input.email);
   if (!profileResult.ok) {
     return profileResult;
@@ -361,11 +386,20 @@ export async function createDoormanRegistrationRequest(input: {
     }
   }
 
-  const fulfillResult = await fulfillDoormanRegistrationRequest({
+  if (!isDoormanRegistrationAutoFulfill()) {
+    return serviceOk({
+      request: requestResult.data,
+      residentId: null,
+      queued: true,
+    });
+  }
+
+  const fulfillResult = await fulfillRegistrationRequest({
     requestId: requestResult.data.id,
     condominiumId: input.condominiumId,
-    doormanProfileId: input.doormanProfileId,
+    reviewerProfileId: input.doormanProfileId,
     accessDeviceIds: input.accessDeviceIds,
+    reviewNotes: "Cadastro realizado pela portaria.",
   });
 
   if (!fulfillResult.ok) {
@@ -373,17 +407,27 @@ export async function createDoormanRegistrationRequest(input: {
   }
 
   return serviceOk({
-    request: requestResult.data,
+    request: fulfillResult.data.request,
     residentId: fulfillResult.data.residentId,
+    queued: false,
   });
 }
 
-export async function fulfillDoormanRegistrationRequest(input: {
+export async function fulfillRegistrationRequest(input: {
   requestId: string;
   condominiumId: string;
-  doormanProfileId: string;
+  reviewerProfileId: string;
+  unitId?: string;
+  reviewNotes?: string;
+  residentType?: ResidentType;
+  markAsUnitResponsible?: boolean;
   accessDeviceIds?: string[];
-}): Promise<ServiceResult<{ residentId: string }>> {
+}): Promise<
+  ServiceResult<{
+    request: RegistrationRequestRecord;
+    residentId: string | null;
+  }>
+> {
   const admin = createAdminClient();
 
   const { data: requestRow, error: requestError } = await admin
@@ -403,58 +447,123 @@ export async function fulfillDoormanRegistrationRequest(input: {
   }
 
   const request = mapRequestRow(requestRow as RequestRow);
-  const resolvedUnitId = request.requested_unit_id;
+  const needsUnit = requiresRegistrationUnit(request.profile_type);
+  let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? request.unit_id ?? null;
 
-  if (!resolvedUnitId) {
+  if (
+    needsUnit &&
+    !resolvedUnitId &&
+    request.unit_kind &&
+    request.unit_number &&
+    request.unit_number !== REGISTRATION_UNIT_NOT_APPLICABLE
+  ) {
+    const unitResult = await findOrCreateUnitForRequest({
+      condominiumId: input.condominiumId,
+      unitKind: request.unit_kind,
+      unitNumber: request.unit_number,
+      unitId: request.requested_unit_id ?? undefined,
+    });
+
+    if (!unitResult.ok) {
+      return serviceError(unitResult.error ?? "Não foi possível vincular a unidade.");
+    }
+
+    resolvedUnitId = unitResult.data;
+  }
+
+  if (needsUnit && !resolvedUnitId) {
     return serviceError("Unidade da solicitação não encontrada.");
   }
 
-  const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
-  if (!unitCheck.ok) {
-    return serviceError(unitCheck.error ?? "Unidade inválida.");
+  if (needsUnit && resolvedUnitId) {
+    const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
+    if (!unitCheck.ok) {
+      return serviceError(unitCheck.error ?? "Unidade inválida.");
+    }
   }
 
-  const { data: createdResident, error: residentError } = await admin
-    .from("residents")
-    .insert({
+  const resolvedResidentType = input.markAsUnitResponsible
+    ? RESIDENT_TYPES.RESPONSIBLE
+    : (input.residentType ?? request.resident_type);
+
+  let residentId: string | null = null;
+
+  if (needsUnit && resolvedUnitId) {
+    if (input.markAsUnitResponsible) {
+      const clearResult = await clearUnitResponsibleExcept({
+        unitId: resolvedUnitId,
+        profileId: request.profile_id,
+      });
+
+      if (!clearResult.ok) {
+        return serviceError(clearResult.error ?? "Não foi possível atualizar o responsável da unidade.");
+      }
+    }
+
+    const residentPayload = {
       unit_id: resolvedUnitId,
       profile_id: request.profile_id,
       full_name: request.full_name,
       email: request.email,
       phone: request.phone,
       photo_url: request.photo_url,
-      type: request.resident_type,
-    })
-    .select("id")
-    .single();
+      type: resolvedResidentType,
+    };
 
-  if (residentError) {
-    return serviceError(mapSupabaseError(residentError));
-  }
+    const { data: existingResident } = await admin
+      .from("residents")
+      .select("id")
+      .eq("profile_id", request.profile_id)
+      .eq("unit_id", resolvedUnitId)
+      .maybeSingle();
 
-  let accessDeviceIds = input.accessDeviceIds ?? [];
+    if (existingResident?.id) {
+      const { error: updateResidentError } = await admin
+        .from("residents")
+        .update(residentPayload)
+        .eq("id", existingResident.id);
 
-  if (accessDeviceIds.length === 0) {
-    const { getRegistrationRequestAccessDeviceIds } = await import(
-      "@/lib/services/resident-access-grants"
-    );
-    const requestedGrants = await getRegistrationRequestAccessDeviceIds(input.requestId);
+      if (updateResidentError) {
+        return serviceError(mapSupabaseError(updateResidentError));
+      }
 
-    if (requestedGrants.ok) {
-      accessDeviceIds = requestedGrants.data;
+      residentId = existingResident.id;
+    } else {
+      const { data: createdResident, error: residentError } = await admin
+        .from("residents")
+        .insert(residentPayload)
+        .select("id")
+        .single();
+
+      if (residentError) {
+        return serviceError(mapSupabaseError(residentError));
+      }
+
+      residentId = createdResident.id;
     }
-  }
 
-  if (accessDeviceIds.length > 0) {
-    const { replaceResidentAccessGrants } = await import("@/lib/services/resident-access-grants");
-    const grantsResult = await replaceResidentAccessGrants({
-      residentId: createdResident.id,
-      condominiumId: input.condominiumId,
-      accessDeviceIds,
-    });
+    let accessDeviceIds = input.accessDeviceIds;
 
-    if (!grantsResult.ok) {
-      return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+    if (accessDeviceIds === undefined) {
+      const { data: grantRows } = await admin
+        .from("registration_request_access_devices")
+        .select("access_device_id")
+        .eq("registration_request_id", input.requestId);
+
+      accessDeviceIds = (grantRows ?? []).map((row) => row.access_device_id);
+    }
+
+    if (accessDeviceIds.length > 0) {
+      const { replaceResidentAccessGrants } = await import("@/lib/services/resident-access-grants");
+      const grantsResult = await replaceResidentAccessGrants({
+        residentId,
+        condominiumId: input.condominiumId,
+        accessDeviceIds,
+      });
+
+      if (!grantsResult.ok) {
+        return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+      }
     }
   }
 
@@ -481,9 +590,10 @@ export async function fulfillDoormanRegistrationRequest(input: {
     .from("registration_requests")
     .update({
       status: "approved",
-      reviewed_by: input.doormanProfileId,
+      resident_type: resolvedResidentType,
+      reviewed_by: input.reviewerProfileId,
       reviewed_at: new Date().toISOString(),
-      review_notes: "Cadastro realizado pela portaria.",
+      review_notes: input.reviewNotes?.trim() || null,
       unit_id: resolvedUnitId,
     })
     .eq("id", input.requestId)
@@ -500,7 +610,36 @@ export async function fulfillDoormanRegistrationRequest(input: {
     return serviceError("Não foi possível concluir a aprovação da solicitação.");
   }
 
-  return serviceOk({ residentId: createdResident.id });
+  return serviceOk({
+    request: mapRequestRow(approvedRequest as RequestRow),
+    residentId,
+  });
+}
+
+/** @deprecated Use fulfillRegistrationRequest */
+export async function fulfillDoormanRegistrationRequest(input: {
+  requestId: string;
+  condominiumId: string;
+  doormanProfileId: string;
+  accessDeviceIds?: string[];
+}): Promise<ServiceResult<{ residentId: string }>> {
+  const result = await fulfillRegistrationRequest({
+    requestId: input.requestId,
+    condominiumId: input.condominiumId,
+    reviewerProfileId: input.doormanProfileId,
+    accessDeviceIds: input.accessDeviceIds,
+    reviewNotes: "Cadastro realizado pela portaria.",
+  });
+
+  if (!result.ok) {
+    return serviceError(result.error);
+  }
+
+  if (!result.data.residentId) {
+    return serviceError("Morador não foi criado.");
+  }
+
+  return serviceOk({ residentId: result.data.residentId });
 }
 
 export async function createRegistrationRequestAsAdmin(input: {
@@ -587,6 +726,8 @@ export async function createRegistrationRequestAsAdmin(input: {
       }
     }
 
+    const normalizedEmail = input.email.trim().toLowerCase();
+
     const basePayload = {
       profile_id: input.profileId,
       condominium_id: input.condominiumId,
@@ -595,30 +736,65 @@ export async function createRegistrationRequestAsAdmin(input: {
       unit_kind: unitKind,
       unit_number: unitNumber,
       full_name: input.fullName.trim(),
-      email: input.email.trim().toLowerCase(),
+      email: normalizedEmail,
       phone: input.phone?.trim() || null,
       photo_url: input.photoUrl ?? null,
       status: "pending" as const,
     };
 
-    let result = await admin
+    const { data: existingPending } = await admin
       .from("registration_requests")
-      .insert({
-        ...basePayload,
-        profile_type: input.profileType,
-      })
-      .select(REQUEST_SELECT)
-      .single();
+      .select("id")
+      .eq("condominium_id", input.condominiumId)
+      .eq("email", normalizedEmail)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    let result = existingPending
+      ? await admin
+          .from("registration_requests")
+          .update({
+            ...basePayload,
+            profile_type: input.profileType,
+            reviewed_by: null,
+            reviewed_at: null,
+            review_notes: null,
+            unit_id: null,
+          })
+          .eq("id", existingPending.id)
+          .select(REQUEST_SELECT)
+          .single()
+      : await admin
+          .from("registration_requests")
+          .insert({
+            ...basePayload,
+            profile_type: input.profileType,
+          })
+          .select(REQUEST_SELECT)
+          .single();
 
     if (result.error && isMissingProfileTypeColumnError(result.error.message)) {
-      result = await admin
-        .from("registration_requests")
-        .insert({
-          ...basePayload,
-          review_notes: encodeProfileTypeInReviewNotes(input.profileType),
-        })
-        .select(REQUEST_SELECT)
-        .single();
+      result = existingPending
+        ? await admin
+            .from("registration_requests")
+            .update({
+              ...basePayload,
+              review_notes: encodeProfileTypeInReviewNotes(input.profileType),
+              reviewed_by: null,
+              reviewed_at: null,
+              unit_id: null,
+            })
+            .eq("id", existingPending.id)
+            .select(REQUEST_SELECT)
+            .single()
+        : await admin
+            .from("registration_requests")
+            .insert({
+              ...basePayload,
+              review_notes: encodeProfileTypeInReviewNotes(input.profileType),
+            })
+            .select(REQUEST_SELECT)
+            .single();
     }
 
     if (result.error) {
@@ -880,172 +1056,22 @@ export async function approveRegistrationRequest(input: {
   markAsUnitResponsible?: boolean;
   accessDeviceIds?: string[];
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
-  const requestResult = await getRegistrationRequestById(input.requestId, input.condominiumId);
-  if (!requestResult.ok) {
-    return serviceError(requestResult.error ?? "Solicitação não encontrada.");
+  const result = await fulfillRegistrationRequest({
+    requestId: input.requestId,
+    condominiumId: input.condominiumId,
+    reviewerProfileId: input.reviewerProfileId,
+    unitId: input.unitId,
+    reviewNotes: input.reviewNotes,
+    residentType: input.residentType,
+    markAsUnitResponsible: input.markAsUnitResponsible,
+    accessDeviceIds: input.accessDeviceIds,
+  });
+
+  if (!result.ok) {
+    return serviceError(result.error);
   }
 
-  const request = requestResult.data;
-
-  if (request.status !== "pending") {
-    return serviceError("Esta solicitação já foi analisada.");
-  }
-
-  const needsUnit = requiresRegistrationUnit(request.profile_type);
-  let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? request.unit_id ?? null;
-
-  if (
-    needsUnit &&
-    !resolvedUnitId &&
-    request.unit_kind &&
-    request.unit_number &&
-    request.unit_number !== REGISTRATION_UNIT_NOT_APPLICABLE
-  ) {
-    const unitResult = await findOrCreateUnitForRequest({
-      condominiumId: input.condominiumId,
-      unitKind: request.unit_kind,
-      unitNumber: request.unit_number,
-      unitId: request.requested_unit_id ?? undefined,
-    });
-
-    if (!unitResult.ok) {
-      return serviceError(unitResult.error ?? "Não foi possível vincular a unidade.");
-    }
-
-    resolvedUnitId = unitResult.data;
-  }
-
-  if (needsUnit && !resolvedUnitId) {
-    return serviceError("Unidade da solicitação não encontrada.");
-  }
-
-  if (needsUnit && resolvedUnitId) {
-    const unitCheck = await getUnitRegistrationMeta(resolvedUnitId, input.condominiumId);
-    if (!unitCheck.ok) {
-      return serviceError(unitCheck.error ?? "Unidade inválida.");
-    }
-  }
-
-  const supabase = await createClient();
-  const resolvedResidentType = input.markAsUnitResponsible
-    ? RESIDENT_TYPES.RESPONSIBLE
-    : (input.residentType ?? request.resident_type);
-
-  if (needsUnit && resolvedUnitId) {
-    if (input.markAsUnitResponsible) {
-      const clearResult = await clearUnitResponsibleExcept({
-        unitId: resolvedUnitId,
-        profileId: request.profile_id,
-      });
-
-      if (!clearResult.ok) {
-        return serviceError(clearResult.error ?? "Não foi possível atualizar o responsável da unidade.");
-      }
-    }
-
-    const { data: createdResident, error: residentError } = await supabase
-      .from("residents")
-      .insert({
-        unit_id: resolvedUnitId,
-        profile_id: request.profile_id,
-        full_name: request.full_name,
-        email: request.email,
-        phone: request.phone,
-        photo_url: request.photo_url,
-        type: resolvedResidentType,
-      })
-      .select("id")
-      .single();
-
-    if (residentError) {
-      return serviceError(mapSupabaseError(residentError));
-    }
-
-    if (createdResident?.id) {
-      const { replaceResidentAccessGrants, replaceRegistrationRequestAccessDevices } =
-        await import("@/lib/services/resident-access-grants");
-
-      if (input.accessDeviceIds !== undefined) {
-        const grantsResult = await replaceResidentAccessGrants({
-          residentId: createdResident.id,
-          condominiumId: input.condominiumId,
-          accessDeviceIds: input.accessDeviceIds,
-        });
-
-        if (!grantsResult.ok) {
-          return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
-        }
-
-        await replaceRegistrationRequestAccessDevices({
-          registrationRequestId: input.requestId,
-          condominiumId: input.condominiumId,
-          accessDeviceIds: input.accessDeviceIds,
-        });
-      } else {
-        const { getRegistrationRequestAccessDeviceIds } = await import(
-          "@/lib/services/resident-access-grants"
-        );
-        const requestedGrants = await getRegistrationRequestAccessDeviceIds(input.requestId);
-
-        if (requestedGrants.ok && requestedGrants.data.length > 0) {
-          const grantsResult = await replaceResidentAccessGrants({
-            residentId: createdResident.id,
-            condominiumId: input.condominiumId,
-            accessDeviceIds: requestedGrants.data,
-          });
-
-          if (!grantsResult.ok) {
-            return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
-          }
-        }
-      }
-    }
-  }
-
-  const { data: existingMembership } = await supabase
-    .from("memberships")
-    .select("id")
-    .eq("profile_id", request.profile_id)
-    .eq("condominium_id", input.condominiumId)
-    .maybeSingle();
-
-  if (!existingMembership) {
-    const { error: membershipError } = await supabase.from("memberships").insert({
-      profile_id: request.profile_id,
-      condominium_id: input.condominiumId,
-      role: mapProfileTypeToMembershipRole(request.profile_type),
-    });
-
-    if (membershipError) {
-      return serviceError(mapSupabaseError(membershipError));
-    }
-  }
-
-  const { data, error } = await supabase
-    .from("registration_requests")
-    .update({
-      status: "approved",
-      resident_type: resolvedResidentType,
-      reviewed_by: input.reviewerProfileId,
-      reviewed_at: new Date().toISOString(),
-      review_notes: input.reviewNotes?.trim() || null,
-      unit_id: resolvedUnitId,
-    })
-    .eq("id", input.requestId)
-    .eq("condominium_id", input.condominiumId)
-    .eq("status", "pending")
-    .select(REQUEST_SELECT)
-    .maybeSingle();
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  if (!data) {
-    return serviceError("Não foi possível concluir a aprovação da solicitação.");
-  }
-
-  return serviceOk(mapRequestRow(data as RequestRow));
+  return serviceOk(result.data.request);
 }
 
 export async function rejectRegistrationRequest(input: {

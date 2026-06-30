@@ -49,3 +49,7 @@ export function shouldSyncAccessDevice(isPilot: boolean): boolean {
 export function buildDeviceBaseUrl(hostUrl: string): string {
   return normalizeAccessDeviceHostUrl(hostUrl);
 }
+
+export function isDoormanRegistrationAutoFulfill(): boolean {
+  return process.env.DOORMAN_REGISTRATION_AUTO_FULFILL !== "false";
+}

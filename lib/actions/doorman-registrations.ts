@@ -22,8 +22,10 @@ function revalidateDoormanRegistrationPaths(condoSlug: string, targetCondoSlug?:
   revalidatePath(`/app/${condoSlug}/residents/registration-request`);
   revalidatePath(`/app/${condoSlug}/residents`);
   revalidatePath(`/app/${condoSlug}`);
+  revalidatePath(`/app/${condoSlug}/settings/registration-requests`);
   if (targetCondoSlug && targetCondoSlug !== condoSlug) {
     revalidatePath(`/app/${targetCondoSlug}/residents`);
+    revalidatePath(`/app/${targetCondoSlug}/settings/registration-requests`);
   }
 }
 
@@ -128,7 +130,7 @@ export async function createDoormanRegistrationRequestAction(
       profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
       residentType: result.data.request.resident_type,
       source: "doorman",
-      fulfilledImmediately: true,
+      fulfilledImmediately: !result.data.queued,
       accessDeviceNames,
     });
   } catch (error) {
@@ -139,5 +141,7 @@ export async function createDoormanRegistrationRequestAction(
     condoSlug,
     result.data.request.condominium?.slug ?? undefined,
   );
-  redirect(`/app/${condoSlug}/residents/registration-request?enviado=1`);
+
+  const redirectQuery = result.data.queued ? "enviado=1&fila=1" : "enviado=1";
+  redirect(`/app/${condoSlug}/residents/registration-request?${redirectQuery}`);
 }

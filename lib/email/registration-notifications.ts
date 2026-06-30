@@ -73,7 +73,9 @@ function buildRegistrationEmailBody(input: {
     const text = [
       `Olá,`,
       ``,
-      `A portaria cadastrou um novo morador no ${event.condominiumName}.`,
+      event.fulfilledImmediately
+        ? `A portaria cadastrou um novo morador no ${event.condominiumName}.`
+        : `A portaria enviou uma nova solicitação de cadastro no ${event.condominiumName}.`,
       ``,
       `Nome: ${event.fullName}`,
       `E-mail: ${event.email}`,
@@ -82,15 +84,19 @@ function buildRegistrationEmailBody(input: {
       accessLine,
       event.fulfilledImmediately
         ? `O acesso facial ControlID já foi liberado nos locais selecionados.`
-        : null,
+        : `A solicitação aguarda sua aprovação antes de liberar o ControlID.`,
       ``,
-      `Consulte o cadastro no sistema quando precisar.`,
+      event.fulfilledImmediately
+        ? `Consulte o cadastro no sistema quando precisar.`
+        : `Acesse o link abaixo para aprovar ou recusar.`,
     ]
       .filter(Boolean)
       .join("\n");
 
     return {
-      subject: `Novo cadastro pela portaria — ${event.condominiumName}`,
+      subject: event.fulfilledImmediately
+        ? `Novo cadastro pela portaria — ${event.condominiumName}`
+        : `Nova solicitação pela portaria — ${event.condominiumName}`,
       text,
     };
   }
