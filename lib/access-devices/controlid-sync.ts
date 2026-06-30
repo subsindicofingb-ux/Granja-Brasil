@@ -1,5 +1,6 @@
 import { buildControlIdRegistration } from "@/lib/access-devices/registration";
 import { normalizeAccessDeviceHostUrl } from "@/lib/access-devices/controlid-client";
+import { normalizePhotoForControlId } from "@/lib/access-devices/photo-normalize";
 
 export { normalizeAccessDeviceHostUrl };
 
@@ -203,6 +204,24 @@ export async function destroyControlIdUser(input: {
   );
 }
 
+type ControlIdUserImagesResponse = {
+  user_ids?: number[];
+};
+
+async function controlIdUserHasPhoto(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+}): Promise<boolean> {
+  const data = await postControlIdJson<ControlIdUserImagesResponse>(
+    input.baseUrl,
+    "/user_list_images.fcgi",
+    input.session,
+  );
+
+  return (data.user_ids ?? []).includes(input.userId);
+}
+
 export async function setControlIdUserImage(input: {
   baseUrl: string;
   session: string;
@@ -253,61 +272,35 @@ export async function setControlIdUserImageBase64(input: {
   );
 }
 
-function detectImageFormat(bytes: Buffer): "jpeg" | "png" | "webp" | "unknown" {
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return "jpeg";
-  }
-
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47
-  ) {
-    return "png";
-  }
-
-  if (
-    bytes.length >= 12 &&
-    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
-    bytes.subarray(8, 12).toString("ascii") === "WEBP"
-  ) {
-    return "webp";
-  }
-
-  return "unknown";
-}
-
 async function uploadControlIdUserPhoto(input: {
   baseUrl: string;
   session: string;
   userId: number;
   imageBytes: Buffer;
 }): Promise<void> {
-  const format = detectImageFormat(input.imageBytes);
+  const jpegBytes = await normalizePhotoForControlId(input.imageBytes);
 
-  if (format === "webp") {
-    throw new Error(
-      "Foto em WebP não é aceita pelo ControlID. Reenvie a foto do morador em JPG ou PNG.",
-    );
-  }
+  await setControlIdUserImage({
+    ...input,
+    imageBytes: jpegBytes,
+  });
 
-  try {
-    await setControlIdUserImage(input);
+  if (await controlIdUserHasPhoto(input)) {
     return;
-  } catch (primaryError) {
-    if (format !== "jpeg" && format !== "png") {
-      throw primaryError;
-    }
   }
 
   await setControlIdUserImageBase64({
     baseUrl: input.baseUrl,
     session: input.session,
     userId: input.userId,
-    imageBase64: input.imageBytes.toString("base64"),
+    imageBase64: jpegBytes.toString("base64"),
   });
+
+  if (!(await controlIdUserHasPhoto(input))) {
+    throw new Error(
+      "Usuário criado no equipamento, mas a foto não gerou reconhecimento facial. Use foto JPG frontal, rosto centralizado e boa iluminação.",
+    );
+  }
 }
 
 export async function fetchResidentPhotoBytes(photoUrl: string): Promise<{
