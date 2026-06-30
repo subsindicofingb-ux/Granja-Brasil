@@ -271,7 +271,7 @@ export async function destroyControlIdUser(input: {
   session: string;
   userId: number;
 }): Promise<void> {
-  await postControlIdJson<ControlIdChangesResponse>(
+  const data = await postControlIdJson<ControlIdChangesResponse>(
     input.baseUrl,
     "/destroy_objects.fcgi",
     input.session,
@@ -282,6 +282,22 @@ export async function destroyControlIdUser(input: {
       },
     },
   );
+
+  if ((data.changes ?? 0) >= 1) {
+    return;
+  }
+
+  const stillExists = await loadControlIdUserById({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    userId: input.userId,
+  });
+
+  if (!stillExists) {
+    return;
+  }
+
+  throw new Error("ControlID não removeu o usuário.");
 }
 
 type ControlIdUserImagesResponse = {
@@ -539,7 +555,8 @@ export async function removeResidentFromControlIdDevice(input: {
   hostUrl: string;
   username: string;
   password: string;
-  controlIdUserId: number;
+  controlIdUserId?: number | null;
+  registration?: string | null;
 }): Promise<void> {
   const { session, baseUrl } = await loginControlIdSession({
     hostUrl: input.hostUrl,
@@ -548,10 +565,36 @@ export async function removeResidentFromControlIdDevice(input: {
   });
 
   try {
+    let userId = input.controlIdUserId ?? null;
+
+    if (userId) {
+      const byId = await loadControlIdUserById({
+        baseUrl,
+        session,
+        userId,
+      });
+      if (!byId) {
+        userId = null;
+      }
+    }
+
+    if (!userId && input.registration) {
+      const byRegistration = await loadControlIdUserByRegistration({
+        baseUrl,
+        session,
+        registration: input.registration,
+      });
+      userId = byRegistration?.id ?? null;
+    }
+
+    if (!userId) {
+      return;
+    }
+
     await destroyControlIdUser({
       baseUrl,
       session,
-      userId: input.controlIdUserId,
+      userId,
     });
   } finally {
     await logoutControlIdSession(baseUrl, session);

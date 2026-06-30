@@ -167,6 +167,93 @@ export async function enqueueResidentRemovalFromAccessDevices(
   return enqueued;
 }
 
+export async function removeResidentFromAccessDevicesImmediately(
+  residentId: string,
+): Promise<ServiceResult<{ removed: number; errors: string[] }>> {
+  const admin = createAdminClient();
+  const registration = buildControlIdRegistration(residentId);
+
+  const { data: grants, error } = await admin
+    .from("resident_access_grants")
+    .select("id, access_device_id, controlid_user_id, controlid_registration")
+    .eq("resident_id", residentId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const grantRows = (grants as GrantRow[] | null) ?? [];
+  if (grantRows.length === 0) {
+    return serviceOk({ removed: 0, errors: [] });
+  }
+
+  const deviceIds = [...new Set(grantRows.map((grant) => grant.access_device_id))];
+  const { data: devices, error: devicesError } = await admin
+    .from("access_devices")
+    .select(
+      "id, display_name, host_url, api_username, api_password_encrypted, access_type, is_pilot, is_active",
+    )
+    .in("id", deviceIds);
+
+  if (devicesError) {
+    return serviceError(mapSupabaseError(devicesError));
+  }
+
+  const deviceById = new Map(((devices as DeviceRow[] | null) ?? []).map((device) => [device.id, device]));
+  let removed = 0;
+  const errors: string[] = [];
+
+  for (const grant of grantRows) {
+    const device = deviceById.get(grant.access_device_id);
+    if (!device?.is_active) {
+      continue;
+    }
+
+    let password: string;
+    try {
+      password = decryptAccessDevicePassword(device.api_password_encrypted);
+    } catch {
+      errors.push(`${device.display_name}: senha do equipamento indisponível.`);
+      continue;
+    }
+
+    try {
+      await removeResidentFromControlIdDevice({
+        hostUrl: device.host_url,
+        username: device.api_username,
+        password,
+        controlIdUserId: grant.controlid_user_id,
+        registration: grant.controlid_registration ?? registration,
+      });
+      removed += 1;
+    } catch (error) {
+      errors.push(
+        `${device.display_name}: ${
+          error instanceof Error ? error.message : "falha ao remover no ControlID."
+        }`,
+      );
+    }
+  }
+
+  return serviceOk({ removed, errors });
+}
+
+export async function removeResidentFromAccessDevicesForDelete(
+  residentId: string,
+): Promise<ServiceResult<{ removed: number; errors: string[] }>> {
+  const immediate = await removeResidentFromAccessDevicesImmediately(residentId);
+  if (!immediate.ok) {
+    return immediate;
+  }
+
+  const enqueued = await enqueueResidentRemovalFromAccessDevices(residentId);
+  if (enqueued > 0) {
+    await processPendingAccessSyncJobs({ limit: Math.max(3, enqueued) });
+  }
+
+  return immediate;
+}
+
 export async function enqueueResidentProfileSyncUpdates(residentId: string): Promise<void> {
   const admin = createAdminClient();
   const { data: grants } = await admin
@@ -222,10 +309,10 @@ async function loadJobContext(job: JobRow): Promise<
   const deviceRow = device as DeviceRow;
 
   if (!deviceRow.is_active) {
-    return { ok: false, error: "Equipamento inativo.", skip: true };
+    return { ok: false, error: "Equipamento inativo.", skip: job.action !== "remove" };
   }
 
-  if (!shouldSyncAccessDevice(deviceRow.is_pilot)) {
+  if (job.action !== "remove" && !shouldSyncAccessDevice(deviceRow.is_pilot)) {
     return {
       ok: false,
       error: "Sync limitado a equipamentos piloto (ACCESS_SYNC_PILOT_ONLY).",
@@ -298,15 +385,20 @@ async function processAccessSyncJob(job: JobRow): Promise<{ ok: boolean; error?:
   const controlIdUserId = job.controlid_user_id ?? grant?.controlid_user_id ?? null;
 
   if (job.action === "remove") {
-    if (!controlIdUserId) {
+    if (!controlIdUserId && !job.resident_id) {
       return { ok: true };
     }
+
+    const registration = job.resident_id
+      ? buildControlIdRegistration(job.resident_id)
+      : grant?.controlid_registration ?? null;
 
     await removeResidentFromControlIdDevice({
       hostUrl: device.host_url,
       username: device.api_username,
       password,
       controlIdUserId,
+      registration,
     });
 
     return { ok: true };

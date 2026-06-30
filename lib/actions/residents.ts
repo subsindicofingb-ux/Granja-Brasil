@@ -216,11 +216,6 @@ export async function deleteResidentAction(
     return { error: result.error };
   }
 
-  after(async () => {
-    const limit = Math.max(3, result.data.removalJobsEnqueued);
-    await triggerAccessSyncProcessing(limit);
-  });
-
   revalidateResidentPaths(condoSlug);
   redirect(`/app/${condoSlug}/residents`);
 }
