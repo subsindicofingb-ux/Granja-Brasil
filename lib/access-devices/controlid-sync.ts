@@ -208,14 +208,13 @@ export async function setControlIdUserImage(input: {
   session: string;
   userId: number;
   imageBytes: Buffer;
-  contentType?: string;
 }): Promise<void> {
   const response = await fetch(
     `${input.baseUrl}/user_set_image.fcgi?session=${encodeURIComponent(input.session)}&user_id=${input.userId}`,
     {
       method: "POST",
       headers: {
-        "Content-Type": input.contentType ?? "image/jpeg",
+        "Content-Type": "application/octet-stream",
       },
       body: new Uint8Array(input.imageBytes),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -223,9 +222,92 @@ export async function setControlIdUserImage(input: {
     },
   );
 
-  if (!response.ok) {
-    throw new Error(`ControlID recusou o envio da foto (HTTP ${response.status}).`);
+  if (response.ok) {
+    return;
   }
+
+  const responseText = await response.text().catch(() => "");
+  throw new Error(
+    `ControlID recusou o envio da foto (HTTP ${response.status})${responseText ? `: ${responseText.slice(0, 120)}` : ""}.`,
+  );
+}
+
+export async function setControlIdUserImageBase64(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+  imageBase64: string;
+}): Promise<void> {
+  await postControlIdJson(
+    input.baseUrl,
+    "/user_set_image_list.fcgi",
+    input.session,
+    {
+      user_images: [
+        {
+          user_id: input.userId,
+          image: input.imageBase64,
+        },
+      ],
+    },
+  );
+}
+
+function detectImageFormat(bytes: Buffer): "jpeg" | "png" | "webp" | "unknown" {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "jpeg";
+  }
+
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return "png";
+  }
+
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "webp";
+  }
+
+  return "unknown";
+}
+
+async function uploadControlIdUserPhoto(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+  imageBytes: Buffer;
+}): Promise<void> {
+  const format = detectImageFormat(input.imageBytes);
+
+  if (format === "webp") {
+    throw new Error(
+      "Foto em WebP não é aceita pelo ControlID. Reenvie a foto do morador em JPG ou PNG.",
+    );
+  }
+
+  try {
+    await setControlIdUserImage(input);
+    return;
+  } catch (primaryError) {
+    if (format !== "jpeg" && format !== "png") {
+      throw primaryError;
+    }
+  }
+
+  await setControlIdUserImageBase64({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    userId: input.userId,
+    imageBase64: input.imageBytes.toString("base64"),
+  });
 }
 
 export async function fetchResidentPhotoBytes(photoUrl: string): Promise<{
@@ -316,12 +398,11 @@ export async function syncResidentToControlIdDevice(
       }
 
       const photo = await fetchResidentPhotoBytes(input.photoUrl);
-      await setControlIdUserImage({
+      await uploadControlIdUserPhoto({
         baseUrl,
         session,
         userId,
         imageBytes: photo.bytes,
-        contentType: photo.contentType,
       });
     }
 
