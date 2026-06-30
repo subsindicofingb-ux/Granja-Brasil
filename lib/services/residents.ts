@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildAnnouncementResidentUnitLabel } from "@/lib/announcements/resident-labels";
 import type { Resident, ResidentType } from "@/types";
+import { enqueueResidentRemovalFromAccessDevices } from "@/lib/services/access-sync";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 
@@ -239,7 +240,7 @@ export async function updateResident(input: {
 export async function deleteResident(input: {
   residentId: string;
   condominiumId?: string;
-}): Promise<ServiceResult<true>> {
+}): Promise<ServiceResult<{ removalJobsEnqueued: number }>> {
   const supabase = await createClient();
 
   const residentResult = await getResidentById(input.residentId, {
@@ -250,13 +251,15 @@ export async function deleteResident(input: {
     return serviceError(residentResult.error);
   }
 
+  const removalJobsEnqueued = await enqueueResidentRemovalFromAccessDevices(input.residentId);
+
   const { error } = await supabase.from("residents").delete().eq("id", input.residentId);
 
   if (error) {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk(true);
+  return serviceOk({ removalJobsEnqueued });
 }
 
 export async function getLinkedResidentForProfile(input: {

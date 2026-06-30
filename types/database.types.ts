@@ -1039,7 +1039,7 @@ export interface Database {
       access_sync_jobs: {
         Row: {
           id: string;
-          resident_id: string;
+          resident_id: string | null;
           access_device_id: string;
           grant_id: string | null;
           action: Database["public"]["Enums"]["access_sync_action"];
@@ -1056,7 +1056,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          resident_id: string;
+          resident_id?: string | null;
           access_device_id: string;
           grant_id?: string | null;
           action: Database["public"]["Enums"]["access_sync_action"];
@@ -1073,7 +1073,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          resident_id?: string;
+          resident_id?: string | null;
           access_device_id?: string;
           grant_id?: string | null;
           action?: Database["public"]["Enums"]["access_sync_action"];

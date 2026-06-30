@@ -23,7 +23,7 @@ type GrantRow = {
 
 type JobRow = {
   id: string;
-  resident_id: string;
+  resident_id: string | null;
   access_device_id: string;
   grant_id: string | null;
   action: AccessSyncAction;
@@ -121,6 +121,52 @@ export async function enqueueAccessSyncJob(input: {
   }
 }
 
+export async function enqueueResidentRemovalFromAccessDevices(
+  residentId: string,
+): Promise<number> {
+  const admin = createAdminClient();
+
+  const { data: grants, error } = await admin
+    .from("resident_access_grants")
+    .select("id, access_device_id, controlid_user_id")
+    .eq("resident_id", residentId)
+    .not("controlid_user_id", "is", null);
+
+  if (error) {
+    console.error("[access-sync:remove-enqueue]", mapSupabaseError(error));
+    return 0;
+  }
+
+  await admin
+    .from("access_sync_jobs")
+    .update({
+      status: "completed",
+      last_error: "Morador excluído antes do sync.",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("resident_id", residentId)
+    .in("action", ["create", "update"])
+    .in("status", ["pending", "processing"]);
+
+  let enqueued = 0;
+
+  for (const grant of (grants as GrantRow[] | null) ?? []) {
+    if (!grant.controlid_user_id) {
+      continue;
+    }
+
+    await enqueueAccessSyncJob({
+      residentId,
+      accessDeviceId: grant.access_device_id,
+      action: "remove",
+      controlIdUserId: grant.controlid_user_id,
+    });
+    enqueued += 1;
+  }
+
+  return enqueued;
+}
+
 export async function enqueueResidentProfileSyncUpdates(residentId: string): Promise<void> {
   const admin = createAdminClient();
   const { data: grants } = await admin
@@ -161,25 +207,13 @@ async function loadJobContext(job: JobRow): Promise<
 > {
   const admin = createAdminClient();
 
-  const [{ data: resident, error: residentError }, { data: device, error: deviceError }] =
-    await Promise.all([
-      admin
-        .from("residents")
-        .select("id, full_name, photo_url")
-        .eq("id", job.resident_id)
-        .maybeSingle(),
-      admin
-        .from("access_devices")
-        .select(
-          "id, display_name, host_url, api_username, api_password_encrypted, access_type, is_pilot, is_active",
-        )
-        .eq("id", job.access_device_id)
-        .maybeSingle(),
-    ]);
-
-  if (residentError || !resident) {
-    return { ok: false, error: "Morador não encontrado para sync." };
-  }
+  const { data: device, error: deviceError } = await admin
+    .from("access_devices")
+    .select(
+      "id, display_name, host_url, api_username, api_password_encrypted, access_type, is_pilot, is_active",
+    )
+    .eq("id", job.access_device_id)
+    .maybeSingle();
 
   if (deviceError || !device) {
     return { ok: false, error: "Equipamento não encontrado para sync." };
@@ -199,6 +233,41 @@ async function loadJobContext(job: JobRow): Promise<
     };
   }
 
+  let password: string;
+  try {
+    password = decryptAccessDevicePassword(deviceRow.api_password_encrypted);
+  } catch {
+    return { ok: false, error: "Não foi possível descriptografar a senha do equipamento." };
+  }
+
+  if (job.action === "remove") {
+    return {
+      ok: true,
+      resident: {
+        id: job.resident_id ?? "",
+        full_name: "",
+        photo_url: null,
+      },
+      device: deviceRow,
+      grant: null,
+      password,
+    };
+  }
+
+  if (!job.resident_id) {
+    return { ok: false, error: "Morador excluído.", skip: true };
+  }
+
+  const { data: resident, error: residentError } = await admin
+    .from("residents")
+    .select("id, full_name, photo_url")
+    .eq("id", job.resident_id)
+    .maybeSingle();
+
+  if (residentError || !resident) {
+    return { ok: false, error: "Morador não encontrado para sync." };
+  }
+
   let grant: GrantRow | null = null;
   if (job.grant_id) {
     const { data: grantData } = await admin
@@ -208,13 +277,6 @@ async function loadJobContext(job: JobRow): Promise<
       .maybeSingle();
 
     grant = (grantData as GrantRow | null) ?? null;
-  }
-
-  let password: string;
-  try {
-    password = decryptAccessDevicePassword(deviceRow.api_password_encrypted);
-  } catch {
-    return { ok: false, error: "Não foi possível descriptografar a senha do equipamento." };
   }
 
   return {
