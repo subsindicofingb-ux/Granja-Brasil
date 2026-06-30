@@ -1,7 +1,7 @@
 import { normalizeAccessDeviceHostUrl } from "@/lib/access-devices/controlid-client";
 
 export function isAccessSyncPilotOnly(): boolean {
-  return process.env.ACCESS_SYNC_PILOT_ONLY !== "false";
+  return process.env.ACCESS_SYNC_PILOT_ONLY === "true";
 }
 
 export function getAccessSyncWorkerSecret(): string | null {

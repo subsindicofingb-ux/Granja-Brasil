@@ -1,13 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
-import { triggerAccessSyncProcessing } from "@/lib/access-devices/sync-env";
 import {
   enqueueResidentAccessSyncJobs,
-  processPendingAccessSyncJobs,
+  runPendingAccessSync,
 } from "@/lib/services/access-sync";
 import {
   getResidentAccessDeviceIds,
@@ -50,10 +48,8 @@ export async function syncResidentAccessAction(
     accessDeviceIds: deviceIdsResult.data,
   });
 
-  const processResult = await processPendingAccessSyncJobs({ limit: 3 });
-
-  after(async () => {
-    await triggerAccessSyncProcessing(3);
+  const processResult = await runPendingAccessSync({
+    limit: Math.max(3, deviceIdsResult.data.length),
   });
 
   revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
@@ -86,7 +82,8 @@ export async function syncResidentAccessAction(
 
   if (completed === 0 && skipped > 0) {
     return {
-      success: "Nenhum equipamento piloto elegível no momento. Ajuste ACCESS_SYNC_PILOT_ONLY se necessário.",
+      success:
+        "Sync ignorado: equipamento inativo ou ACCESS_SYNC_PILOT_ONLY=true sem equipamento piloto.",
     };
   }
 

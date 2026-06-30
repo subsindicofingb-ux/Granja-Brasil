@@ -54,6 +54,47 @@ function requiresPhotoForAccessType(accessType: string): boolean {
   return FACIAL_ACCESS_TYPES.has(accessType);
 }
 
+async function loadAccessDeviceForSync(deviceId: string): Promise<DeviceRow | null> {
+  const admin = createAdminClient();
+  const { data: device } = await admin
+    .from("access_devices")
+    .select(
+      "id, display_name, host_url, api_username, api_password_encrypted, access_type, is_pilot, is_active",
+    )
+    .eq("id", deviceId)
+    .maybeSingle();
+
+  return (device as DeviceRow | null) ?? null;
+}
+
+async function removeGrantFromControlIdImmediately(input: {
+  residentId: string;
+  grant: Pick<GrantRow, "access_device_id" | "controlid_user_id" | "controlid_registration">;
+}): Promise<void> {
+  const registration =
+    input.grant.controlid_registration ?? buildControlIdRegistration(input.residentId);
+  const device = await loadAccessDeviceForSync(input.grant.access_device_id);
+
+  if (!device?.is_active) {
+    return;
+  }
+
+  let password: string;
+  try {
+    password = decryptAccessDevicePassword(device.api_password_encrypted);
+  } catch {
+    throw new Error(`${device.display_name}: senha do equipamento indisponível.`);
+  }
+
+  await removeResidentFromControlIdDevice({
+    hostUrl: device.host_url,
+    username: device.api_username,
+    password,
+    controlIdUserId: input.grant.controlid_user_id,
+    registration,
+  });
+}
+
 async function markGrantSyncResult(input: {
   grantId: string | null;
   status: "synced" | "error" | "pending";
@@ -586,18 +627,32 @@ export async function syncDiffResidentAccessGrants(input: {
   const registration = buildControlIdRegistration(input.residentId);
 
   for (const grant of existing) {
-    if (!newDeviceIds.has(grant.access_device_id)) {
-      await admin.from("resident_access_grants").delete().eq("id", grant.id);
-
-      if (grant.controlid_user_id) {
-        await enqueueAccessSyncJob({
-          residentId: input.residentId,
-          accessDeviceId: grant.access_device_id,
-          action: "remove",
-          controlIdUserId: grant.controlid_user_id,
-        });
+    if (newDeviceIds.has(grant.access_device_id)) {
+      if (!grant.controlid_registration) {
+        await admin
+          .from("resident_access_grants")
+          .update({ controlid_registration: registration })
+          .eq("id", grant.id);
       }
+      continue;
     }
+
+    try {
+      await removeGrantFromControlIdImmediately({
+        residentId: input.residentId,
+        grant,
+      });
+    } catch (error) {
+      console.error("[access-sync:remove-grant]", error);
+      await enqueueAccessSyncJob({
+        residentId: input.residentId,
+        accessDeviceId: grant.access_device_id,
+        action: "remove",
+        controlIdUserId: grant.controlid_user_id,
+      });
+    }
+
+    await admin.from("resident_access_grants").delete().eq("id", grant.id);
   }
 
   const addedDeviceIds: string[] = [];
@@ -633,4 +688,16 @@ export async function syncDiffResidentAccessGrants(input: {
   }
 
   return serviceOk(addedDeviceIds);
+}
+
+export async function runPendingAccessSync(input?: { limit?: number }): Promise<
+  ServiceResult<{
+    processed: number;
+    completed: number;
+    failed: number;
+    skipped: number;
+  }>
+> {
+  const limit = Math.max(1, Math.min(input?.limit ?? 5, 10));
+  return processPendingAccessSyncJobs({ limit });
 }

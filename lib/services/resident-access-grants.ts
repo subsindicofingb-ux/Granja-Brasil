@@ -2,8 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { AccessDeviceOption, ResidentAccessGrantRecord } from "@/lib/access-devices/grant-types";
 import { mapDevicesToOptions } from "@/lib/access-devices/suggested-grants";
 import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
-import { triggerAccessSyncProcessing } from "@/lib/access-devices/sync-env";
-import { syncDiffResidentAccessGrants } from "@/lib/services/access-sync";
+import { runPendingAccessSync, syncDiffResidentAccessGrants } from "@/lib/services/access-sync";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 type GrantRow = {
@@ -219,6 +218,7 @@ export async function replaceResidentAccessGrants(input: {
   residentId: string;
   condominiumId: string;
   accessDeviceIds: string[];
+  processSync?: boolean;
 }): Promise<ServiceResult<void>> {
   const validated = await validateAccessDeviceIdsForCondominium(
     input.condominiumId,
@@ -238,7 +238,11 @@ export async function replaceResidentAccessGrants(input: {
     return serviceError(diffResult.error ?? "Erro ao salvar locais do morador.");
   }
 
-  await triggerAccessSyncProcessing(3);
+  if (input.processSync !== false) {
+    await runPendingAccessSync({
+      limit: Math.max(5, input.accessDeviceIds.length + 2),
+    });
+  }
 
   return serviceOk(undefined);
 }
