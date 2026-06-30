@@ -162,6 +162,86 @@ export async function createControlIdUser(input: {
   return userId;
 }
 
+export async function loadControlIdUserById(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+}): Promise<{ id: number; registration: string; name: string } | null> {
+  const data = await postControlIdJson<ControlIdLoadUsersResponse>(
+    input.baseUrl,
+    "/load_objects.fcgi",
+    input.session,
+    {
+      object: "users",
+      fields: ["id", "registration", "name"],
+      where: {
+        users: { id: input.userId },
+      },
+      limit: 1,
+    },
+  );
+
+  const user = data.users?.[0];
+  if (!user?.id) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    registration: user.registration ?? "",
+    name: user.name ?? "",
+  };
+}
+
+async function resolveOrCreateControlIdUser(input: {
+  baseUrl: string;
+  session: string;
+  registration: string;
+  residentName: string;
+  preferredUserId?: number | null;
+}): Promise<number> {
+  if (input.preferredUserId) {
+    const byId = await loadControlIdUserById({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId: input.preferredUserId,
+    });
+
+    if (byId) {
+      await updateControlIdUserName({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        userId: byId.id,
+        name: input.residentName,
+      });
+      return byId.id;
+    }
+  }
+
+  const byRegistration = await loadControlIdUserByRegistration({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    registration: input.registration,
+  });
+
+  if (byRegistration) {
+    await updateControlIdUserName({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId: byRegistration.id,
+      name: input.residentName,
+    });
+    return byRegistration.id;
+  }
+
+  return createControlIdUser({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    registration: input.registration,
+    name: input.residentName,
+  });
+}
+
 export async function updateControlIdUserName(input: {
   baseUrl: string;
   session: string;
@@ -358,32 +438,13 @@ export async function syncResidentToControlIdDevice(
   });
 
   try {
-    let userId = input.existingControlIdUserId ?? null;
-
-    if (!userId) {
-      const existing = await loadControlIdUserByRegistration({
-        baseUrl,
-        session,
-        registration,
-      });
-      userId = existing?.id ?? null;
-    }
-
-    if (userId) {
-      await updateControlIdUserName({
-        baseUrl,
-        session,
-        userId,
-        name: input.residentName,
-      });
-    } else {
-      userId = await createControlIdUser({
-        baseUrl,
-        session,
-        registration,
-        name: input.residentName,
-      });
-    }
+    const userId = await resolveOrCreateControlIdUser({
+      baseUrl,
+      session,
+      registration,
+      residentName: input.residentName,
+      preferredUserId: input.existingControlIdUserId,
+    });
 
     if (input.requiresPhoto) {
       if (!input.photoUrl) {
