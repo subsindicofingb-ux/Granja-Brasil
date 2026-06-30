@@ -288,6 +288,38 @@ type ControlIdUserImagesResponse = {
   user_ids?: number[];
 };
 
+type ControlIdImageError = {
+  code?: number;
+  message?: string;
+};
+
+type ControlIdSetImageResponse = {
+  success?: boolean;
+  errors?: ControlIdImageError[];
+  user_id?: number;
+};
+
+type ControlIdSetImageListResponse = {
+  results?: Array<ControlIdSetImageResponse & { user_id?: number }>;
+};
+
+function formatControlIdImageErrors(errors: ControlIdImageError[] | undefined): string {
+  const messages = (errors ?? [])
+    .map((error) => error.message?.trim())
+    .filter((message): message is string => Boolean(message));
+
+  return messages.length > 0 ? messages.join("; ") : "Erro desconhecido ao cadastrar foto.";
+}
+
+function assertControlIdImageAccepted(
+  response: ControlIdSetImageResponse,
+  fallbackMessage: string,
+): void {
+  if (response.success === false || (response.errors?.length ?? 0) > 0) {
+    throw new Error(formatControlIdImageErrors(response.errors) || fallbackMessage);
+  }
+}
+
 async function controlIdUserHasPhoto(input: {
   baseUrl: string;
   session: string;
@@ -307,9 +339,11 @@ export async function setControlIdUserImage(input: {
   session: string;
   userId: number;
   imageBytes: Buffer;
+  timestamp?: number;
 }): Promise<void> {
+  const timestamp = input.timestamp ?? Math.floor(Date.now() / 1000);
   const response = await fetch(
-    `${input.baseUrl}/user_set_image.fcgi?session=${encodeURIComponent(input.session)}&user_id=${input.userId}`,
+    `${input.baseUrl}/user_set_image.fcgi?session=${encodeURIComponent(input.session)}&user_id=${input.userId}&timestamp=${timestamp}&match=0`,
     {
       method: "POST",
       headers: {
@@ -321,13 +355,31 @@ export async function setControlIdUserImage(input: {
     },
   );
 
+  const responseText = await response.text().catch(() => "");
+
+  if (responseText.trim()) {
+    let data: ControlIdSetImageResponse | null = null;
+    try {
+      data = JSON.parse(responseText) as ControlIdSetImageResponse;
+    } catch {
+      data = null;
+    }
+
+    if (data) {
+      assertControlIdImageAccepted(
+        data,
+        "ControlID recusou o envio da foto sem detalhes adicionais.",
+      );
+      return;
+    }
+  }
+
   if (response.ok) {
     return;
   }
 
-  const responseText = await response.text().catch(() => "");
   throw new Error(
-    `ControlID recusou o envio da foto (HTTP ${response.status})${responseText ? `: ${responseText.slice(0, 120)}` : ""}.`,
+    `ControlID recusou o envio da foto (HTTP ${response.status})${responseText ? `: ${responseText.slice(0, 200)}` : ""}.`,
   );
 }
 
@@ -336,20 +388,31 @@ export async function setControlIdUserImageBase64(input: {
   session: string;
   userId: number;
   imageBase64: string;
+  timestamp?: number;
 }): Promise<void> {
-  await postControlIdJson(
+  const timestamp = input.timestamp ?? Math.floor(Date.now() / 1000);
+  const data = await postControlIdJson<ControlIdSetImageListResponse>(
     input.baseUrl,
     "/user_set_image_list.fcgi",
     input.session,
     {
+      match: false,
       user_images: [
         {
           user_id: input.userId,
+          timestamp,
           image: input.imageBase64,
         },
       ],
     },
   );
+
+  const result = data.results?.find((entry) => entry.user_id === input.userId) ?? data.results?.[0];
+  if (!result) {
+    throw new Error("ControlID não retornou o resultado do envio da foto.");
+  }
+
+  assertControlIdImageAccepted(result, "ControlID recusou o envio da foto em lote.");
 }
 
 async function uploadControlIdUserPhoto(input: {
@@ -358,11 +421,13 @@ async function uploadControlIdUserPhoto(input: {
   userId: number;
   imageBytes: Buffer;
 }): Promise<void> {
+  const timestamp = Math.floor(Date.now() / 1000);
   const jpegBytes = await normalizePhotoForControlId(input.imageBytes);
 
   await setControlIdUserImage({
     ...input,
     imageBytes: jpegBytes,
+    timestamp,
   });
 
   if (await controlIdUserHasPhoto(input)) {
@@ -374,6 +439,7 @@ async function uploadControlIdUserPhoto(input: {
     session: input.session,
     userId: input.userId,
     imageBase64: jpegBytes.toString("base64"),
+    timestamp,
   });
 
   if (!(await controlIdUserHasPhoto(input))) {
