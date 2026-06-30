@@ -1036,6 +1036,60 @@ export interface Database {
         };
         Relationships: [];
       };
+      access_sync_jobs: {
+        Row: {
+          id: string;
+          resident_id: string;
+          access_device_id: string;
+          grant_id: string | null;
+          action: Database["public"]["Enums"]["access_sync_action"];
+          status: Database["public"]["Enums"]["access_sync_job_status"];
+          attempts: number;
+          max_attempts: number;
+          last_error: string | null;
+          controlid_user_id: number | null;
+          scheduled_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          resident_id: string;
+          access_device_id: string;
+          grant_id?: string | null;
+          action: Database["public"]["Enums"]["access_sync_action"];
+          status?: Database["public"]["Enums"]["access_sync_job_status"];
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          controlid_user_id?: number | null;
+          scheduled_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          resident_id?: string;
+          access_device_id?: string;
+          grant_id?: string | null;
+          action?: Database["public"]["Enums"]["access_sync_action"];
+          status?: Database["public"]["Enums"]["access_sync_job_status"];
+          attempts?: number;
+          max_attempts?: number;
+          last_error?: string | null;
+          controlid_user_id?: number | null;
+          scheduled_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       resident_access_grants: {
         Row: {
           id: string;
@@ -1043,6 +1097,9 @@ export interface Database {
           access_device_id: string;
           sync_status: Database["public"]["Enums"]["access_grant_sync_status"];
           sync_error: string | null;
+          controlid_user_id: number | null;
+          controlid_registration: string | null;
+          synced_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1052,6 +1109,9 @@ export interface Database {
           access_device_id: string;
           sync_status?: Database["public"]["Enums"]["access_grant_sync_status"];
           sync_error?: string | null;
+          controlid_user_id?: number | null;
+          controlid_registration?: string | null;
+          synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1061,6 +1121,9 @@ export interface Database {
           access_device_id?: string;
           sync_status?: Database["public"]["Enums"]["access_grant_sync_status"];
           sync_error?: string | null;
+          controlid_user_id?: number | null;
+          controlid_registration?: string | null;
+          synced_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1316,6 +1379,8 @@ export interface Database {
         | "staff_maintenance";
       access_device_direction: "entry" | "exit" | "both";
       access_grant_sync_status: "pending" | "synced" | "error";
+      access_sync_action: "create" | "update" | "remove";
+      access_sync_job_status: "pending" | "processing" | "completed" | "error";
     };
   };
 }

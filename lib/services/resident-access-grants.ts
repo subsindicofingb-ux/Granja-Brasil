@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { AccessDeviceOption, ResidentAccessGrantRecord } from "@/lib/access-devices/grant-types";
 import { mapDevicesToOptions } from "@/lib/access-devices/suggested-grants";
 import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
+import { triggerAccessSyncProcessing } from "@/lib/access-devices/sync-env";
+import { syncDiffResidentAccessGrants } from "@/lib/services/access-sync";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 type GrantRow = {
@@ -226,38 +228,19 @@ export async function replaceResidentAccessGrants(input: {
     return serviceError(validated.error);
   }
 
-  try {
-    const supabase = await createClient();
+  const diffResult = await syncDiffResidentAccessGrants({
+    residentId: input.residentId,
+    condominiumId: input.condominiumId,
+    accessDeviceIds: input.accessDeviceIds,
+  });
 
-    const { error: deleteError } = await supabase
-      .from("resident_access_grants")
-      .delete()
-      .eq("resident_id", input.residentId);
-
-    if (deleteError) {
-      return serviceError(mapSupabaseError(deleteError));
-    }
-
-    if (input.accessDeviceIds.length === 0) {
-      return serviceOk(undefined);
-    }
-
-    const { error: insertError } = await supabase.from("resident_access_grants").insert(
-      input.accessDeviceIds.map((accessDeviceId) => ({
-        resident_id: input.residentId,
-        access_device_id: accessDeviceId,
-        sync_status: "pending" as const,
-      })),
-    );
-
-    if (insertError) {
-      return serviceError(mapSupabaseError(insertError));
-    }
-
-    return serviceOk(undefined);
-  } catch (error) {
-    return serviceError(error instanceof Error ? error.message : "Erro ao salvar locais do morador.");
+  if (!diffResult.ok) {
+    return serviceError(diffResult.error ?? "Erro ao salvar locais do morador.");
   }
+
+  await triggerAccessSyncProcessing(3);
+
+  return serviceOk(undefined);
 }
 
 export async function replaceRegistrationRequestAccessDevices(input: {

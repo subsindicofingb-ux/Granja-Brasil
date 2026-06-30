@@ -75,6 +75,7 @@ interface ResidentAccessDeviceSummaryProps {
       is_pilot: boolean;
     };
     sync_status: "pending" | "synced" | "error";
+    sync_error?: string | null;
   }>;
 }
 
@@ -82,6 +83,12 @@ const SYNC_STATUS_LABELS = {
   pending: "Aguardando sync",
   synced: "Sincronizado",
   error: "Erro no sync",
+} as const;
+
+const SYNC_STATUS_CLASSES = {
+  pending: "border-amber-300 bg-amber-50 text-amber-900",
+  synced: "border-green-300 bg-green-50 text-green-900",
+  error: "border-red-300 bg-red-50 text-red-900",
 } as const;
 
 export function ResidentAccessDeviceSummary({ grants }: ResidentAccessDeviceSummaryProps) {
@@ -106,9 +113,14 @@ export function ResidentAccessDeviceSummary({ grants }: ResidentAccessDeviceSumm
               </p>
             )}
           </div>
-          <Badge className="shrink-0 border bg-background">
-            {SYNC_STATUS_LABELS[grant.sync_status]}
-          </Badge>
+          <div className="text-right">
+            <Badge className={`shrink-0 ${SYNC_STATUS_CLASSES[grant.sync_status]}`}>
+              {SYNC_STATUS_LABELS[grant.sync_status]}
+            </Badge>
+            {grant.sync_error && grant.sync_status === "error" && (
+              <p className="mt-1 max-w-[12rem] text-xs text-red-700">{grant.sync_error}</p>
+            )}
+          </div>
         </li>
       ))}
     </ul>

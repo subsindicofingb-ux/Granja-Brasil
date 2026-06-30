@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
 import { ResidentDeleteButton } from "@/components/residents/resident-delete-button";
 import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
+import { ResidentAccessSyncButton } from "@/components/access-devices/resident-access-sync-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +133,23 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                   residentId={resident.id}
                   residentName={resident.full_name}
                 />
+              )}
+
+              {accessGrants.length > 0 && (
+                <div className="space-y-3 border-t pt-4">
+                  <div>
+                    <p className="text-sm font-medium">Locais vinculados</p>
+                    <p className="text-xs text-muted-foreground">
+                      Status da sincronização com os equipamentos ControlID.
+                    </p>
+                  </div>
+                  <ResidentAccessDeviceSummary grants={accessGrants} />
+                  <ResidentAccessSyncButton
+                    condoSlug={condoSlug}
+                    residentId={resident.id}
+                    hasAccessGrants={accessGrants.length > 0}
+                  />
+                </div>
               )}
             </div>
           ) : (

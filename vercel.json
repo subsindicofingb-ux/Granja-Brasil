@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/access-sync/process?limit=3",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

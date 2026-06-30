@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireCondoPermission, requireCondoAccess } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
+import { triggerAccessSyncProcessing } from "@/lib/access-devices/sync-env";
+import { enqueueResidentProfileSyncUpdates } from "@/lib/services/access-sync";
 import { createResident, deleteResident, updateResident } from "@/lib/services/residents";
 import { replaceResidentAccessGrants } from "@/lib/services/resident-access-grants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -92,6 +95,10 @@ export async function createResidentAction(
     return { error: grantsResult.error ?? "Morador criado, mas locais de acesso não foram salvos." };
   }
 
+  after(async () => {
+    await triggerAccessSyncProcessing(3);
+  });
+
   revalidateResidentPaths(condoSlug);
   redirect(`/app/${condoSlug}/residents/${result.data.id}`);
 }
@@ -168,6 +175,12 @@ export async function updateResidentAction(
   if (!grantsResult.ok) {
     return { error: grantsResult.error ?? "Morador atualizado, mas locais de acesso não foram salvos." };
   }
+
+  await enqueueResidentProfileSyncUpdates(residentId);
+
+  after(async () => {
+    await triggerAccessSyncProcessing(3);
+  });
 
   revalidateResidentPaths(condoSlug);
   revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
