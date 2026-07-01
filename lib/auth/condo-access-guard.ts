@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/pending-approval";
 
 const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password", "/signup"]);
+const RESERVED_APP_SEGMENTS = new Set(["aguardando-aprovacao"]);
 
 export async function userHasAnyMembership(
   supabase: SupabaseClient<Database>,
@@ -44,7 +45,11 @@ export function extractCondoSlugFromAppPath(pathname: string): string | null {
   }
 
   const slug = remainder.split("/")[0]?.trim();
-  return slug || null;
+  if (!slug || RESERVED_APP_SEGMENTS.has(slug)) {
+    return null;
+  }
+
+  return slug;
 }
 
 export async function canAccessCondoSlug(

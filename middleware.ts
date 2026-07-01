@@ -84,6 +84,10 @@ export async function middleware(request: NextRequest) {
         copyCookies(response, redirectResponse);
         return redirectResponse;
       }
+
+      if (isPendingApprovalPage) {
+        return response;
+      }
     }
   }
 

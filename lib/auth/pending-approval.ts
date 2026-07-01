@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { userHasAnyMembership } from "@/lib/auth/condo-access-guard";
 import { ROLES } from "@/lib/constants";
 import type { Database } from "@/types/database.types";
 
@@ -29,6 +28,29 @@ async function getAuthenticatedProfileId(
   } = await supabase.auth.getUser();
 
   return user?.id ?? null;
+}
+
+async function userHasAnyMembership(
+  supabase: SupabaseClient<Database>,
+): Promise<boolean> {
+  const { data: isSuperAdmin, error: rpcError } = await supabase.rpc("is_super_admin");
+
+  if (!rpcError && isSuperAdmin) {
+    return true;
+  }
+
+  const profileId = await getAuthenticatedProfileId(supabase);
+  if (!profileId) {
+    return false;
+  }
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("profile_id", profileId)
+    .limit(1);
+
+  return !error && (data?.length ?? 0) > 0;
 }
 
 async function userHasPendingRegistration(
@@ -74,6 +96,18 @@ async function userHasLinkedResidentForAllResidentMemberships(
   }
 
   for (const membership of memberships) {
+    const { data: approvedRequests, error: approvedError } = await supabase
+      .from("registration_requests")
+      .select("id")
+      .eq("profile_id", profileId)
+      .eq("condominium_id", membership.condominium_id)
+      .eq("status", "approved")
+      .limit(1);
+
+    if (!approvedError && (approvedRequests?.length ?? 0) > 0) {
+      continue;
+    }
+
     const { data: residents, error: residentError } = await supabase
       .from("residents")
       .select("id, units!inner(towers!inner(condominium_id))")
