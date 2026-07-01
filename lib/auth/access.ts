@@ -193,6 +193,13 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
 export async function requireCondoAccess(slug: string): Promise<CondoAccess> {
   const access = await getCondoAccess(slug);
   if (!access) {
+    const memberships = await getUserMemberships();
+    const superAdmin = await isSuperAdmin();
+
+    if (!superAdmin && memberships.length === 0) {
+      redirect("/app/aguardando-aprovacao");
+    }
+
     redirect("/app");
   }
 

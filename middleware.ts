@@ -12,6 +12,7 @@ import {
   updateSession,
 } from "@/lib/supabase/middleware";
 import { PENDING_PASSWORD_RESET_COOKIE } from "@/lib/auth/constants";
+import { PENDING_APPROVAL_PATH, userHasAppAccess } from "@/lib/auth/pending-approval";
 import type { Database } from "@/types/database.types";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
@@ -47,6 +48,43 @@ export async function middleware(request: NextRequest) {
     const redirectResponse = NextResponse.redirect(url);
     copyCookies(response, redirectResponse);
     return redirectResponse;
+  }
+
+  if (isProtectedApp && user) {
+    const env = getSupabasePublicEnv();
+
+    if (env) {
+      const supabase = createServerClient<Database>(env.url, env.anonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll() {},
+        },
+      });
+
+      const hasAppAccess = await userHasAppAccess(supabase);
+      const isPendingApprovalPage =
+        pathname === PENDING_APPROVAL_PATH || pathname.startsWith(`${PENDING_APPROVAL_PATH}/`);
+
+      if (!hasAppAccess && !isPendingApprovalPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = PENDING_APPROVAL_PATH;
+        url.search = "";
+        const redirectResponse = NextResponse.redirect(url);
+        copyCookies(response, redirectResponse);
+        return redirectResponse;
+      }
+
+      if (hasAppAccess && isPendingApprovalPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/app";
+        url.search = "";
+        const redirectResponse = NextResponse.redirect(url);
+        copyCookies(response, redirectResponse);
+        return redirectResponse;
+      }
+    }
   }
 
   if (isProtectedApp && !user) {
@@ -85,6 +123,24 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/app";
     url.search = "";
+
+    const env = getSupabasePublicEnv();
+    if (env) {
+      const supabase = createServerClient<Database>(env.url, env.anonKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll() {},
+        },
+      });
+
+      const hasAppAccess = await userHasAppAccess(supabase);
+      if (!hasAppAccess) {
+        url.pathname = PENDING_APPROVAL_PATH;
+      }
+    }
+
     const redirectResponse = NextResponse.redirect(url);
     copyCookies(response, redirectResponse);
     return redirectResponse;
@@ -108,7 +164,8 @@ export async function middleware(request: NextRequest) {
       const allowed = await canAccessCondoSlug(supabase, condoSlug);
       if (!allowed) {
         const url = request.nextUrl.clone();
-        url.pathname = "/app";
+        const hasAppAccess = await userHasAppAccess(supabase);
+        url.pathname = hasAppAccess ? "/app" : PENDING_APPROVAL_PATH;
         url.search = "";
         const redirectResponse = NextResponse.redirect(url);
         copyCookies(response, redirectResponse);

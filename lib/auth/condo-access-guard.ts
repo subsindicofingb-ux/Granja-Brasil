@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+import {
+  PENDING_APPROVAL_PATH,
+  userHasAppAccess,
+} from "@/lib/auth/pending-approval";
 
 const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password", "/signup"]);
 
@@ -85,6 +89,14 @@ export async function resolveSafeAppRedirect(
 
   if (ALLOWED_NON_APP_REDIRECTS.has(normalized)) {
     return normalized;
+  }
+
+  if (normalized === PENDING_APPROVAL_PATH || normalized.startsWith(`${PENDING_APPROVAL_PATH}?`)) {
+    return normalized;
+  }
+
+  if (!(await userHasAppAccess(supabase))) {
+    return PENDING_APPROVAL_PATH;
   }
 
   const condoSlug = extractCondoSlugFromAppPath(normalized);
