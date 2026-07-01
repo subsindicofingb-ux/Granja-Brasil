@@ -15,68 +15,67 @@
     }
     .page {
       width: 210mm;
-      min-height: 297mm;
+      height: 297mm;
       page-break-after: always;
       position: relative;
       overflow: hidden;
     }
     .page:last-child { page-break-after: auto; }
 
-    /* Capa */
     .cover {
       background: linear-gradient(160deg, #ecfdf5 0%, #d1fae5 35%, #ffffff 70%);
-      padding: 18mm 16mm;
+      padding: 16mm 14mm;
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: center;
+      gap: 8mm;
     }
     .cover-top { text-align: center; }
-    .cover-top img { width: 88mm; max-width: 100%; height: auto; }
+    .cover-top img { width: 72mm; height: auto; }
     .cover-badge {
       display: inline-block;
-      margin-top: 8mm;
+      margin-top: 5mm;
       padding: 2mm 5mm;
       border-radius: 999px;
       background: #059669;
       color: #fff;
-      font-size: 10pt;
+      font-size: 9pt;
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .cover h1 {
-      margin-top: 10mm;
-      font-size: 28pt;
+      margin-top: 6mm;
+      font-size: 24pt;
       line-height: 1.15;
       color: #064e3b;
       text-align: center;
     }
     .cover .subtitle {
-      margin-top: 5mm;
+      margin-top: 4mm;
       text-align: center;
-      font-size: 13pt;
+      font-size: 11.5pt;
       color: #047857;
-      line-height: 1.5;
+      line-height: 1.45;
       max-width: 150mm;
       margin-left: auto;
       margin-right: auto;
     }
     .cover-hero {
-      margin-top: 10mm;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 5mm;
+      gap: 4mm;
     }
     .hero-card {
-      background: rgba(255,255,255,0.85);
+      background: rgba(255,255,255,0.9);
       border: 1px solid #a7f3d0;
-      border-radius: 4mm;
-      padding: 5mm;
+      border-radius: 3mm;
+      padding: 4mm;
       text-align: center;
     }
     .hero-card .icon {
-      width: 12mm;
-      height: 12mm;
+      width: 10mm;
+      height: 10mm;
       margin: 0 auto 2mm;
       background: #059669;
       border-radius: 50%;
@@ -84,125 +83,163 @@
       align-items: center;
       justify-content: center;
       color: #fff;
-      font-size: 14pt;
+      font-size: 12pt;
     }
-    .hero-card strong { display: block; font-size: 10pt; color: #064e3b; }
-    .hero-card span { font-size: 8.5pt; color: #047857; line-height: 1.35; }
-
-    .qr-block {
-      margin-top: 8mm;
-      background: #fff;
-      border: 2px solid #059669;
-      border-radius: 5mm;
-      padding: 6mm;
+    .hero-card strong { display: block; font-size: 9pt; color: #064e3b; }
+    .hero-card span { font-size: 8pt; color: #047857; line-height: 1.3; }
+    .cover-note {
       text-align: center;
-      box-shadow: 0 4mm 12mm rgba(5,150,105,0.12);
+      font-size: 9pt;
+      color: #047857;
+      padding: 3mm 6mm;
+      border-radius: 3mm;
+      background: rgba(255,255,255,0.7);
+      border: 1px dashed #6ee7b7;
     }
-    .qr-block img { width: 42mm; height: 42mm; }
-    .qr-block h2 { font-size: 14pt; color: #064e3b; margin-top: 3mm; }
-    .qr-block p { font-size: 9.5pt; color: #047857; margin-top: 2mm; }
-    .qr-block .url { font-size: 11pt; font-weight: 700; color: #059669; margin-top: 2mm; }
 
-    /* Páginas internas */
-    .inner {
-      padding: 14mm 16mm;
-      background: #fff;
-    }
+    .inner { padding: 12mm 14mm; background: #fff; }
     .page-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 2px solid #a7f3d0;
-      padding-bottom: 4mm;
-      margin-bottom: 8mm;
+      padding-bottom: 3mm;
+      margin-bottom: 6mm;
     }
-    .page-header img { height: 12mm; }
-    .page-header span { font-size: 8pt; color: #047857; }
+    .page-header img { height: 10mm; }
+    .page-header span { font-size: 7.5pt; color: #047857; }
     h2.section {
-      font-size: 18pt;
+      font-size: 15pt;
       color: #064e3b;
-      margin-bottom: 3mm;
+      margin-bottom: 2mm;
     }
     .lead {
-      font-size: 10.5pt;
+      font-size: 9.5pt;
       color: #047857;
-      line-height: 1.55;
-      margin-bottom: 7mm;
+      line-height: 1.45;
+      margin-bottom: 5mm;
     }
 
     .steps {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 4mm;
-      margin-bottom: 8mm;
+      gap: 3mm;
+      margin-bottom: 6mm;
     }
     .step {
       background: linear-gradient(180deg, #ecfdf5, #fff);
       border: 1px solid #bbf7d0;
-      border-radius: 4mm;
-      padding: 5mm;
+      border-radius: 3mm;
+      padding: 4mm;
       text-align: center;
     }
     .step-num {
-      width: 9mm;
-      height: 9mm;
+      width: 8mm;
+      height: 8mm;
       border-radius: 50%;
       background: #059669;
       color: #fff;
       font-weight: 800;
-      font-size: 12pt;
-      line-height: 9mm;
-      margin: 0 auto 3mm;
+      font-size: 10pt;
+      line-height: 8mm;
+      margin: 0 auto 2mm;
     }
-    .step h3 { font-size: 10pt; color: #064e3b; margin-bottom: 2mm; }
-    .step p { font-size: 8.5pt; color: #047857; line-height: 1.4; }
+    .step h3 { font-size: 9pt; color: #064e3b; margin-bottom: 1.5mm; }
+    .step p { font-size: 7.8pt; color: #047857; line-height: 1.35; }
 
     .features {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 4mm;
+      gap: 3mm;
     }
     .feature {
       display: flex;
-      gap: 3mm;
-      padding: 4mm;
-      border-radius: 3mm;
+      gap: 2.5mm;
+      padding: 3mm;
+      border-radius: 2.5mm;
       border: 1px solid #d1fae5;
       background: #f0fdf4;
     }
     .feature .ico {
       flex-shrink: 0;
-      width: 10mm;
-      height: 10mm;
+      width: 8mm;
+      height: 8mm;
       border-radius: 2mm;
       background: #059669;
       color: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12pt;
+      font-size: 10pt;
     }
-    .feature h3 { font-size: 9.5pt; color: #064e3b; margin-bottom: 1mm; }
-    .feature p { font-size: 8pt; color: #047857; line-height: 1.4; }
+    .feature h3 { font-size: 8.5pt; color: #064e3b; margin-bottom: 0.5mm; }
+    .feature p { font-size: 7.2pt; color: #047857; line-height: 1.35; }
 
     .highlight-box {
-      margin-top: 7mm;
-      padding: 5mm;
-      border-radius: 4mm;
+      margin-top: 5mm;
+      padding: 4mm;
+      border-radius: 3mm;
       background: linear-gradient(90deg, #059669, #10b981);
       color: #fff;
       text-align: center;
     }
-    .highlight-box h3 { font-size: 12pt; margin-bottom: 2mm; }
-    .highlight-box p { font-size: 9pt; opacity: 0.95; line-height: 1.45; }
+    .highlight-box h3 { font-size: 10pt; margin-bottom: 1.5mm; }
+    .highlight-box p { font-size: 8pt; opacity: 0.95; line-height: 1.4; }
 
     .footer-note {
       position: absolute;
-      bottom: 10mm;
-      left: 16mm;
-      right: 16mm;
+      bottom: 8mm;
+      left: 14mm;
+      right: 14mm;
       text-align: center;
-      font-size: 7.5pt;
+      font-size: 7pt;
+      color: #6b7280;
+    }
+
+    .qr-page {
+      background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 45%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16mm;
+    }
+    .qr-page .logo { width: 65mm; margin-bottom: 8mm; }
+    .qr-page h1 {
+      font-size: 20pt;
+      color: #064e3b;
+      margin-bottom: 4mm;
+      max-width: 150mm;
+      line-height: 1.2;
+    }
+    .qr-page .intro {
+      font-size: 10pt;
+      color: #047857;
+      max-width: 140mm;
+      line-height: 1.45;
+      margin-bottom: 8mm;
+    }
+    .qr-block {
+      background: #fff;
+      border: 2px solid #059669;
+      border-radius: 5mm;
+      padding: 7mm 8mm;
+      box-shadow: 0 3mm 10mm rgba(5,150,105,0.12);
+      width: 95mm;
+    }
+    .qr-block img { width: 52mm; height: 52mm; }
+    .qr-block h2 { font-size: 14pt; color: #064e3b; margin-top: 4mm; }
+    .qr-block .url {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #059669;
+      margin-top: 3mm;
+      word-break: break-all;
+    }
+    .qr-page .footnote {
+      margin-top: 10mm;
+      font-size: 8.5pt;
       color: #6b7280;
     }
   </style>
@@ -232,7 +269,7 @@
         <span>Salão, churrasqueira e áreas comuns</span>
       </div>
       <div class="hero-card">
-        <div class="icon">🚗</div>
+        <div class="icon">🚪</div>
         <strong>Visitas</strong>
         <span>Autorize visitantes e prestadores</span>
       </div>
@@ -243,15 +280,10 @@
       </div>
     </div>
 
-    <div class="qr-block">
-      <img src="{{QR_SIGNUP}}" alt="QR Code cadastro" />
-      <h2>Escaneie e cadastre-se agora</h2>
-      <p>Aponte a câmera do celular para criar sua conta</p>
-      <div class="url">{{SIGNUP_URL}}</div>
-    </div>
+    <p class="cover-note">Cadastre-se pelo QR Code na última página deste guia.</p>
   </section>
 
-  <!-- PÁGINA 2 — COMO COMEÇAR -->
+  <!-- PÁGINA 2 — CONTEÚDO -->
   <section class="page inner">
     <div class="page-header">
       <img src="{{LOGO}}" alt="Granja Brasil" />
@@ -287,84 +319,81 @@
         <div class="ico">📢</div>
         <div>
           <h3>Avisos do condomínio</h3>
-          <p>Receba comunicados normais, importantes e urgentes. Responda quando necessário.</p>
+          <p>Comunicados normais, importantes e urgentes.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">💬</div>
         <div>
           <h3>Fale com o condomínio</h3>
-          <p>Envie mensagens diretas ao síndico ou à administração Granja Brasil.</p>
+          <p>Mensagens ao síndico ou à Granja Brasil.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">📅</div>
         <div>
           <h3>Reservar áreas comuns</h3>
-          <p>Salão de festas, churrasqueira, academia e demais espaços com confirmação do síndico.</p>
+          <p>Salão, churrasqueira, academia e demais espaços.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">🚪</div>
         <div>
           <h3>Autorizar visitantes</h3>
-          <p>Cadastre visitas e prestadores de serviço com antecedência para a portaria.</p>
+          <p>Cadastre visitas e prestadores com antecedência.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">🚗</div>
         <div>
           <h3>Veículos da unidade</h3>
-          <p>Consulte placas cadastradas e solicite inclusão de novos veículos com TAG.</p>
+          <p>Consulte placas e solicite novos cadastros com TAG.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">📦</div>
         <div>
           <h3>Correspondências</h3>
-          <p>Veja encomendas registradas pela portaria e saiba quando retirar.</p>
+          <p>Encomendas registradas pela portaria.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">📋</div>
         <div>
           <h3>Notificações formais</h3>
-          <p>Moradores responsáveis recebem comunicados oficiais com comprovante de leitura.</p>
+          <p>Comunicados oficiais com comprovante de leitura.</p>
         </div>
       </div>
       <div class="feature">
         <div class="ico">🔐</div>
         <div>
           <h3>Acesso seguro</h3>
-          <p>Seu cadastro aprovado libera o acesso físico nos equipamentos do condomínio.</p>
+          <p>Cadastro aprovado libera acesso nos equipamentos.</p>
         </div>
       </div>
     </div>
 
     <div class="highlight-box">
       <h3>Granja Brasil — Gestão inteligente do seu condomínio</h3>
-      <p>
-        Um único app conecta moradores, portaria, síndicos e a administração central.
-        Menos ligações, menos papel, mais transparência.
-      </p>
+      <p>Um único app conecta moradores, portaria, síndicos e a administração central.</p>
     </div>
 
     <p class="footer-note">© {{YEAR}} Granja Brasil · {{APP_URL}} · contato@granjabrasil.app.br</p>
   </section>
 
-  <!-- PÁGINA 3 — QR GRANDE -->
-  <section class="page cover" style="justify-content: center; align-items: center; text-align: center; padding-top: 25mm;">
-    <img src="{{LOGO}}" alt="Granja Brasil" style="width: 70mm; margin-bottom: 10mm;" />
-    <h1 style="font-size: 22pt; color: #064e3b; margin-bottom: 5mm;">Baixe o app no navegador</h1>
-    <p style="font-size: 11pt; color: #047857; max-width: 140mm; margin: 0 auto 10mm; line-height: 1.5;">
+  <!-- PÁGINA 3 — QR CODE -->
+  <section class="page qr-page">
+    <img class="logo" src="{{LOGO}}" alt="Granja Brasil" />
+    <h1>Baixe o app no navegador</h1>
+    <p class="intro">
       Não precisa instalar nada. Acesse pelo celular, faça login e adicione à tela inicial para usar como app.
     </p>
-    <div class="qr-block" style="max-width: 120mm; margin: 0 auto;">
-      <img src="{{QR_SIGNUP}}" alt="QR Code" style="width: 55mm; height: 55mm;" />
-      <h2 style="font-size: 16pt;">Cadastre-se aqui</h2>
-      <div class="url" style="font-size: 13pt;">{{SIGNUP_URL}}</div>
+    <div class="qr-block">
+      <img src="{{QR_SIGNUP}}" alt="QR Code cadastro" />
+      <h2>Cadastre-se aqui</h2>
+      <div class="url">{{SIGNUP_URL}}</div>
     </div>
-    <p style="margin-top: 12mm; font-size: 9pt; color: #6b7280;">Dúvidas? Fale com o síndico ou acesse {{APP_URL}}</p>
+    <p class="footnote">Dúvidas? Fale com o síndico ou acesse {{APP_URL}}</p>
   </section>
 
 </body>
