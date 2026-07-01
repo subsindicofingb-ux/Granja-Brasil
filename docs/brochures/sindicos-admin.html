@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Granja Brasil — Guia Síndicos e Administradores</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: #1e293b;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      page-break-after: always;
+      padding: 12mm 14mm;
+      position: relative;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #059669;
+      padding-bottom: 3mm;
+      margin-bottom: 6mm;
+    }
+    .header img { height: 11mm; }
+    .header-meta { text-align: right; font-size: 7.5pt; color: #64748b; line-height: 1.4; }
+    .header-meta strong { color: #059669; display: block; font-size: 8pt; }
+
+    .cover-page {
+      background: linear-gradient(145deg, #064e3b 0%, #047857 40%, #059669 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 20mm;
+    }
+    .cover-page img { width: 75mm; filter: brightness(1.05); margin-bottom: 8mm; }
+    .cover-page .tag {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.35);
+      padding: 2mm 4mm;
+      border-radius: 999px;
+      font-size: 8pt;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 5mm;
+    }
+    .cover-page h1 { font-size: 26pt; line-height: 1.15; max-width: 160mm; }
+    .cover-page .sub { margin-top: 5mm; font-size: 12pt; opacity: 0.92; line-height: 1.5; max-width: 155mm; }
+    .cover-stats {
+      margin-top: 12mm;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 3mm;
+    }
+    .cover-stat {
+      background: rgba(255,255,255,0.12);
+      border-radius: 3mm;
+      padding: 4mm;
+      text-align: center;
+    }
+    .cover-stat strong { display: block; font-size: 16pt; }
+    .cover-stat span { font-size: 7.5pt; opacity: 0.85; line-height: 1.3; }
+
+    h2 { font-size: 14pt; color: #064e3b; margin-bottom: 3mm; }
+    h3 { font-size: 9.5pt; color: #047857; margin-bottom: 2mm; }
+    p, li { font-size: 8.5pt; line-height: 1.45; color: #334155; }
+    ul { padding-left: 4mm; margin-bottom: 4mm; }
+    li { margin-bottom: 1mm; }
+
+    .diagram {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 3mm;
+      padding: 4mm;
+      margin-bottom: 5mm;
+    }
+    .diagram svg { width: 100%; height: auto; display: block; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 5mm; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3mm; margin-bottom: 5mm; }
+
+    .card {
+      border: 1px solid #d1fae5;
+      border-radius: 3mm;
+      padding: 4mm;
+      background: #f0fdf4;
+    }
+    .card.dark { background: #ecfdf5; border-color: #a7f3d0; }
+    .card h3 { color: #064e3b; font-size: 9pt; margin-bottom: 2mm; }
+    .card p, .card li { font-size: 7.8pt; }
+
+    .flow-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.8pt;
+      margin-bottom: 5mm;
+    }
+    .flow-table th {
+      background: #059669;
+      color: #fff;
+      padding: 2.5mm 3mm;
+      text-align: left;
+      font-weight: 600;
+    }
+    .flow-table td {
+      border: 1px solid #d1fae5;
+      padding: 2.5mm 3mm;
+      vertical-align: top;
+    }
+    .flow-table tr:nth-child(even) td { background: #f0fdf4; }
+
+    .module-list { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+    .module {
+      border-left: 3px solid #059669;
+      padding: 2mm 3mm;
+      background: #fafafa;
+    }
+    .module strong { font-size: 8.5pt; color: #064e3b; display: block; }
+    .module span { font-size: 7.5pt; color: #475569; line-height: 1.35; }
+
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+    }
+    .role {
+      border: 1px solid #e2e8f0;
+      border-radius: 2mm;
+      padding: 3mm;
+    }
+    .role-title {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #059669;
+      margin-bottom: 2mm;
+      padding-bottom: 1mm;
+      border-bottom: 1px solid #d1fae5;
+    }
+
+    .qr-footer {
+      margin-top: 6mm;
+      display: flex;
+      align-items: center;
+      gap: 6mm;
+      padding: 4mm;
+      background: #064e3b;
+      border-radius: 3mm;
+      color: #fff;
+    }
+    .qr-footer img { width: 28mm; height: 28mm; background: #fff; padding: 1mm; border-radius: 2mm; }
+    .qr-footer h3 { font-size: 11pt; margin-bottom: 1mm; }
+    .qr-footer p { font-size: 8pt; opacity: 0.9; }
+
+    .page-num {
+      position: absolute;
+      bottom: 8mm;
+      right: 14mm;
+      font-size: 7pt;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- CAPA -->
+  <section class="page cover-page">
+    <img src="{{LOGO}}" alt="Granja Brasil" />
+    <div class="tag">Documento técnico · Gestão condominial</div>
+    <h1>Plataforma Granja Brasil para síndicos e administradores</h1>
+    <p class="sub">
+      Arquitetura integrada de comunicação, operação e controle de acesso entre condomínios filhos,
+      portaria compartilhada e administração central Granja Brasil.
+    </p>
+    <div class="cover-stats">
+      <div class="cover-stat"><strong>12+</strong><span>módulos operacionais integrados</span></div>
+      <div class="cover-stat"><strong>4</strong><span>blocos de portaria compartilhada</span></div>
+      <div class="cover-stat"><strong>1</strong><span>hub central de comunicação</span></div>
+      <div class="cover-stat"><strong>ControlID</strong><span>sync automático de acessos</span></div>
+    </div>
+  </section>
+
+  <!-- ARQUITETURA -->
+  <section class="page">
+    <div class="header">
+      <img src="{{LOGO}}" alt="Granja Brasil" />
+      <div class="header-meta">
+        <strong>Arquitetura do ecossistema</strong>
+        {{APP_URL}} · {{YEAR}}
+      </div>
+    </div>
+
+    <h2>Estrutura de interligação multi-condomínio</h2>
+    <p style="margin-bottom: 4mm;">
+      A Granja Brasil opera como condomínio-mãe (hub administrativo). Condomínios filhos — Jacarandás, Jequitibás,
+      Manacás, Mangabeiras, Cambucás, Jabuticabeiras, Bouganville, Acácias, Cerejeiras e demais — funcionam como
+      blocos residenciais com torres, unidades e moradores próprios, compartilhando serviços centrais.
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hub" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#059669"/>
+            <stop offset="100%" style="stop-color:#064e3b"/>
+          </linearGradient>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#059669"/>
+          </marker>
+        </defs>
+        <!-- Hub central -->
+        <rect x="270" y="20" width="180" height="70" rx="10" fill="url(#hub)"/>
+        <text x="360" y="48" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">GRANJA BRASIL</text>
+        <text x="360" y="68" text-anchor="middle" fill="#d1fae5" font-size="10">Admin · Síndico · Super Admin</text>
+        <text x="360" y="82" text-anchor="middle" fill="#d1fae5" font-size="9">Áreas comuns compartilhadas</text>
+
+        <!-- Blocos -->
+        <rect x="30" y="140" width="150" height="55" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+        <text x="105" y="162" text-anchor="middle" fill="#064e3b" font-size="10" font-weight="600">Jacarandás</text>
+        <text x="105" y="178" text-anchor="middle" fill="#047857" font-size="8">+ Jequitibás</text>
+
+        <rect x="200" y="140" width="150" height="55" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+        <text x="275" y="162" text-anchor="middle" fill="#064e3b" font-size="10" font-weight="600">Manacás</text>
+        <text x="275" y="178" text-anchor="middle" fill="#047857" font-size="8">+ Mangabeiras</text>
+
+        <rect x="370" y="140" width="150" height="55" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+        <text x="445" y="162" text-anchor="middle" fill="#064e3b" font-size="10" font-weight="600">Cambucás</text>
+        <text x="445" y="178" text-anchor="middle" fill="#047857" font-size="8">+ Jabuticabeiras</text>
+
+        <rect x="540" y="140" width="150" height="55" rx="8" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+        <text x="615" y="162" text-anchor="middle" fill="#064e3b" font-size="10" font-weight="600">Bouganville</text>
+        <text x="615" y="178" text-anchor="middle" fill="#047857" font-size="8">Acácias · Cerejeiras</text>
+
+        <!-- Portaria -->
+        <rect x="200" y="230" width="320" height="50" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
+        <text x="360" y="252" text-anchor="middle" fill="#92400e" font-size="11" font-weight="600">PORTARIA COMPARTILHADA POR BLOCO</text>
+        <text x="360" y="268" text-anchor="middle" fill="#b45309" font-size="8">Correspondências · Hidrômetros · Cadastros · Visitas · ControlID</text>
+
+        <!-- Moradores -->
+        <rect x="240" y="300" width="240" height="35" rx="6" fill="#dbeafe" stroke="#2563eb" stroke-width="1"/>
+        <text x="360" y="322" text-anchor="middle" fill="#1e40af" font-size="10" font-weight="600">MORADORES (unidades · veículos · reservas · avisos)</text>
+
+        <!-- Setas -->
+        <line x1="360" y1="90" x2="360" y2="130" stroke="#059669" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="105" y1="140" x2="330" y2="90" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="615" y1="140" x2="390" y2="90" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="105" y1="195" x2="280" y2="230" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="615" y1="195" x2="440" y2="230" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrow)"/>
+        <line x1="360" y1="280" x2="360" y2="298" stroke="#2563eb" stroke-width="1.5" marker-end="url(#arrow)"/>
+      </svg>
+    </div>
+
+    <div class="grid-2">
+      <div class="card dark">
+        <h3>Hierarquia de dados</h3>
+        <ul>
+          <li><strong>Condomínio</strong> → torres/blocos → unidades → moradores</li>
+          <li><strong>Memberships</strong> vinculam perfis a papéis por condomínio</li>
+          <li><strong>Solicitações de cadastro</strong> → aprovação → morador + acesso ControlID</li>
+          <li><strong>Blocos de portaria</strong> agrupam condomínios com entrada única operacional</li>
+        </ul>
+      </div>
+      <div class="card dark">
+        <h3>Comunicação eficiente Granja ↔ condomínios</h3>
+        <ul>
+          <li><strong>Fale com o condomínio</strong> — canal bidirecional síndico ↔ Granja</li>
+          <li><strong>Avisos direcionados</strong> — Granja publica para condomínios específicos</li>
+          <li><strong>Notificações formais</strong> — registro oficial à unidade com comprovante</li>
+          <li><strong>E-mail transacional</strong> — cadastros, avisos e alertas automáticos</li>
+        </ul>
+      </div>
+    </div>
+    <span class="page-num">2</span>
+  </section>
+
+  <!-- COMUNICAÇÃO -->
+  <section class="page">
+    <div class="header">
+      <img src="{{LOGO}}" alt="Granja Brasil" />
+      <div class="header-meta"><strong>Fluxos de comunicação</strong>{{APP_URL}}</div>
+    </div>
+
+    <h2>Canais de comunicação integrados</h2>
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>Canal</th>
+          <th>Origem</th>
+          <th>Destino</th>
+          <th>Uso</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fale com o condomínio</strong></td>
+          <td>Síndico / Admin</td>
+          <td>Granja Brasil</td>
+          <td>Solicitações administrativas, ocorrências, suporte operacional</td>
+        </tr>
+        <tr>
+          <td><strong>Nova mensagem</strong></td>
+          <td>Morador</td>
+          <td>Síndico ou Granja</td>
+          <td>Dúvidas, pedidos e comunicação direta com resposta em thread</td>
+        </tr>
+        <tr>
+          <td><strong>Fale com o condomínio (portaria)</strong></td>
+          <td>Portaria</td>
+          <td>Granja ou morador</td>
+          <td>Operação diária, avisos urgentes, contato com unidade</td>
+        </tr>
+        <tr>
+          <td><strong>Avisos</strong></td>
+          <td>Síndico / Granja / Portaria</td>
+          <td>Moradores / equipe</td>
+          <td>Comunicados normais, importantes e urgentes; filtro por torre</td>
+        </tr>
+        <tr>
+          <td><strong>Notificações formais</strong></td>
+          <td>Síndico / Granja</td>
+          <td>Unidade / responsável</td>
+          <td>Comunicação oficial com anexo e confirmação de leitura</td>
+        </tr>
+        <tr>
+          <td><strong>Correspondências</strong></td>
+          <td>Portaria</td>
+          <td>Morador</td>
+          <td>Registro de encomenda → alerta no app → retirada na portaria</td>
+        </tr>
+        <tr>
+          <td><strong>E-mail automático</strong></td>
+          <td>Sistema</td>
+          <td>Usuários</td>
+          <td>Cadastro, aprovação, avisos, reset de senha, notificações</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Fluxos operacionais principais</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h3>Cadastro de morador</h3>
+        <p>Signup público → fila de solicitações → síndico aprova → morador + membership + ControlID → painel liberado.</p>
+      </div>
+      <div class="card">
+        <h3>Reserva de área comum</h3>
+        <p>Morador solicita → comprovante (se exigido) → aprovação síndico/Granja → uso → devolução com assinatura digital.</p>
+      </div>
+      <div class="card">
+        <h3>Visitante / prestador</h3>
+        <p>Morador autoriza → síndico/portaria valida → portaria consulta na entrada → janela de acesso configurável.</p>
+      </div>
+      <div class="card">
+        <h3>Veículo</h3>
+        <p>Cadastro com placa/TAG/foto → aprovação síndico → validação Granja (global) → liberação ControlID na garagem.</p>
+      </div>
+      <div class="card">
+        <h3>ControlID</h3>
+        <p>Locais de acesso cadastrados → sync automático ao aprovar morador/veículo → worker em background com retry.</p>
+      </div>
+      <div class="card">
+        <h3>Hidrômetros</h3>
+        <p>Portaria registra leituras diárias → alertas de consumo → síndico consulta histórico e médias por unidade.</p>
+      </div>
+    </div>
+    <span class="page-num">3</span>
+  </section>
+
+  <!-- MÓDULOS -->
+  <section class="page">
+    <div class="header">
+      <img src="{{LOGO}}" alt="Granja Brasil" />
+      <div class="header-meta"><strong>Módulos da plataforma</strong>{{APP_URL}}</div>
+    </div>
+
+    <h2>Funcionalidades por módulo</h2>
+    <div class="module-list">
+      <div class="module"><strong>Dashboard</strong><span>Resumo diário: pendências, reservas, avisos e alertas por papel.</span></div>
+      <div class="module"><strong>Unidades e torres</strong><span>Cadastro estrutural: blocos, apartamentos e casas por condomínio.</span></div>
+      <div class="module"><strong>Moradores</strong><span>Proprietários, inquilinos, dependentes e responsáveis por unidade.</span></div>
+      <div class="module"><strong>Solicitações de cadastro</strong><span>Fila centralizada de novos usuários com aprovação do síndico.</span></div>
+      <div class="module"><strong>Espaços comuns</strong><span>Salão, churrasqueira, academia — regras, bloqueios e manutenção.</span></div>
+      <div class="module"><strong>Reservas</strong><span>Agenda anti-conflito; áreas locais e compartilhadas da Granja.</span></div>
+      <div class="module"><strong>Avisos</strong><span>Comunicados com prioridade, threads de resposta e filtro por torre.</span></div>
+      <div class="module"><strong>Notificações formais</strong><span>Comunicação oficial à unidade com anexo e rastreio de leitura.</span></div>
+      <div class="module"><strong>Visitantes</strong><span>Autorização, consulta na portaria e controle de janela de acesso.</span></div>
+      <div class="module"><strong>Veículos</strong><span>Placa, TAG, foto; fluxo de aprovação em duas etapas.</span></div>
+      <div class="module"><strong>Correspondências</strong><span>Registro, aviso ao morador e confirmação de retirada.</span></div>
+      <div class="module"><strong>Hidrômetros</strong><span>Leituras, médias, alertas de consumo elevado.</span></div>
+      <div class="module"><strong>Locais ControlID</strong><span>Portaria, garagem, brinquedoteca — sync de liberações.</span></div>
+      <div class="module"><strong>Membros e papéis</strong><span>Gestão de síndico, admin, portaria, funcionário e morador.</span></div>
+      <div class="module"><strong>Multi-condomínio</strong><span>Super admin: cadastro global, visão consolidada e liberações.</span></div>
+      <div class="module"><strong>Autenticação</strong><span>Google, e-mail/senha, recuperação, sessão por aba, gate de aprovação.</span></div>
+    </div>
+
+    <h2 style="margin-top: 5mm;">Papéis e permissões</h2>
+    <div class="roles-grid">
+      <div class="role">
+        <div class="role-title">Síndico / Sub-síndico</div>
+        <ul>
+          <li>Aprova cadastros, reservas e veículos</li>
+          <li>Publica avisos e notificações</li>
+          <li>Gerencia moradores e ControlID</li>
+          <li>Canal direto com Granja</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="role-title">Administrador</div>
+        <ul>
+          <li>Permissões operacionais do síndico</li>
+          <li>Vinculado exclusivamente pela Granja</li>
+          <li>Gestão de membros locais</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="role-title">Portaria</div>
+        <ul>
+          <li>Entrada única por bloco de condomínios</li>
+          <li>Correspondências e hidrômetros</li>
+          <li>Cadastro operacional de moradores/veículos</li>
+          <li>Consulta de visitantes e reservas</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="role-title">Morador</div>
+        <ul>
+          <li>Avisos, reservas, visitas</li>
+          <li>Veículos e correspondências</li>
+          <li>Mensagens ao síndico/Granja</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="role-title">Funcionário</div>
+        <ul>
+          <li>Avisos e consulta de visitantes</li>
+          <li>Visão operacional simplificada</li>
+        </ul>
+      </div>
+      <div class="role">
+        <div class="role-title">Super Admin (Granja)</div>
+        <ul>
+          <li>Todos os condomínios</li>
+          <li>Cadastro de síndicos e portaria</li>
+          <li>Visão global de solicitações</li>
+        </ul>
+      </div>
+    </div>
+    <span class="page-num">4</span>
+  </section>
+
+  <!-- SEGURANÇA + QR -->
+  <section class="page">
+    <div class="header">
+      <img src="{{LOGO}}" alt="Granja Brasil" />
+      <div class="header-meta"><strong>Segurança e acesso</strong>{{APP_URL}}</div>
+    </div>
+
+    <h2>Controle de acesso e integridade</h2>
+    <div class="grid-2">
+      <div class="card dark">
+        <h3>Gate de aprovação</h3>
+        <ul>
+          <li>Morador só acessa o painel após aprovação do síndico</li>
+          <li>Vínculo ativo exige registro em moradores (residents)</li>
+          <li>Memberships órfãs removidas automaticamente</li>
+          <li>Tela de autorização pendente até liberação</li>
+        </ul>
+      </div>
+      <div class="card dark">
+        <h3>ControlID — sincronização</h3>
+        <ul>
+          <li>Locais: portaria, garagem, brinquedoteca, etc.</li>
+          <li>Foto comprimida automaticamente para limite do equipamento</li>
+          <li>Sync ao aprovar, atualizar ou excluir morador/veículo</li>
+          <li>Fila de jobs com retry manual na interface</li>
+        </ul>
+      </div>
+      <div class="card dark">
+        <h3>RLS e multi-tenant</h3>
+        <ul>
+          <li>Row Level Security por condomínio no Supabase</li>
+          <li>Portaria de bloco enxerga condomínios do mesmo grupo</li>
+          <li>Papéis validados em middleware e server actions</li>
+        </ul>
+      </div>
+      <div class="card dark">
+        <h3>Contato único por unidade</h3>
+        <ul>
+          <li>E-mail e telefone únicos por unidade (permitido em unidades diferentes)</li>
+          <li>Bloqueio de duplicata na mesma unidade no signup e cadastro</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="qr-footer">
+      <img src="{{QR_LOGIN}}" alt="QR Code login" />
+      <div>
+        <h3>Acesse o painel administrativo</h3>
+        <p>{{APP_URL}}/login</p>
+        <p style="margin-top: 2mm;">Cadastro de moradores: {{APP_URL}}/signup · Suporte: contato@granjabrasil.app.br</p>
+      </div>
+    </div>
+
+    <p style="margin-top: 8mm; font-size: 7.5pt; color: #94a3b8; text-align: center;">
+      © {{YEAR}} Granja Brasil · Gestão inteligente do seu condomínio · Documento gerado automaticamente a partir da plataforma em produção.
+    </p>
+    <span class="page-num">5</span>
+  </section>
+
+</body>
+</html>

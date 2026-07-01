@@ -16,7 +16,8 @@
     "db:link-member": "node scripts/link-membership.mjs",
     "db:seed-granja-units": "node scripts/seed-granja-condo-units.mjs",
     "db:seed-figueiras-units": "node scripts/seed-granja-condo-units.mjs --only=figueiras",
-    "db:seed-remaining-units": "node scripts/seed-granja-condo-units.mjs --only=jacaranda,jequitiba,cambuca,jabuticabeira,palmeira,acacia,bouganville,cerejeira,pau,magnolia"
+    "db:seed-remaining-units": "node scripts/seed-granja-condo-units.mjs --only=jacaranda,jequitiba,cambuca,jabuticabeira,palmeira,acacia,bouganville,cerejeira,pau,magnolia",
+    "brochures:pdf": "node scripts/generate-brochures.mjs"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
@@ -45,6 +46,8 @@
     "@types/react-dom": "^19.1.6",
     "eslint": "^9.29.0",
     "eslint-config-next": "^15.3.4",
+    "puppeteer": "^25.3.0",
+    "qrcode": "^1.5.4",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3"
   }
