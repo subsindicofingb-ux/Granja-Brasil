@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label";
 
 interface DoormanRegistrationRequestFormProps {
   condoSlug: string;
-  autoFulfill?: boolean;
   isBlockSource?: boolean;
   condominiums?: Array<{ id: string; name: string; slug: string }>;
   units: UnitWithTower[];
@@ -30,7 +29,6 @@ interface DoormanRegistrationRequestFormProps {
 
 export function DoormanRegistrationRequestForm({
   condoSlug,
-  autoFulfill = true,
   isBlockSource = false,
   condominiums = [],
   units,
@@ -62,9 +60,8 @@ export function DoormanRegistrationRequestForm({
       <FormAlert error={state.error} success={state.success} />
 
       <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-        {autoFulfill
-          ? "O morador será cadastrado na hora. Nos locais de acesso marcados, o ControlID será sincronizado automaticamente. O síndico receberá um e-mail informativo."
-          : "A solicitação entrará na fila de aprovação. Após o responsável aprovar, o morador será cadastrado e o ControlID sincronizado nos locais marcados."}
+        O morador será cadastrado na hora. Nos locais de acesso marcados, o ControlID será sincronizado
+        automaticamente. O síndico receberá um e-mail informativo.
       </p>
 
       {isBlockSource && (
@@ -160,13 +157,7 @@ export function DoormanRegistrationRequestForm({
 
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={pending}>
-          {pending
-            ? autoFulfill
-              ? "Cadastrando..."
-              : "Enviando..."
-            : autoFulfill
-              ? "Cadastrar e liberar acesso"
-              : "Enviar para aprovação"}
+          {pending ? "Cadastrando..." : "Cadastrar e liberar acesso"}
         </Button>
         <Button variant="outline" asChild>
           <Link href={`/app/${condoSlug}`}>Cancelar</Link>

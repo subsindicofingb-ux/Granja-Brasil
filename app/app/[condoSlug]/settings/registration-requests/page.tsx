@@ -2,8 +2,9 @@ import { requireCondoPermission } from "@/lib/auth/access";
 import { ROLES } from "@/lib/constants";
 import {
   listAllPendingRegistrationRequests,
-  listRegistrationRequestsByCondominium,
+  listRegistrationRequestsForCondominiums,
 } from "@/lib/services/registration-requests";
+import { getRegistrationScopeCondominiumIds } from "@/lib/registrations/scope";
 import {
   loadActiveAccessDevicesByCondominiumIds,
   loadRegistrationRequestAccessDeviceIdsByRequestIds,
@@ -26,9 +27,15 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
   );
 
   const isGlobalView = access.role === ROLES.SUPER_ADMIN;
+  const scopeCondominiumIds = isGlobalView
+    ? []
+    : await getRegistrationScopeCondominiumIds({
+        condoSlug,
+        condominiumId: access.condominium.id,
+      });
   const requestsResult = isGlobalView
     ? await listAllPendingRegistrationRequests()
-    : await listRegistrationRequestsByCondominium(access.condominium.id);
+    : await listRegistrationRequestsForCondominiums(scopeCondominiumIds, "pending");
 
   const requests = requestsResult.ok ? (requestsResult.data ?? []) : [];
   const condominiumIds = Array.from(new Set(requests.map((request) => request.condominium_id)));
@@ -47,7 +54,9 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
         description={
           isGlobalView
             ? "Novos moradores de todos os condomínios aguardando liberação da administração geral."
-            : "Novos moradores que se cadastraram e aguardam aprovação do síndico."
+            : scopeCondominiumIds.length > 1
+              ? "Pré-cadastros pendentes dos condomínios deste bloco aguardando aprovação do síndico."
+              : "Novos moradores que se cadastraram e aguardam aprovação do síndico."
         }
       />
 
@@ -59,7 +68,7 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
         <RegistrationRequestList
           condoSlug={condoSlug}
           requests={requests}
-          showCondominium={isGlobalView}
+          showCondominium={isGlobalView || scopeCondominiumIds.length > 1}
           accessDevicesByCondominiumId={
             accessDevicesResult.ok ? accessDevicesResult.data : {}
           }

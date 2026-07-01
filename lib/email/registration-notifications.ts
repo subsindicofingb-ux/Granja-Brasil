@@ -2,6 +2,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildEmailLayout, textToHtmlParagraphs } from "@/lib/email/format";
 import { getResidentTypeLabel } from "@/lib/residents/labels";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
+import {
+  getCondominiumsInDoormanBlock,
+  getDoormanBlockForCondominium,
+} from "@/lib/condominiums/doorman-blocks";
+import type { CondominiumRecord } from "@/lib/services/condominiums-admin";
 import type { RegistrationRequestNotificationEvent } from "@/lib/registrations/types";
 import type { ResidentType } from "@/types";
 
@@ -33,10 +38,37 @@ async function getCondominiumSlug(condominiumId: string): Promise<string | null>
 async function getSyndicNotificationEmails(condominiumId: string): Promise<string[]> {
   try {
     const admin = createAdminClient();
+
+    const { data: condominium, error: condominiumError } = await admin
+      .from("condominiums")
+      .select("id, slug, name")
+      .eq("id", condominiumId)
+      .maybeSingle();
+
+    if (condominiumError || !condominium) {
+      return [];
+    }
+
+    let condominiumIds = [condominiumId];
+    const block = getDoormanBlockForCondominium(condominium);
+
+    if (block) {
+      const { data: condominiums, error: condominiumsError } = await admin
+        .from("condominiums")
+        .select("id, slug, name");
+
+      if (!condominiumsError && condominiums?.length) {
+        condominiumIds = getCondominiumsInDoormanBlock(
+          block,
+          condominiums as CondominiumRecord[],
+        ).map((entry) => entry.id);
+      }
+    }
+
     const { data: memberships, error } = await admin
       .from("memberships")
       .select("profile_id")
-      .eq("condominium_id", condominiumId)
+      .in("condominium_id", condominiumIds)
       .in("role", SYNDIC_NOTIFICATION_ROLES);
 
     if (error || !memberships?.length) {
@@ -152,7 +184,7 @@ export async function sendRegistrationRequestNotification(
         preview: subject,
         title: event.source === "doorman" ? "Cadastro pela portaria" : "Nova solicitação de cadastro",
         bodyHtml: textToHtmlParagraphs(text),
-        actionLabel: "Ver solicitações",
+        actionLabel: event.fulfilledImmediately ? "Abrir painel" : "Ver solicitações",
         actionUrl: link,
       }),
       tags: [{ name: "category", value: "registration-request" }],

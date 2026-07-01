@@ -130,7 +130,7 @@ export async function createDoormanRegistrationRequestAction(
       profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
       residentType: result.data.request.resident_type,
       source: "doorman",
-      fulfilledImmediately: !result.data.queued,
+      fulfilledImmediately: true,
       accessDeviceNames,
     });
   } catch (error) {
@@ -142,6 +142,6 @@ export async function createDoormanRegistrationRequestAction(
     result.data.request.condominium?.slug ?? undefined,
   );
 
-  const redirectQuery = result.data.queued ? "enviado=1&fila=1" : "enviado=1";
+  const redirectQuery = "enviado=1";
   redirect(`/app/${condoSlug}/residents/registration-request?${redirectQuery}`);
 }

@@ -13,10 +13,11 @@ import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicle
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
 import {
   countAllPendingRegistrationRequests,
-  countPendingRegistrationRequests,
+  countPendingRegistrationRequestsForCondominiums,
   listAllPendingRegistrationRequests,
-  listRegistrationRequestsByCondominium,
+  listRegistrationRequestsForCondominiums,
 } from "@/lib/services/registration-requests";
+import { getRegistrationScopeCondominiumIds } from "@/lib/registrations/scope";
 import {
   ResidentDashboard,
   type ResidentVehicleRequest,
@@ -92,17 +93,23 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     isGeneralCondoDashboard ? getGeneralCondominiumOverviewMetrics() : Promise.resolve(null),
   ]);
   const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
+  const registrationScopeIds = isGlobalRegistrationView
+    ? []
+    : await getRegistrationScopeCondominiumIds({
+        condoSlug,
+        condominiumId: access.condominium.id,
+      });
   const pendingRegistrationResult = access.permissions.canManageRegistrationRequests
     ? isGlobalRegistrationView
       ? await countAllPendingRegistrationRequests()
-      : await countPendingRegistrationRequests(access.condominium.id)
+      : await countPendingRegistrationRequestsForCondominiums(registrationScopeIds)
     : null;
   const pendingRegistrationCount =
     pendingRegistrationResult?.ok ? (pendingRegistrationResult.data ?? 0) : 0;
   const pendingRegistrationListResult = access.permissions.canManageRegistrationRequests
     ? isGlobalRegistrationView
       ? await listAllPendingRegistrationRequests()
-      : await listRegistrationRequestsByCondominium(access.condominium.id, "pending")
+      : await listRegistrationRequestsForCondominiums(registrationScopeIds, "pending")
     : null;
   const pendingRegistrationRequests = pendingRegistrationListResult?.ok
     ? (pendingRegistrationListResult.data ?? [])

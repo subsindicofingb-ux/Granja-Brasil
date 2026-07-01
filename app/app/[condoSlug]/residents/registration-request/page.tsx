@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
 import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { loadActiveAccessDevicesByCondominiumIds } from "@/lib/services/resident-access-grants";
@@ -12,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface RegistrationRequestPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ enviado?: string; fila?: string }>;
+  searchParams: Promise<{ enviado?: string }>;
 }
 
 export default async function RegistrationRequestPage({
@@ -20,12 +19,9 @@ export default async function RegistrationRequestPage({
   searchParams,
 }: RegistrationRequestPageProps) {
   const { condoSlug } = await params;
-  const { enviado, fila } = await searchParams;
-  const autoFulfill = isDoormanRegistrationAutoFulfill();
+  const { enviado } = await searchParams;
   const successMessage =
-    fila === "1" || !autoFulfill
-      ? "Solicitação enviada para a fila de aprovação. O responsável será notificado por e-mail."
-      : "Morador cadastrado. Acesso ControlID liberado nos locais selecionados e síndico notificado por e-mail.";
+    "Morador cadastrado. Acesso ControlID liberado nos locais selecionados e síndico notificado por e-mail.";
 
   const access = await requireCondoPermission(
     condoSlug,
@@ -62,11 +58,7 @@ export default async function RegistrationRequestPage({
 
         <PageHeader
           title="Solicitar cadastro de morador"
-          description={
-            autoFulfill
-              ? `Cadastre o morador e libere o ControlID nos locais selecionados. O síndico do bloco ${panel.block.label} será notificado por e-mail.`
-              : `Envie a solicitação para a fila de aprovação do bloco ${panel.block.label}. Após aprovação, o ControlID será sincronizado nos locais marcados.`
-          }
+          description={`Cadastre o morador e libere o ControlID nos locais selecionados. O síndico do bloco ${panel.block.label} será notificado por e-mail.`}
         />
 
         <Card>
@@ -77,7 +69,6 @@ export default async function RegistrationRequestPage({
             <DoormanRegistrationRequestForm
               condoSlug={condoSlug}
               isBlockSource
-              autoFulfill={autoFulfill}
               condominiums={panel.condominiums}
               units={panel.units}
               condominiumNamesById={panel.condominiumNamesById}
@@ -105,11 +96,7 @@ export default async function RegistrationRequestPage({
 
       <PageHeader
         title="Solicitar cadastro de morador"
-        description={
-          autoFulfill
-            ? "Cadastre o morador, envie a foto e libere o ControlID nos locais marcados. O síndico receberá um e-mail informativo."
-            : "Envie a solicitação para a fila de aprovação. Após aprovação, o morador será cadastrado e o ControlID sincronizado nos locais marcados."
-        }
+        description="Cadastre o morador, envie a foto e libere o ControlID nos locais marcados. O síndico receberá um e-mail informativo."
       />
 
       <Card>
@@ -119,7 +106,6 @@ export default async function RegistrationRequestPage({
         <CardContent>
           <DoormanRegistrationRequestForm
             condoSlug={condoSlug}
-            autoFulfill={autoFulfill}
             units={unitsResult.data}
             accessDevices={accessDevices}
           />

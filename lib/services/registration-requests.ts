@@ -23,7 +23,6 @@ import {
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 import { revokeResidentMembershipIfOrphaned } from "@/lib/auth/membership-cleanup";
 import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
-import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
 import {
   assertUniqueRegistrationContactInUnit,
   mapResidentContactUniqueError,
@@ -403,14 +402,6 @@ export async function createDoormanRegistrationRequest(input: {
     }
   }
 
-  if (!isDoormanRegistrationAutoFulfill()) {
-    return serviceOk({
-      request: requestResult.data,
-      residentId: null,
-      queued: true,
-    });
-  }
-
   const fulfillResult = await fulfillRegistrationRequest({
     requestId: requestResult.data.id,
     condominiumId: input.condominiumId,
@@ -420,6 +411,8 @@ export async function createDoormanRegistrationRequest(input: {
   });
 
   if (!fulfillResult.ok) {
+    const admin = createAdminClient();
+    await admin.from("registration_requests").delete().eq("id", requestResult.data.id);
     return serviceError(fulfillResult.error ?? "Não foi possível concluir o cadastro do morador.");
   }
 
@@ -861,12 +854,23 @@ export async function listRegistrationRequestsByCondominium(
   condominiumId: string,
   status?: RegistrationRequestStatus,
 ): Promise<ServiceResult<RegistrationRequestRecord[]>> {
+  return listRegistrationRequestsForCondominiums([condominiumId], status);
+}
+
+export async function listRegistrationRequestsForCondominiums(
+  condominiumIds: string[],
+  status?: RegistrationRequestStatus,
+): Promise<ServiceResult<RegistrationRequestRecord[]>> {
+  if (condominiumIds.length === 0) {
+    return serviceOk([]);
+  }
+
   const supabase = await createClient();
 
   let query = supabase
     .from("registration_requests")
     .select(REQUEST_SELECT)
-    .eq("condominium_id", condominiumId)
+    .in("condominium_id", condominiumIds)
     .order("created_at", { ascending: false });
 
   if (status) {
@@ -885,12 +889,22 @@ export async function listRegistrationRequestsByCondominium(
 export async function countPendingRegistrationRequests(
   condominiumId: string,
 ): Promise<ServiceResult<number>> {
+  return countPendingRegistrationRequestsForCondominiums([condominiumId]);
+}
+
+export async function countPendingRegistrationRequestsForCondominiums(
+  condominiumIds: string[],
+): Promise<ServiceResult<number>> {
+  if (condominiumIds.length === 0) {
+    return serviceOk(0);
+  }
+
   const supabase = await createClient();
 
   const { count, error } = await supabase
     .from("registration_requests")
     .select("id", { count: "exact", head: true })
-    .eq("condominium_id", condominiumId)
+    .in("condominium_id", condominiumIds)
     .eq("status", "pending");
 
   if (error) {
