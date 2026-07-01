@@ -4,16 +4,23 @@ Dois PDFs para divulgação e onboarding da plataforma.
 
 | Arquivo | Público | Conteúdo |
 |---------|---------|----------|
-| `pdf/Granja-Brasil-Moradores.pdf` | Moradores | Benefícios, funcionalidades, passo a passo e **QR Code** para `/signup` |
-| `pdf/Granja-Brasil-Sindicos-Administradores.pdf` | Síndicos e administradores | Arquitetura multi-condomínio, fluxos de comunicação, módulos, papéis, ControlID e **QR Code** para `/login` |
+| `pdf/Granja-Brasil-Moradores.pdf` | Moradores | Benefícios, funcionalidades, passo a passo e **QR Code** para cadastro |
+| `pdf/Granja-Brasil-Sindicos-Administradores.pdf` | Síndicos e administradores | Arquitetura multi-condomínio, fluxos de comunicação, módulos, papéis, ControlID e **QR Code** para login |
 
-## Regenerar os PDFs
+## Como abrir
+
+**Use os arquivos gerados** — não abra os templates em `moradores.html` / `sindicos-admin.html` diretamente no navegador (eles contêm placeholders como `{{APP_URL}}`).
+
+- **PDF (impressão / WhatsApp):** `docs/brochures/pdf/`
+- **HTML pronto (navegador):** `docs/brochures/build/`
+
+## Regenerar
 
 ```bash
 npm run brochures:pdf
 ```
 
-Os HTMLs-fonte ficam em `moradores.html` e `sindicos-admin.html`. O script `scripts/generate-brochures.mjs` injeta logo, QR codes e gera os PDFs via Puppeteer.
+O script injeta logo, links e QR codes em base64, gera os PDFs e salva HTMLs prontos em `build/`.
 
 ## Links nos QR codes
 
