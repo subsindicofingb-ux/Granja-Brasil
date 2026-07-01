@@ -59,6 +59,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isLoginOrSignup && user && pathname !== "/reset-password") {
+    if (pathname === "/signup/concluido") {
+      return response;
+    }
+
     if (pathname === "/signup") {
       const env = getSupabasePublicEnv();
       if (env) {

@@ -8,6 +8,7 @@ import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
 import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
+import { SIGNUP_SUCCESS_PATH } from "@/lib/auth/signup-success";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
@@ -25,6 +26,7 @@ import { registrationPreQualificationSchema } from "@/lib/validations/registrati
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
+import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
 import { buildAuthCallbackUrl } from "@/lib/auth/site-url";
 
 function formatAuthError(message: unknown): string {
@@ -418,6 +420,22 @@ export async function signUpAction(
     };
   }
 
+  if (
+    requiresRegistrationUnit(preQualification.data.profile_type as RegistrationProfileType)
+  ) {
+    const uniqueCheck = await assertUniqueRegistrationContactInUnit({
+      unitId: preQualification.data.unit_id || undefined,
+      condominiumId: preQualification.data.condominium_id,
+      unitNumber: preQualification.data.unit_number,
+      email,
+      phone: preQualification.data.phone,
+    });
+
+    if (!uniqueCheck.ok) {
+      return { error: uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade." };
+    }
+  }
+
   try {
     const admin = createAdminClient();
     let userId: string;
@@ -565,20 +583,15 @@ export async function signUpAction(
     revalidatePath("/", "layout");
 
     if (isGoogleSignUp) {
-      return { redirectTo: "/app" };
+      try {
+        const supabase = await createClient();
+        await supabase.auth.signOut();
+      } catch {
+        // Ignora falha ao encerrar sessão OAuth após o pré-cadastro.
+      }
     }
 
-    const supabase = await createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (signInError) {
-      return {
-        success:
-          "Solicitação registrada! Faça login em /login com seu e-mail e senha. Aguarde a aprovação do responsável.",
-      };
-    }
-
-    return { redirectTo: "/app" };
+    return { redirectTo: SIGNUP_SUCCESS_PATH };
   } catch (err) {
     return { error: formatAuthError(err) };
   }

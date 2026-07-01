@@ -24,7 +24,7 @@ import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@
 import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
 import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
 import {
-  assertUniqueResidentContactInUnit,
+  assertUniqueRegistrationContactInUnit,
   mapResidentContactUniqueError,
   normalizeResidentEmail,
 } from "@/lib/residents/contact-uniqueness";
@@ -360,8 +360,9 @@ export async function createDoormanRegistrationRequest(input: {
     return profileResult;
   }
 
-  const uniqueCheck = await assertUniqueResidentContactInUnit({
+  const uniqueCheck = await assertUniqueRegistrationContactInUnit({
     unitId: input.unitId,
+    condominiumId: input.condominiumId,
     email: input.email,
     phone: input.phone,
   });
@@ -511,10 +512,12 @@ export async function fulfillRegistrationRequest(input: {
       .eq("unit_id", resolvedUnitId)
       .maybeSingle();
 
-    const uniqueCheck = await assertUniqueResidentContactInUnit({
+    const uniqueCheck = await assertUniqueRegistrationContactInUnit({
       unitId: resolvedUnitId,
+      condominiumId: input.condominiumId,
       email: request.email,
       phone: request.phone,
+      excludeRegistrationRequestId: input.requestId,
       excludeResidentId: existingResident?.id,
     });
 
@@ -777,6 +780,21 @@ export async function createRegistrationRequestAsAdmin(input: {
       .eq("email", normalizedEmail)
       .eq("status", "pending")
       .maybeSingle();
+
+    if (requiresRegistrationUnit(input.profileType)) {
+      const uniqueCheck = await assertUniqueRegistrationContactInUnit({
+        unitId: requestedUnitId ?? undefined,
+        condominiumId: input.condominiumId,
+        unitNumber,
+        email: input.email,
+        phone: input.phone,
+        excludeRegistrationRequestId: existingPending?.id,
+      });
+
+      if (!uniqueCheck.ok) {
+        return serviceError(uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade.");
+      }
+    }
 
     let result = existingPending
       ? await admin
