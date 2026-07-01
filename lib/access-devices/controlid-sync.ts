@@ -485,10 +485,6 @@ export async function fetchResidentPhotoBytes(photoUrl: string): Promise<{
     throw new Error("A foto do morador está vazia.");
   }
 
-  if (bytes.length > 1_000_000) {
-    throw new Error("A foto do morador excede 1 MB (limite ControlID).");
-  }
-
   const contentType = response.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
   return { bytes, contentType };
 }

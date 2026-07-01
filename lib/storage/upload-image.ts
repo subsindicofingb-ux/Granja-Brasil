@@ -1,9 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizePhotoForControlId } from "@/lib/access-devices/photo-normalize";
 import { serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const RECEIPT_TYPES = new Set([...IMAGE_TYPES, "application/pdf"]);
+const CONTROL_ID_PHOTO_FOLDERS = new Set(["residents", "registration-requests"]);
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
@@ -35,13 +37,28 @@ export async function uploadCondoImage(input: {
     file.type === "application/pdf"
       ? "pdf"
       : (file.name.split(".").pop()?.toLowerCase() ?? "jpg");
-  const path = `${input.condominiumId}/${input.folder}/${crypto.randomUUID()}.${extension}`;
+  let path = `${input.condominiumId}/${input.folder}/${crypto.randomUUID()}.${extension}`;
 
   try {
     const admin = createAdminClient();
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const { error } = await admin.storage.from("condo-uploads").upload(path, buffer, {
-      contentType: file.type,
+    const rawBuffer = Buffer.from(await file.arrayBuffer());
+    let uploadBuffer: Buffer = rawBuffer;
+    let contentType = file.type;
+
+    if (CONTROL_ID_PHOTO_FOLDERS.has(input.folder) && IMAGE_TYPES.has(file.type)) {
+      try {
+        uploadBuffer = Buffer.from(await normalizePhotoForControlId(rawBuffer));
+      } catch {
+        return serviceError(
+          "Não foi possível preparar a foto para o ControlID. Use JPG ou PNG com rosto visível.",
+        );
+      }
+      contentType = "image/jpeg";
+      path = `${input.condominiumId}/${input.folder}/${crypto.randomUUID()}.jpg`;
+    }
+
+    const { error } = await admin.storage.from("condo-uploads").upload(path, uploadBuffer, {
+      contentType,
       upsert: false,
     });
 

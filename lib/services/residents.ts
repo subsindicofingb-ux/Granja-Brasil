@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildAnnouncementResidentUnitLabel } from "@/lib/announcements/resident-labels";
+import {
+  assertUniqueResidentContactInUnit,
+  mapResidentContactUniqueError,
+  normalizeResidentEmail,
+  normalizeResidentPhone,
+} from "@/lib/residents/contact-uniqueness";
 import type { Resident, ResidentType } from "@/types";
 import { removeResidentFromAccessDevicesForDelete } from "@/lib/services/access-sync";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
@@ -169,6 +175,19 @@ export async function createResident(input: {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
 
+  const email = normalizeResidentEmail(input.email);
+  const phone = normalizeResidentPhone(input.phone);
+
+  const uniqueCheck = await assertUniqueResidentContactInUnit({
+    unitId: input.unitId,
+    email,
+    phone,
+  });
+
+  if (!uniqueCheck.ok) {
+    return serviceError(uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade.");
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -176,8 +195,8 @@ export async function createResident(input: {
     .insert({
       unit_id: input.unitId,
       full_name: input.fullName,
-      email: input.email,
-      phone: input.phone,
+      email,
+      phone: input.phone?.trim() || null,
       photo_url: input.photoUrl,
       type: input.type,
     })
@@ -185,7 +204,8 @@ export async function createResident(input: {
     .single();
 
   if (error) {
-    return serviceError(mapSupabaseError(error));
+    const uniqueMessage = mapResidentContactUniqueError(error.message);
+    return serviceError(uniqueMessage ?? mapSupabaseError(error));
   }
 
   return serviceOk(mapResidentRow(data as ResidentRow));
@@ -206,6 +226,20 @@ export async function updateResident(input: {
     return serviceError(unitCheck.error ?? "Unidade inválida.");
   }
 
+  const email = normalizeResidentEmail(input.email);
+  const phone = normalizeResidentPhone(input.phone);
+
+  const uniqueCheck = await assertUniqueResidentContactInUnit({
+    unitId: input.unitId,
+    email,
+    phone,
+    excludeResidentId: input.residentId,
+  });
+
+  if (!uniqueCheck.ok) {
+    return serviceError(uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade.");
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -213,8 +247,8 @@ export async function updateResident(input: {
     .update({
       unit_id: input.unitId,
       full_name: input.fullName,
-      email: input.email,
-      phone: input.phone,
+      email,
+      phone: input.phone?.trim() || null,
       photo_url: input.photoUrl,
       type: input.type,
     })
@@ -223,7 +257,8 @@ export async function updateResident(input: {
     .single();
 
   if (error) {
-    return serviceError(mapSupabaseError(error));
+    const uniqueMessage = mapResidentContactUniqueError(error.message);
+    return serviceError(uniqueMessage ?? mapSupabaseError(error));
   }
 
   const resident = data as ResidentRow;

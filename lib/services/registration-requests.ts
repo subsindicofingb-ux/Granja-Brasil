@@ -23,6 +23,11 @@ import {
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
 import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
+import {
+  assertUniqueResidentContactInUnit,
+  mapResidentContactUniqueError,
+  normalizeResidentEmail,
+} from "@/lib/residents/contact-uniqueness";
 
 export type PublicCondominiumOption = {
   id: string;
@@ -355,6 +360,16 @@ export async function createDoormanRegistrationRequest(input: {
     return profileResult;
   }
 
+  const uniqueCheck = await assertUniqueResidentContactInUnit({
+    unitId: input.unitId,
+    email: input.email,
+    phone: input.phone,
+  });
+
+  if (!uniqueCheck.ok) {
+    return serviceError(uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade.");
+  }
+
   const requestResult = await createRegistrationRequestAsAdmin({
     profileId: profileResult.data,
     condominiumId: input.condominiumId,
@@ -489,6 +504,24 @@ export async function fulfillRegistrationRequest(input: {
   let residentId: string | null = null;
 
   if (needsUnit && resolvedUnitId) {
+    const { data: existingResident } = await admin
+      .from("residents")
+      .select("id")
+      .eq("profile_id", request.profile_id)
+      .eq("unit_id", resolvedUnitId)
+      .maybeSingle();
+
+    const uniqueCheck = await assertUniqueResidentContactInUnit({
+      unitId: resolvedUnitId,
+      email: request.email,
+      phone: request.phone,
+      excludeResidentId: existingResident?.id,
+    });
+
+    if (!uniqueCheck.ok) {
+      return serviceError(uniqueCheck.error ?? "E-mail ou telefone já cadastrado nesta unidade.");
+    }
+
     if (input.markAsUnitResponsible) {
       const clearResult = await clearUnitResponsibleExcept({
         unitId: resolvedUnitId,
@@ -504,18 +537,11 @@ export async function fulfillRegistrationRequest(input: {
       unit_id: resolvedUnitId,
       profile_id: request.profile_id,
       full_name: request.full_name,
-      email: request.email,
+      email: normalizeResidentEmail(request.email),
       phone: request.phone,
       photo_url: request.photo_url,
       type: resolvedResidentType,
     };
-
-    const { data: existingResident } = await admin
-      .from("residents")
-      .select("id")
-      .eq("profile_id", request.profile_id)
-      .eq("unit_id", resolvedUnitId)
-      .maybeSingle();
 
     if (existingResident?.id) {
       const { error: updateResidentError } = await admin
@@ -524,7 +550,8 @@ export async function fulfillRegistrationRequest(input: {
         .eq("id", existingResident.id);
 
       if (updateResidentError) {
-        return serviceError(mapSupabaseError(updateResidentError));
+        const uniqueMessage = mapResidentContactUniqueError(updateResidentError.message);
+        return serviceError(uniqueMessage ?? mapSupabaseError(updateResidentError));
       }
 
       residentId = existingResident.id;
@@ -536,7 +563,8 @@ export async function fulfillRegistrationRequest(input: {
         .single();
 
       if (residentError) {
-        return serviceError(mapSupabaseError(residentError));
+        const uniqueMessage = mapResidentContactUniqueError(residentError.message);
+        return serviceError(uniqueMessage ?? mapSupabaseError(residentError));
       }
 
       residentId = createdResident.id;
