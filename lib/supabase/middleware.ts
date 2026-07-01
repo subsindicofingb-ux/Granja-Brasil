@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database.types";
 import { AUTH_ROUTES, PUBLIC_AUTH_PATHS } from "@/lib/auth/constants";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { asBrowserSessionCookieOptions } from "@/lib/supabase/session-cookies";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -23,7 +24,11 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(
+              name,
+              value,
+              asBrowserSessionCookieOptions(options),
+            ),
           );
         },
       },

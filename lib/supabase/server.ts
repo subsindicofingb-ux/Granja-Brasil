@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/types/database.types";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
+import { asBrowserSessionCookieOptions } from "@/lib/supabase/session-cookies";
 
 export async function createClient() {
   const env = getSupabasePublicEnv();
@@ -22,7 +23,7 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, asBrowserSessionCookieOptions(options)),
             );
           } catch {
             // Server Component — ignore

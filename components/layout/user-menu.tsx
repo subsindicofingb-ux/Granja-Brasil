@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LogOut, User } from "lucide-react";
+import { clearAppSessionTab } from "@/lib/auth/session-tab";
 import { signOutAction } from "@/lib/auth/actions";
 import type { CondoAccess } from "@/lib/auth/types";
 import { getInitials } from "@/lib/auth/types";
@@ -47,7 +48,13 @@ export function UserMenu({ access }: UserMenuProps) {
                 </div>
               </div>
             </div>
-            <form action={signOutAction} className="pt-3">
+            <form
+              action={signOutAction}
+              className="pt-3"
+              onSubmit={() => {
+                clearAppSessionTab();
+              }}
+            >
               <Button
                 type="submit"
                 variant="outline"

@@ -14,7 +14,6 @@ export async function setActiveCondoSlug(slug: string): Promise<void> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 365,
     });
   } catch {
     // Cookies só podem ser alterados em Server Actions/Route Handlers.

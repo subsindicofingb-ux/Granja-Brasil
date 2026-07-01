@@ -101,6 +101,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isLoginOrSignup && user && pathname !== "/reset-password") {
+    if (pathname === "/login") {
+      return response;
+    }
+
     if (pathname === "/signup/concluido") {
       return response;
     }

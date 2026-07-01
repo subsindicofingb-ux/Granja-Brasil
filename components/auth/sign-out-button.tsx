@@ -1,27 +1,41 @@
+"use client";
+
 import { LogOut } from "lucide-react";
+import { clearAppSessionTab } from "@/lib/auth/session-tab";
 import { signOutAction } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface SignOutButtonProps {
-  variant?: "sidebar" | "menu";
+  variant?: "sidebar" | "menu" | "compact";
+  label?: string;
 }
 
-export function SignOutButton({ variant = "sidebar" }: SignOutButtonProps) {
+export function SignOutButton({ variant = "sidebar", label = "Sair do app" }: SignOutButtonProps) {
+  const isCompact = variant === "compact";
+
   return (
-    <form action={signOutAction}>
+    <form
+      action={signOutAction}
+      onSubmit={() => {
+        clearAppSessionTab();
+      }}
+    >
       <Button
         type="submit"
-        variant="ghost"
+        variant={isCompact ? "outline" : "ghost"}
+        size={isCompact ? "sm" : "default"}
         className={cn(
-          "w-full justify-start",
+          isCompact ? undefined : "w-full justify-start",
           variant === "sidebar"
             ? "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
-            : "text-foreground hover:bg-muted",
+            : variant === "menu"
+              ? "text-foreground hover:bg-muted"
+              : undefined,
         )}
       >
         <LogOut className="h-4 w-4" />
-        Sair do app
+        {label}
       </Button>
     </form>
   );

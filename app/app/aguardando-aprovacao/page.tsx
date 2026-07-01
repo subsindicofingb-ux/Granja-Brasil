@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { signOutAction } from "@/lib/auth/actions";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import {
   PENDING_APPROVAL_FOOTNOTE,
   PENDING_APPROVAL_MESSAGE,
@@ -17,7 +17,6 @@ import { listRegistrationRequestsForProfile } from "@/lib/services/registration-
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 
@@ -48,11 +47,7 @@ export default async function PendingApprovalPage() {
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:h-16 sm:px-6">
           <BrandLogo href="/" size="sm" />
-          <form action={signOutAction}>
-            <Button variant="outline" size="sm" type="submit">
-              Sair
-            </Button>
-          </form>
+          <SignOutButton variant="compact" label="Sair" />
         </div>
       </header>
 

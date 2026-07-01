@@ -6,7 +6,8 @@ import { RegistrationRequestList } from "@/components/registrations/registration
 import { getAccessibleCondominiums } from "@/lib/auth/access";
 import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { PENDING_APPROVAL_PATH, userHasAppAccess } from "@/lib/auth/pending-approval";
-import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
+import { SignOutButton } from "@/components/auth/sign-out-button";
+import { selectCondominiumFormAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
@@ -52,11 +53,7 @@ export default async function AppHomePage() {
       <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4 sm:h-16 sm:px-6">
           <BrandLogo href="/app" size="sm" />
-          <form action={signOutAction}>
-            <Button variant="outline" size="sm" type="submit">
-              Sair do app
-            </Button>
-          </form>
+          <SignOutButton variant="compact" />
         </div>
       </header>
 

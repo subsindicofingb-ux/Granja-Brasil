@@ -1,4 +1,5 @@
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LoginSessionGuard } from "@/components/auth/session-tab-guard";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         : null;
 
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
+    <LoginSessionGuard>
+      <div className="flex min-h-screen flex-col lg:flex-row">
       <div className="hidden flex-1 flex-col justify-between bg-sidebar p-10 text-sidebar-foreground lg:flex">
         <BrandLogo href="/" size="lg" className="items-start text-left" />
         <div>
@@ -51,6 +53,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </LoginSessionGuard>
   );
 }

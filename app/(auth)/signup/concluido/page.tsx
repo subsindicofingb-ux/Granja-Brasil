@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { signOutAction } from "@/lib/auth/actions";
+import { SignOutForm } from "@/components/auth/sign-out-form";
 import {
   SIGNUP_WELCOME_FOOTNOTE,
   SIGNUP_WELCOME_MESSAGE,
@@ -54,11 +54,11 @@ export default async function SignUpCompletePage() {
               <Button asChild className="w-full">
                 <Link href="/login">Ir para o login</Link>
               </Button>
-              <form action={signOutAction}>
+              <SignOutForm>
                 <Button variant="outline" type="submit" className="w-full">
                   Fechar
                 </Button>
-              </form>
+              </SignOutForm>
             </div>
           </CardContent>
         </Card>

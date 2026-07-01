@@ -8,6 +8,7 @@ import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
 import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
+import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
 import { SIGNUP_SUCCESS_PATH } from "@/lib/auth/signup-success";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
@@ -138,7 +139,7 @@ export async function signInAction(
       redirectTo.startsWith("/") ? redirectTo : "/app",
     );
 
-    return { redirectTo: safeRedirect };
+    return { redirectTo: buildTabSessionRedirect(safeRedirect) };
   } catch (err) {
     return { error: formatAuthError(err) };
   }
@@ -302,7 +303,7 @@ export async function updatePasswordAction(
 
     const safeRedirect = await resolveSafeAppRedirect(supabase, "/app");
 
-    return { redirectTo: safeRedirect };
+    return { redirectTo: buildTabSessionRedirect(safeRedirect) };
   } catch (err) {
     return { error: formatAuthError(err) };
   }

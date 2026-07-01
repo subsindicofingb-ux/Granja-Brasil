@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/auth/session";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
+import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
 import { applyPendingPasswordResetCookie } from "@/lib/auth/password-reset";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -56,7 +57,9 @@ export async function GET(request: Request) {
       }
 
       const destination = await resolveSafeAppRedirect(supabase, next);
-      return redirectWithOptionalPasswordReset(requestUrl, destination);
+      const redirectTarget =
+        destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+      return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
     }
 
     const oauthError = requestUrl.searchParams.get("error");
@@ -86,5 +89,7 @@ export async function GET(request: Request) {
   }
 
   const destination = await resolveSafeAppRedirect(supabase, next);
-  return redirectWithOptionalPasswordReset(requestUrl, destination);
+  const redirectTarget =
+    destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+  return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
 }
