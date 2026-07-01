@@ -9,6 +9,7 @@ import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
+import { cleanupOrphanResidentMemberships } from "@/lib/auth/membership-cleanup";
 import { SIGNUP_SUCCESS_PATH } from "@/lib/auth/signup-success";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
@@ -130,6 +131,7 @@ export async function signInAction(
 
     if (data.user) {
       await ensureProfile(data.user);
+      await cleanupOrphanResidentMemberships(data.user.id);
     }
 
     revalidatePath("/", "layout");

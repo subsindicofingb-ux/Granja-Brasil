@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/auth/session";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
+import { cleanupOrphanResidentMemberships } from "@/lib/auth/membership-cleanup";
 import { applyPendingPasswordResetCookie } from "@/lib/auth/password-reset";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
     if (user) {
       try {
         await ensureProfile(user);
+        await cleanupOrphanResidentMemberships(user.id);
       } catch {
         // Sessão já existe; profile pode ser garantido depois.
       }
@@ -83,6 +85,7 @@ export async function GET(request: Request) {
   if (user) {
     try {
       await ensureProfile(user);
+      await cleanupOrphanResidentMemberships(user.id);
     } catch {
       // Sessão já foi criada; profile pode ser garantido depois.
     }

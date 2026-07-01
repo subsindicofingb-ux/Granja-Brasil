@@ -96,18 +96,6 @@ async function userHasLinkedResidentForAllResidentMemberships(
   }
 
   for (const membership of memberships) {
-    const { data: approvedRequests, error: approvedError } = await supabase
-      .from("registration_requests")
-      .select("id")
-      .eq("profile_id", profileId)
-      .eq("condominium_id", membership.condominium_id)
-      .eq("status", "approved")
-      .limit(1);
-
-    if (!approvedError && (approvedRequests?.length ?? 0) > 0) {
-      continue;
-    }
-
     const { data: residents, error: residentError } = await supabase
       .from("residents")
       .select("id, units!inner(towers!inner(condominium_id))")

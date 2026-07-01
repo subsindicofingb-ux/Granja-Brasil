@@ -21,6 +21,7 @@ import {
   resolveRegistrationProfileType,
 } from "@/lib/registrations/profile-type";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
+import { revokeResidentMembershipIfOrphaned } from "@/lib/auth/membership-cleanup";
 import { clearUnitResponsibleExcept } from "@/lib/services/notifications";
 import { isDoormanRegistrationAutoFulfill } from "@/lib/access-devices/sync-env";
 import {
@@ -1150,5 +1151,11 @@ export async function rejectRegistrationRequest(input: {
     return serviceError("Solicitação não encontrada ou já analisada.");
   }
 
-  return serviceOk(mapRequestRow(data as RequestRow));
+  const request = mapRequestRow(data as RequestRow);
+  await revokeResidentMembershipIfOrphaned({
+    profileId: request.profile_id,
+    condominiumId: input.condominiumId,
+  });
+
+  return serviceOk(request);
 }

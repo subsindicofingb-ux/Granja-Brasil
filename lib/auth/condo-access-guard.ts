@@ -4,6 +4,7 @@ import {
   PENDING_APPROVAL_PATH,
   userHasAppAccess,
 } from "@/lib/auth/pending-approval";
+import { getDoormanBlockForCondominium } from "@/lib/condominiums/doorman-blocks";
 
 const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password", "/signup"]);
 const RESERVED_APP_SEGMENTS = new Set(["aguardando-aprovacao"]);
@@ -83,7 +84,43 @@ export async function canAccessCondoSlug(
     return false;
   }
 
-  return Boolean(membership);
+  if (membership) {
+    return true;
+  }
+
+  const { data: targetCondominium, error: targetError } = await supabase
+    .from("condominiums")
+    .select("id, slug, name")
+    .eq("slug", condoSlug)
+    .maybeSingle();
+
+  if (targetError || !targetCondominium) {
+    return false;
+  }
+
+  const targetBlock = getDoormanBlockForCondominium(targetCondominium);
+  if (!targetBlock) {
+    return false;
+  }
+
+  const { data: userMemberships, error: membershipsError } = await supabase
+    .from("memberships")
+    .select("condominium:condominiums!inner(slug, name)")
+    .eq("profile_id", user.id);
+
+  if (membershipsError || !userMemberships?.length) {
+    return false;
+  }
+
+  return userMemberships.some((row) => {
+    const condominium = row.condominium as { slug: string; name: string } | null;
+    if (!condominium) {
+      return false;
+    }
+
+    const block = getDoormanBlockForCondominium(condominium);
+    return block?.id === targetBlock.id;
+  });
 }
 
 export async function resolveSafeAppRedirect(

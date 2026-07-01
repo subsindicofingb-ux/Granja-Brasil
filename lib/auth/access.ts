@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
+import { getDoormanBlockForCondominium } from "@/lib/condominiums/doorman-blocks";
+import { groupAccessibleCondominiums, findMembershipForCondoSlug } from "@/lib/auth/membership-groups";
 import { setActiveCondoSlug } from "@/lib/auth/active-condo";
 import { ensureProfile, getAuthUser, requireSession, isSuperAdmin } from "@/lib/auth/session";
 import {
@@ -80,7 +82,7 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
   const superAdmin = await isSuperAdmin();
 
   if (!superAdmin) {
-    return memberships;
+    return groupAccessibleCondominiums(memberships);
   }
 
   try {
@@ -109,9 +111,9 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
       }
     }
 
-    return Array.from(bySlug.values());
+    return groupAccessibleCondominiums(Array.from(bySlug.values()));
   } catch {
-    return memberships;
+    return groupAccessibleCondominiums(memberships);
   }
 }
 
@@ -146,14 +148,38 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
 
   const { user, profile } = session;
   const memberships = await getUserMemberships();
-  const membership = memberships.find((item) => item.condominium.slug === slug);
+  let targetBlock = getDoormanBlockForCondominium({ slug, name: slug });
+
+  if (!targetBlock) {
+    try {
+      const supabase = await createClient();
+      const { data: condominium } = await supabase
+        .from("condominiums")
+        .select("slug, name")
+        .eq("slug", slug)
+        .maybeSingle();
+
+      if (condominium) {
+        targetBlock = getDoormanBlockForCondominium(condominium);
+      }
+    } catch {
+      // Ignora falha ao resolver bloco do condomínio alvo.
+    }
+  }
+
+  const membership = findMembershipForCondoSlug(memberships, slug, targetBlock);
 
   if (membership) {
+    const displayCondominium =
+      targetBlock && getDoormanBlockForCondominium(membership.condominium)
+        ? { ...membership.condominium, name: targetBlock.label }
+        : membership.condominium;
+
     return enrichCondoAccess(
       buildCondoAccess({
         membershipId: membership.id,
         role: membership.role,
-        condominium: membership.condominium,
+        condominium: displayCondominium,
         profile,
         email: user.email ?? "",
       }),

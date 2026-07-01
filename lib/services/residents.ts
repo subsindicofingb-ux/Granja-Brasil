@@ -8,6 +8,7 @@ import {
 } from "@/lib/residents/contact-uniqueness";
 import type { Resident, ResidentType } from "@/types";
 import { removeResidentFromAccessDevicesForDelete } from "@/lib/services/access-sync";
+import { revokeResidentMembershipIfOrphaned } from "@/lib/auth/membership-cleanup";
 import { mapSupabaseError, serviceError, type ServiceResult, serviceOk } from "@/lib/services/types";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 
@@ -286,6 +287,10 @@ export async function deleteResident(input: {
     return serviceError(residentResult.error);
   }
 
+  const resident = residentResult.data;
+  const profileId = resident.profile_id;
+  const condominiumId = resident.unit.tower.condominium_id;
+
   const removalResult = await removeResidentFromAccessDevicesForDelete(input.residentId);
   if (!removalResult.ok) {
     return serviceError(removalResult.error);
@@ -295,6 +300,10 @@ export async function deleteResident(input: {
 
   if (error) {
     return serviceError(mapSupabaseError(error));
+  }
+
+  if (profileId) {
+    await revokeResidentMembershipIfOrphaned({ profileId, condominiumId });
   }
 
   return serviceOk({
