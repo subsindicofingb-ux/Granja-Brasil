@@ -2,11 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { signOutAction } from "@/lib/auth/actions";
-import { getAccessibleCondominiums } from "@/lib/auth/access";
 import {
   PENDING_APPROVAL_FOOTNOTE,
   PENDING_APPROVAL_MESSAGE,
   PENDING_APPROVAL_TITLE,
+  userHasAppAccess,
 } from "@/lib/auth/pending-approval";
 import { requireSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/session";
@@ -15,6 +15,7 @@ import { REGISTRATION_REQUEST_STATUS_LABELS } from "@/lib/registrations/labels";
 import { SIGNUP_WELCOME_TITLE } from "@/lib/auth/signup-success";
 import { listRegistrationRequestsForProfile } from "@/lib/services/registration-requests";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +29,10 @@ export default async function PendingApprovalPage() {
   }
 
   const session = await requireSession();
+  const supabase = await createClient();
   const superAdmin = await isSuperAdmin();
-  const memberships = await getAccessibleCondominiums();
 
-  if (superAdmin || memberships.length > 0) {
+  if (!superAdmin && (await userHasAppAccess(supabase))) {
     redirect("/app");
   }
 

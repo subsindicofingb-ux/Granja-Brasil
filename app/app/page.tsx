@@ -5,6 +5,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { RegistrationRequestList } from "@/components/registrations/registration-request-list";
 import { getAccessibleCondominiums } from "@/lib/auth/access";
 import { getActiveCondoSlug } from "@/lib/auth/active-condo";
+import { PENDING_APPROVAL_PATH, userHasAppAccess } from "@/lib/auth/pending-approval";
 import { selectCondominiumFormAction, signOutAction } from "@/lib/auth/actions";
 import { requireSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/session";
@@ -15,6 +16,7 @@ import {
   listAllPendingRegistrationRequests,
 } from "@/lib/services/registration-requests";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,12 +29,13 @@ export default async function AppHomePage() {
   }
 
   const session = await requireSession();
+  const supabase = await createClient();
   const memberships = await getAccessibleCondominiums();
   const activeSlug = await getActiveCondoSlug();
   const superAdmin = await isSuperAdmin();
 
-  if (!superAdmin && memberships.length === 0) {
-    redirect("/app/aguardando-aprovacao");
+  if (!superAdmin && !(await userHasAppAccess(supabase))) {
+    redirect(PENDING_APPROVAL_PATH);
   }
 
   const globalPendingResult = superAdmin ? await listAllPendingRegistrationRequests() : null;

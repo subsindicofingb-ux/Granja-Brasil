@@ -598,25 +598,6 @@ export async function fulfillRegistrationRequest(input: {
     }
   }
 
-  const { data: existingMembership } = await admin
-    .from("memberships")
-    .select("id")
-    .eq("profile_id", request.profile_id)
-    .eq("condominium_id", input.condominiumId)
-    .maybeSingle();
-
-  if (!existingMembership) {
-    const { error: membershipError } = await admin.from("memberships").insert({
-      profile_id: request.profile_id,
-      condominium_id: input.condominiumId,
-      role: mapProfileTypeToMembershipRole(request.profile_type),
-    });
-
-    if (membershipError) {
-      return serviceError(mapSupabaseError(membershipError));
-    }
-  }
-
   const { data: approvedRequest, error: approveError } = await admin
     .from("registration_requests")
     .update({
@@ -639,6 +620,25 @@ export async function fulfillRegistrationRequest(input: {
 
   if (!approvedRequest) {
     return serviceError("Não foi possível concluir a aprovação da solicitação.");
+  }
+
+  const { data: existingMembership } = await admin
+    .from("memberships")
+    .select("id")
+    .eq("profile_id", request.profile_id)
+    .eq("condominium_id", input.condominiumId)
+    .maybeSingle();
+
+  if (!existingMembership) {
+    const { error: membershipError } = await admin.from("memberships").insert({
+      profile_id: request.profile_id,
+      condominium_id: input.condominiumId,
+      role: mapProfileTypeToMembershipRole(request.profile_type),
+    });
+
+    if (membershipError) {
+      return serviceError(mapSupabaseError(membershipError));
+    }
   }
 
   return serviceOk({

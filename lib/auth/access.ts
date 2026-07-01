@@ -4,6 +4,10 @@ import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { setActiveCondoSlug } from "@/lib/auth/active-condo";
 import { ensureProfile, getAuthUser, requireSession, isSuperAdmin } from "@/lib/auth/session";
 import {
+  PENDING_APPROVAL_PATH,
+  userHasAppAccess,
+} from "@/lib/auth/pending-approval";
+import {
   buildCondoAccess,
   type CondoAccess,
   type MembershipWithCondo,
@@ -191,15 +195,17 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
 }
 
 export async function requireCondoAccess(slug: string): Promise<CondoAccess> {
+  const superAdmin = await isSuperAdmin();
+
+  if (!superAdmin) {
+    const supabase = await createClient();
+    if (!(await userHasAppAccess(supabase))) {
+      redirect(PENDING_APPROVAL_PATH);
+    }
+  }
+
   const access = await getCondoAccess(slug);
   if (!access) {
-    const memberships = await getUserMemberships();
-    const superAdmin = await isSuperAdmin();
-
-    if (!superAdmin && memberships.length === 0) {
-      redirect("/app/aguardando-aprovacao");
-    }
-
     redirect("/app");
   }
 
