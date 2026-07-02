@@ -35,6 +35,9 @@ export type RolePermissions = {
   canConsultVehicles: boolean;
   canRegisterVehiclesWithApproval: boolean;
   canManageAccessDevices: boolean;
+  canViewDashboard: boolean;
+  canCreateFromDashboard: boolean;
+  canManageDashboardPendencies: boolean;
 };
 
 export const ROLE_PERMISSIONS = {
@@ -69,6 +72,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewDashboard: true,
+    canCreateFromDashboard: true,
+    canManageDashboardPendencies: true,
   },
   admin: {
     label: "Administrador",
@@ -101,6 +107,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewDashboard: true,
+    canCreateFromDashboard: true,
+    canManageDashboardPendencies: true,
   },
   syndic: {
     label: "Síndico",
@@ -133,6 +142,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewDashboard: true,
+    canCreateFromDashboard: true,
+    canManageDashboardPendencies: true,
   },
   sub_syndic: {
     label: "Sub-síndico",
@@ -165,6 +177,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewDashboard: true,
+    canCreateFromDashboard: true,
+    canManageDashboardPendencies: true,
   },
   resident: {
     label: "Morador",
@@ -197,6 +212,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: false,
+    canViewDashboard: true,
+    canCreateFromDashboard: false,
+    canManageDashboardPendencies: false,
   },
   doorman: {
     label: "Portaria",
@@ -229,6 +247,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: true,
     canRegisterVehiclesWithApproval: true,
     canManageAccessDevices: false,
+    canViewDashboard: true,
+    canCreateFromDashboard: true,
+    canManageDashboardPendencies: true,
   },
   staff: {
     label: "Funcionário",
@@ -261,6 +282,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: false,
+    canViewDashboard: true,
+    canCreateFromDashboard: false,
+    canManageDashboardPendencies: false,
   },
 } satisfies Record<Role, RolePermissions>;
 

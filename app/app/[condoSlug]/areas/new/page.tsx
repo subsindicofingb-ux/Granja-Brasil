@@ -1,4 +1,5 @@
 import { requireCondoPermission } from "@/lib/auth/access";
+import { canCreateInCategory } from "@/lib/auth/permission-matrix";
 import { DEFAULT_COMMON_AREA_FORM } from "@/lib/common-areas/defaults";
 import { PageHeader } from "@/components/shared/page-shell";
 import { CommonAreaForm } from "@/components/common-areas/common-area-form";
@@ -13,7 +14,7 @@ export default async function NewAreaPage({ params }: NewAreaPageProps) {
 
   await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageAreas,
+    (ctx) => canCreateInCategory(ctx, "areas"),
     { redirectTo: `/app/${condoSlug}/areas` },
   );
 

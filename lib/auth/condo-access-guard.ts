@@ -5,6 +5,7 @@ import {
   userHasAppAccess,
 } from "@/lib/auth/pending-approval";
 import { getDoormanBlockForCondominium } from "@/lib/condominiums/doorman-blocks";
+import { getGranjaCondoSlug } from "@/lib/constants";
 
 const ALLOWED_NON_APP_REDIRECTS = new Set(["/reset-password", "/signup"]);
 const RESERVED_APP_SEGMENTS = new Set(["aguardando-aprovacao"]);
@@ -139,6 +140,13 @@ export async function resolveSafeAppRedirect(
 
   if (!(await userHasAppAccess(supabase))) {
     return PENDING_APPROVAL_PATH;
+  }
+
+  if (normalized === "/app" || normalized.startsWith("/app?")) {
+    const { data: isSuperAdmin } = await supabase.rpc("is_super_admin");
+    if (isSuperAdmin) {
+      return `/app/${getGranjaCondoSlug()}`;
+    }
   }
 
   const condoSlug = extractCondoSlugFromAppPath(normalized);

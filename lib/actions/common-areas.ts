@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { canCreateInCategory } from "@/lib/auth/permission-matrix";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createCommonArea, updateCommonArea } from "@/lib/services/common-areas";
 import {
@@ -22,7 +23,7 @@ export async function createCommonAreaAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageAreas,
+    (ctx) => canCreateInCategory(ctx, "areas"),
     { redirectTo: `/app/${condoSlug}/areas` },
   );
 
@@ -54,7 +55,7 @@ export async function updateCommonAreaAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageAreas,
+    (ctx) => canCreateInCategory(ctx, "areas"),
     { redirectTo: `/app/${condoSlug}/areas/${areaId}` },
   );
 

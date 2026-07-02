@@ -105,6 +105,9 @@ export function StaffDashboard({
   notificationAlertCount = 0,
 }: StaffDashboardProps) {
   const base = `/app/${condoSlug}`;
+  const showDashboardOverview = permissions.canViewDashboard;
+  const showDashboardQuickActions = permissions.canCreateFromDashboard;
+  const showDashboardPendencies = permissions.canManageDashboardPendencies;
   const unreadIncomingSet = new Set(unreadAnnouncementIds);
   const unreadReplySet = new Set(unreadReplyThreadIds);
   const pendingReservations = reservationsByStatus[RESERVATION_STATUS.PENDING];
@@ -397,7 +400,7 @@ export function StaffDashboard({
         </div>
       </section>
 
-      {syndicOverviewCards.length > 0 && (
+      {showDashboardOverview && syndicOverviewCards.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">Visão geral</h3>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -428,7 +431,7 @@ export function StaffDashboard({
         </section>
       )}
 
-      {granjaOverviewCards.length > 0 && (
+      {showDashboardOverview && granjaOverviewCards.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">Visão geral Granja</h3>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -457,7 +460,7 @@ export function StaffDashboard({
         </section>
       )}
 
-      {attentionItems.length > 0 && (
+      {showDashboardPendencies && attentionItems.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">Precisa de atenção</h3>
           {attentionItems.map((item) => (
@@ -474,7 +477,7 @@ export function StaffDashboard({
         </section>
       )}
 
-      {actionTiles.length > 0 && (
+      {showDashboardQuickActions && actionTiles.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">Ações rápidas</h3>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -504,7 +507,7 @@ export function StaffDashboard({
         </section>
       )}
 
-      {quickActions.length > 0 && (
+      {showDashboardQuickActions && quickActions.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Cadastros</CardTitle>
@@ -519,6 +522,7 @@ export function StaffDashboard({
         </Card>
       )}
 
+      {showDashboardOverview && (
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -605,8 +609,11 @@ export function StaffDashboard({
           </CardContent>
         </Card>
       </div>
+      )}
 
-      {permissions.canManageRegistrationRequests && pendingRegistrationCount > 0 && (
+      {showDashboardPendencies &&
+        permissions.canManageRegistrationRequests &&
+        pendingRegistrationCount > 0 && (
         <DashboardRegistrationRequests
           condoSlug={condoSlug}
           requests={pendingRegistrationRequests}

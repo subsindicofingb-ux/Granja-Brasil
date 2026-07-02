@@ -133,7 +133,12 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", href: "", icon: "LayoutDashboard" },
+  {
+    label: "Dashboard",
+    href: "",
+    icon: "LayoutDashboard",
+    visible: ({ permissions }) => permissions.canViewDashboard,
+  },
   {
     label: "Condomínios",
     href: "admin/condominiums",
@@ -162,7 +167,8 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Moradores",
     href: "residents",
     icon: "Users",
-    visible: ({ permissions }) => permissions.canManageResidents,
+    visible: ({ permissions }) =>
+      permissions.canManageResidents || permissions.canConsultResidents,
   },
   {
     label: "Veículos",

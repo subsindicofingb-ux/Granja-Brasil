@@ -13,7 +13,7 @@ import { requireSession } from "@/lib/auth/session";
 import { isSuperAdmin } from "@/lib/auth/session";
 import { getRolePermissions } from "@/lib/auth/roles";
 import { BRAND_TAGLINE } from "@/lib/brand";
-import { ROLES } from "@/lib/constants";
+import { getGranjaCondoSlug, ROLES } from "@/lib/constants";
 import {
   listAllPendingRegistrationRequests,
   listPublicUnitsByCondominium,
@@ -65,8 +65,12 @@ export default async function AppHomePage() {
     }
   }
 
-  const adminCondoSlug = memberships[0]?.condominium.slug ?? activeSlug ?? "residencial-exemplo";
+  const adminCondoSlug = memberships[0]?.condominium.slug ?? activeSlug ?? getGranjaCondoSlug();
   const firstName = session.profile.full_name.split(/\s+/)[0] ?? session.profile.full_name;
+
+  if (superAdmin) {
+    redirect(`/app/${getGranjaCondoSlug()}`);
+  }
 
   if (memberships.length === 1) {
     redirect(`/app/${memberships[0].condominium.slug}`);

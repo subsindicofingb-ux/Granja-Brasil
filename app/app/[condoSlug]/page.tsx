@@ -5,6 +5,7 @@ import {
   getMemberRoleLabel,
   isGranjaOnlyMemberRole,
 } from "@/lib/auth/member-roles";
+import { canCreateInCategory } from "@/lib/auth/permission-matrix";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
@@ -314,7 +315,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     {
       label: "Cadastrar espaço comum",
       href: `${base}/areas/new`,
-      allowed: access.permissions.canManageAreas,
+      allowed: canCreateInCategory(access, "areas"),
     },
     ...getAssignableMemberRoles(access.role)
       .filter((role) => !isGranjaOnlyMemberRole(role) && role !== ROLES.RESIDENT)

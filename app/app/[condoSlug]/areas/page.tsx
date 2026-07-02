@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { canCreateInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { formatAllowedDays } from "@/lib/common-areas/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -24,13 +25,14 @@ function parseStatusFilter(status?: string): boolean | undefined {
 
 async function AreasHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
+  const canCreateAreas = canCreateInCategory(access, "areas");
 
   return (
     <PageHeader
       title="Espaços comuns"
       description="Cadastro e regras dos espaços disponíveis para reserva."
       action={
-        access.permissions.canManageAreas ? (
+        canCreateAreas ? (
           <Button asChild>
             <Link href={`/app/${condoSlug}/areas/new`}>
               <Plus className="h-4 w-4" />
@@ -51,6 +53,15 @@ async function AreasContent({
   statusFilter?: boolean;
 }) {
   const access = await requireCondoAccess(condoSlug);
+
+  if (!canViewInCategory(access, "areas") && !access.permissions.canManageAreas) {
+    return (
+      <ErrorAlert message="Você não tem permissão para visualizar os espaços comuns." />
+    );
+  }
+
+  const canCreateAreas = canCreateInCategory(access, "areas");
+  const canEditAreas = canCreateAreas;
   const result = await listReservableCommonAreasForContext(
     {
       condominiumId: access.condominium.id,
@@ -80,7 +91,7 @@ async function AreasContent({
               : "Cadastre o primeiro espaço comum do condomínio."
           }
           action={
-            access.permissions.canManageAreas ? (
+            canCreateAreas ? (
               <Button asChild>
                 <Link href={`/app/${condoSlug}/areas/new`}>Novo espaço</Link>
               </Button>
@@ -122,7 +133,7 @@ async function AreasContent({
                 )}
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/app/${condoSlug}/areas/${area.id}`}>
-                    {access.permissions.canManageAreas &&
+                    {canEditAreas &&
                     area.condominium_id === access.condominium.id
                       ? "Editar regras"
                       : "Ver detalhes"}

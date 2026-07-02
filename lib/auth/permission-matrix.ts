@@ -3,6 +3,7 @@ import { ROLES } from "@/lib/constants";
 import { ROLE_PERMISSIONS, type RolePermissions } from "@/lib/auth/roles";
 
 export const PERMISSION_CATEGORY_IDS = [
+  "dashboard",
   "registration_requests",
   "structure",
   "residents",
@@ -41,6 +42,7 @@ export const CONFIGURABLE_ROLES: ConfigurableRole[] = [
 ];
 
 export const PERMISSION_CATEGORY_LABELS: Record<PermissionCategoryId, string> = {
+  dashboard: "Dashboard",
   registration_requests: "Solicitações de cadastro",
   structure: "Unidades e estrutura",
   residents: "Moradores",
@@ -74,6 +76,12 @@ function deriveCategoryCrud(role: Role, category: PermissionCategoryId): Categor
   const permissions = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.admin;
 
   switch (category) {
+    case "dashboard":
+      return {
+        view: permissions.canViewDashboard,
+        create: permissions.canCreateFromDashboard,
+        delete: permissions.canManageDashboardPendencies,
+      };
     case "registration_requests":
       return {
         view: permissions.canManageRegistrationRequests,
@@ -230,13 +238,19 @@ function applyCategoryToPermissions(
   base: RolePermissions,
 ): Partial<RolePermissions> {
   switch (category) {
+    case "dashboard":
+      return {
+        canViewDashboard: cells.view,
+        canCreateFromDashboard: cells.create,
+        canManageDashboardPendencies: cells.delete,
+      };
     case "registration_requests":
       return {
         canManageRegistrationRequests: cells.view || cells.create || cells.delete,
       };
     case "structure":
       return {
-        canManageStructure: cells.view || cells.create || cells.delete,
+        canManageStructure: cells.create || cells.delete,
       };
     case "residents":
       return {
@@ -259,7 +273,7 @@ function applyCategoryToPermissions(
       };
     case "areas":
       return {
-        canManageAreas: cells.view || cells.create || cells.delete,
+        canManageAreas: cells.create,
       };
     case "reservations":
       return {
@@ -275,7 +289,7 @@ function applyCategoryToPermissions(
       };
     case "correspondence":
       return {
-        canManageCorrespondence: cells.view || cells.create || cells.delete,
+        canManageCorrespondence: cells.create || cells.delete,
       };
     case "water_meters":
       return {
@@ -304,11 +318,11 @@ function applyCategoryToPermissions(
       };
     case "access_devices":
       return {
-        canManageAccessDevices: cells.view || cells.create || cells.delete,
+        canManageAccessDevices: cells.create || cells.delete,
       };
     case "condo_settings":
       return {
-        canManageCondo: cells.view || cells.create || cells.delete,
+        canManageCondo: cells.create || cells.delete,
       };
     default:
       return {};
@@ -357,6 +371,14 @@ export function canViewInCategory(
 ): boolean {
   const cells = access.categoryCrud[category];
   return Boolean(cells?.view || cells?.create || cells?.delete);
+}
+
+export function canAccessCategoryNav(
+  access: { categoryCrud: Record<PermissionCategoryId, CategoryCrud> },
+  category: PermissionCategoryId,
+  managePermission: boolean,
+): boolean {
+  return managePermission || canViewInCategory(access, category);
 }
 
 export function parsePermissionMatrix(raw: unknown): RolePermissionMatrix {

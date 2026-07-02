@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { canCreateInCategory } from "@/lib/auth/permission-matrix";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { toCommonAreaFormInput } from "@/lib/common-areas/mappers";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -38,7 +39,7 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
 
   const area = result.data;
   const canEdit =
-    access.permissions.canManageAreas && area.condominium_id === access.condominium.id;
+    canCreateInCategory(access, "areas") && area.condominium_id === access.condominium.id;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

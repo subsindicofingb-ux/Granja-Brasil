@@ -35,8 +35,10 @@ export function PermissionMatrixForm({ condoSlug, matrix }: PermissionMatrixForm
 
       <div className="rounded-lg border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
         Marque o que cada papel pode <strong>ver</strong>, <strong>cadastrar</strong> ou{" "}
-        <strong>excluir</strong> em cada categoria. Super Admin mantém acesso total e só outro
-        Super Admin pode cadastrar ou excluir Super Admin.
+        <strong>excluir</strong> em cada categoria. Em <strong>Dashboard</strong>, Ver exibe o
+        painel, Cadastrar libera atalhos de criação e Excluir mostra pendências e alertas. Em{" "}
+        <strong>Espaços comuns</strong>, apenas Cadastrar permite criar ou editar áreas. Super Admin
+        mantém acesso total e só outro Super Admin pode cadastrar ou excluir Super Admin.
       </div>
 
       <div className="space-y-8">
