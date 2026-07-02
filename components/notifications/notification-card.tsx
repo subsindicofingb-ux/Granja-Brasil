@@ -62,7 +62,7 @@ export function NotificationCard({
       <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{notification.body}</p>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {showSource && (
+        {showSource && notification.source_condominium && (
           <span>
             De:{" "}
             {formatCondominiumDisplayName(
@@ -71,14 +71,18 @@ export function NotificationCard({
             )}
           </span>
         )}
-        <span>
-          Para:{" "}
-          {formatCondominiumDisplayName(
-            notification.target_condominium.name,
-            notification.target_condominium.slug,
-          )}
-        </span>
-        <span>Unidade: {formatUnitWithTower(notification.target_unit)}</span>
+        {notification.target_condominium && (
+          <span>
+            Para:{" "}
+            {formatCondominiumDisplayName(
+              notification.target_condominium.name,
+              notification.target_condominium.slug,
+            )}
+          </span>
+        )}
+        {notification.target_unit && (
+          <span>Unidade: {formatUnitWithTower(notification.target_unit)}</span>
+        )}
         {notification.attachment_url && <span>Com anexo</span>}
         {notification.reply_count > 0 && (
           <span>

@@ -102,24 +102,32 @@ export default async function NotificationDetailPage({
             <div>
               <p className="text-muted-foreground">Origem</p>
               <p className="font-medium">
-                {formatCondominiumDisplayName(
-                  notification.source_condominium.name,
-                  notification.source_condominium.slug,
-                )}
+                {notification.source_condominium
+                  ? formatCondominiumDisplayName(
+                      notification.source_condominium.name,
+                      notification.source_condominium.slug,
+                    )
+                  : "—"}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Condomínio destino</p>
               <p className="font-medium">
-                {formatCondominiumDisplayName(
-                  notification.target_condominium.name,
-                  notification.target_condominium.slug,
-                )}
+                {notification.target_condominium
+                  ? formatCondominiumDisplayName(
+                      notification.target_condominium.name,
+                      notification.target_condominium.slug,
+                    )
+                  : "—"}
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Unidade</p>
-              <p className="font-medium">{formatUnitWithTower(notification.target_unit)}</p>
+              <p className="font-medium">
+                {notification.target_unit
+                  ? formatUnitWithTower(notification.target_unit)
+                  : "—"}
+              </p>
             </div>
             <div>
               <p className="text-muted-foreground">Morador responsável</p>

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { canManageInCategory } from "@/lib/auth/permission-matrix";
 import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
 import { ROLES, DEMO_CONDO_SLUG } from "@/lib/constants";
 import {
@@ -24,7 +25,7 @@ interface UnitsPageProps {
 
 async function UnitsHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
-  const canManageStructure = access.permissions.canManageStructure;
+  const canManageStructure = canManageInCategory(access, "structure");
   const canCreateCondominium =
     isGeneralCondominium(condoSlug) && access.role === ROLES.SUPER_ADMIN;
 
@@ -128,7 +129,7 @@ async function UnitsContent({
             title="Cadastre torres primeiro"
             description="É necessário ter ao menos uma torre antes de registrar unidades."
             action={
-              access.permissions.canManageStructure ? (
+              canManageInCategory(access, "structure") ? (
                 <Button asChild>
                   <Link href={`/app/${condoSlug}/towers/new`}>Nova torre</Link>
                 </Button>
@@ -151,7 +152,7 @@ async function UnitsContent({
                 : "Cadastre a primeira unidade do condomínio."
             }
             action={
-              access.permissions.canManageStructure ? (
+              canManageInCategory(access, "structure") ? (
                 <Button asChild>
                   <Link
                     href={
@@ -195,7 +196,7 @@ async function UnitsContent({
                               unitCondominium?.slug ?? condoSlug
                             }/units/${unit.id}`}
                           >
-                            {access.permissions.canManageStructure ? "Editar" : "Detalhes"}
+                            {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
                           </Link>
                         </Button>
                       </td>
@@ -234,7 +235,7 @@ async function UnitsContent({
           title="Nenhuma unidade cadastrada"
           description="Cadastre a primeira unidade do condomínio."
           action={
-            access.permissions.canManageStructure ? (
+            canManageInCategory(access, "structure") ? (
               <Button asChild>
                 <Link href={`/app/${condoSlug}/units/new`}>Nova unidade</Link>
               </Button>
@@ -261,7 +262,7 @@ async function UnitsContent({
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/app/${condoSlug}/units/${unit.id}`}>
-                        {access.permissions.canManageStructure ? "Editar" : "Detalhes"}
+                        {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
                       </Link>
                     </Button>
                   </td>

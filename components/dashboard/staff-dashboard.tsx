@@ -280,7 +280,11 @@ export function StaffDashboard({
     });
   }
 
-  if (permissions.canManageVehicles && granjaPendingVehicles > 0 && isGeneralCondo) {
+  if (
+    (permissions.canManageVehicles || permissions.canConsultVehicles) &&
+    granjaPendingVehicles > 0 &&
+    isGeneralCondo
+  ) {
     attentionItems.push({
       message: `${granjaPendingVehicles} veículo(s) aguardando aprovação nos condomínios.`,
       href: `${base}/vehicles/consult`,
@@ -296,7 +300,7 @@ export function StaffDashboard({
             label: "Unidades residenciais",
             value: generalOverview.residentialUnits,
             description: `${generalOverview.residentialUnits - generalOverview.houses} em condomínios + ${generalOverview.houses} casas`,
-            href: `${base}/admin/condominiums`,
+            href: `${base}/units`,
             icon: Home,
             accent:
               "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",

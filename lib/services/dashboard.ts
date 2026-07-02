@@ -126,24 +126,59 @@ async function countActiveCommonAreas(condominiumId: string): Promise<ServiceRes
   return serviceOk(count ?? 0);
 }
 
-export async function getGeneralCondominiumOverviewMetrics(): Promise<
-  ServiceResult<GeneralCondominiumOverviewMetrics>
-> {
+export async function getGeneralCondominiumOverviewMetrics(options?: {
+  condominiumIds?: string[];
+}): Promise<ServiceResult<GeneralCondominiumOverviewMetrics>> {
   const supabase = await createClient();
+  const scopeIds = options?.condominiumIds?.filter(Boolean);
+  const hasScope = Boolean(scopeIds && scopeIds.length > 0);
+
+  let unitsQuery = supabase
+    .from("units")
+    .select("id, block, towers!inner(name, condominium_id)");
+
+  if (hasScope) {
+    unitsQuery = unitsQuery.in("towers.condominium_id", scopeIds!);
+  }
+
+  let residentsQuery = supabase.from("residents").select("id, units!inner(towers!inner(condominium_id))", {
+    count: "exact",
+    head: true,
+  });
+
+  if (hasScope) {
+    residentsQuery = residentsQuery.in("units.towers.condominium_id", scopeIds!);
+  }
+
+  let vehiclesQuery = supabase.from("vehicles").select("id", { count: "exact", head: true });
+
+  if (hasScope) {
+    vehiclesQuery = vehiclesQuery.in("condominium_id", scopeIds!);
+  }
+
+  let pendingVehiclesQuery = supabase
+    .from("vehicles")
+    .select("condominium_id, condominiums!inner(id, name, slug)")
+    .eq("status", VEHICLE_STATUS.PENDING);
+
+  if (hasScope) {
+    pendingVehiclesQuery = pendingVehiclesQuery.in("condominium_id", scopeIds!);
+  }
+
+  let condominiumsQuery = supabase.from("condominiums").select("id, is_commercial, slug");
+
+  if (hasScope) {
+    condominiumsQuery = condominiumsQuery.in("id", scopeIds!);
+  }
 
   const [condominiumsResult, unitsResult, residentsResult, vehiclesResult, pendingVehiclesResult] =
     await Promise.all([
-    supabase.from("condominiums").select("id, is_commercial"),
-    supabase
-      .from("units")
-      .select("id, block, towers!inner(name, condominium_id)"),
-    supabase.from("residents").select("id", { count: "exact", head: true }),
-    supabase.from("vehicles").select("id", { count: "exact", head: true }),
-    supabase
-      .from("vehicles")
-      .select("condominium_id, condominiums!inner(id, name, slug)")
-      .eq("status", VEHICLE_STATUS.PENDING),
-  ]);
+      condominiumsQuery,
+      unitsQuery,
+      residentsQuery,
+      vehiclesQuery,
+      pendingVehiclesQuery,
+    ]);
 
   if (unitsResult.error) {
     return serviceError(mapSupabaseError(unitsResult.error));
@@ -219,6 +254,10 @@ export async function getGeneralCondominiumOverviewMetrics(): Promise<
     residentialCondominiums = fallback.count ?? 0;
   } else {
     for (const condominium of condominiumsResult.data ?? []) {
+      if (isGeneralCondominium(condominium.slug)) {
+        continue;
+      }
+
       if (condominium.is_commercial) {
         commercialCondominiums += 1;
         commercialCondominiumIds.add(condominium.id);

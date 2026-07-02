@@ -171,8 +171,8 @@ export async function replyUnitNotificationAction(
       : notification.created_by;
   const recipientCondoSlug =
     access.profile.id === notification.created_by
-      ? notification.target_condominium.slug
-      : notification.source_condominium.slug;
+      ? (notification.target_condominium?.slug ?? condoSlug)
+      : (notification.source_condominium?.slug ?? condoSlug);
 
   scheduleUnitNotificationReplyEmail({
     notification,

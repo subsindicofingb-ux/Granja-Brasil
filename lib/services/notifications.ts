@@ -52,14 +52,14 @@ type NotificationRow = {
   created_at: string;
   updated_at: string;
   sender_last_seen_at: string | null;
-  source_condominium: { id: string; name: string; slug: string };
-  target_condominium: { id: string; name: string; slug: string };
+  source_condominium: { id: string; name: string; slug: string } | null;
+  target_condominium: { id: string; name: string; slug: string } | null;
   target_unit: {
     id: string;
     number: string;
     block: string | null;
     tower: { id: string; name: string };
-  };
+  } | null;
 };
 
 async function getAuthorMap(profileIds: string[]) {

@@ -85,11 +85,15 @@ async function sendNotificationEmail(input: {
 }
 
 function formatNotificationContext(notification: UnitNotificationWithDetails): string {
-  const condoName = formatCondominiumDisplayName(
-    notification.target_condominium.name,
-    notification.target_condominium.slug,
-  );
-  const unitLabel = formatUnitWithTower(notification.target_unit);
+  const condoName = notification.target_condominium
+    ? formatCondominiumDisplayName(
+        notification.target_condominium.name,
+        notification.target_condominium.slug,
+      )
+    : "Condomínio";
+  const unitLabel = notification.target_unit
+    ? formatUnitWithTower(notification.target_unit)
+    : "Unidade";
   return `${condoName} · ${unitLabel}`;
 }
 
@@ -102,7 +106,7 @@ export async function notifyUnitNotificationCreated(input: {
 
   await sendNotificationEmail({
     profileId: notification.target_profile_id,
-    condoSlug: notification.target_condominium.slug,
+    condoSlug: notification.target_condominium?.slug ?? "",
     notificationId: notification.id,
     subject: `Notificação formal: ${notification.title}`,
     preview: "Você recebeu uma notificação formal do condomínio.",
@@ -132,7 +136,7 @@ export async function notifyUnitNotificationReadToSender(input: {
 
   await sendNotificationEmail({
     profileId: notification.created_by,
-    condoSlug: notification.source_condominium.slug,
+    condoSlug: notification.source_condominium?.slug ?? "",
     notificationId: notification.id,
     subject: `Leitura confirmada: ${notification.title}`,
     preview: "O destinatário leu sua notificação formal.",

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
@@ -21,7 +21,10 @@ interface VehiclesPageProps {
 async function VehiclesHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+    (ctx) =>
+      ctx.permissions.canManageVehicles ||
+      ctx.permissions.canViewUnitVehicles ||
+      ctx.permissions.canConsultVehicles,
   );
 
   return (
@@ -29,14 +32,25 @@ async function VehiclesHeader({ condoSlug }: { condoSlug: string }) {
       title="Veículos"
       description="Cadastro de veículos com placa, TAG de acesso e foto."
       action={
-        access.permissions.canManageVehicles || access.permissions.canRegisterUnitVehicles ? (
-          <Button asChild>
-            <Link href={`/app/${condoSlug}/vehicles/new`}>
-              <Plus className="h-4 w-4" />
-              Novo veículo
-            </Link>
-          </Button>
-        ) : undefined
+        <div className="flex flex-wrap gap-2">
+          {access.permissions.canConsultVehicles && (
+            <Button variant="outline" asChild>
+              <Link href={`/app/${condoSlug}/vehicles/consult`}>
+                <Search className="h-4 w-4" />
+                Consultar placa
+              </Link>
+            </Button>
+          )}
+          {(access.permissions.canManageVehicles ||
+            access.permissions.canRegisterUnitVehicles) && (
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/vehicles/new`}>
+                <Plus className="h-4 w-4" />
+                Novo veículo
+              </Link>
+            </Button>
+          )}
+        </div>
       }
     />
   );
@@ -51,7 +65,10 @@ async function VehiclesContent({
 }) {
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageVehicles || ctx.permissions.canViewUnitVehicles,
+    (ctx) =>
+      ctx.permissions.canManageVehicles ||
+      ctx.permissions.canViewUnitVehicles ||
+      ctx.permissions.canConsultVehicles,
   );
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
 

@@ -18,12 +18,12 @@ export type UnitNotificationWithDetails = UnitNotificationRecord & {
     id: string;
     name: string;
     slug: string;
-  };
+  } | null;
   target_condominium: {
     id: string;
     name: string;
     slug: string;
-  };
+  } | null;
   target_unit: {
     id: string;
     number: string;
@@ -32,7 +32,7 @@ export type UnitNotificationWithDetails = UnitNotificationRecord & {
       id: string;
       name: string;
     };
-  };
+  } | null;
   target_resident: {
     id: string;
     full_name: string;

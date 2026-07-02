@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { canManageInCategory } from "@/lib/auth/permission-matrix";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
@@ -112,56 +113,61 @@ async function ResidentsContent({
           selectedUnitId={unitId}
         />
 
-        {units.length === 0 ? (
-          <EmptyState
-            title="Cadastre unidades primeiro"
-            description="É necessário ter unidades antes de registrar moradores."
-            action={
-              access.permissions.canManageStructure ? (
-                <Button asChild>
-                  <Link
-                    href={
-                      filteredCondominium
-                        ? `/app/${condoSlug}/units/new?condominium=${filteredCondominium.slug}`
-                        : `/app/${condoSlug}/units/new`
-                    }
-                  >
-                    Nova unidade
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : residents.length === 0 ? (
-          <EmptyState
-            title={
-              unitId || selectedCondominiumSlug
-                ? "Nenhum morador neste filtro"
-                : "Nenhum morador cadastrado"
-            }
-            description={
-              unitId || selectedCondominiumSlug
-                ? "Não há moradores para os filtros selecionados."
-                : "Cadastre o primeiro morador do condomínio."
-            }
-            action={
-              access.permissions.canManageResidents ? (
-                <Button asChild>
-                  <Link
-                    href={
-                      unitId
-                        ? `/app/${condoSlug}/residents/new?unit=${unitId}`
-                        : filteredCondominium
-                          ? `/app/${condoSlug}/residents/new?condominium=${filteredCondominium.slug}`
-                          : `/app/${condoSlug}/residents/new`
-                    }
-                  >
-                    Novo morador
-                  </Link>
-                </Button>
-              ) : undefined
-            }
-          />
+        {residents.length === 0 ? (
+          units.length === 0 &&
+          (canManageInCategory(access, "structure") ||
+            access.permissions.canManageResidents ||
+            access.permissions.canRegisterResidentsWithApproval) ? (
+            <EmptyState
+              title="Cadastre unidades primeiro"
+              description="É necessário ter unidades antes de registrar moradores."
+              action={
+                canManageInCategory(access, "structure") ? (
+                  <Button asChild>
+                    <Link
+                      href={
+                        filteredCondominium
+                          ? `/app/${condoSlug}/units/new?condominium=${filteredCondominium.slug}`
+                          : `/app/${condoSlug}/units/new`
+                      }
+                    >
+                      Nova unidade
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <EmptyState
+              title={
+                unitId || selectedCondominiumSlug
+                  ? "Nenhum morador neste filtro"
+                  : "Nenhum morador cadastrado"
+              }
+              description={
+                unitId || selectedCondominiumSlug
+                  ? "Não há moradores para os filtros selecionados."
+                  : "Cadastre o primeiro morador do condomínio."
+              }
+              action={
+                access.permissions.canManageResidents ? (
+                  <Button asChild>
+                    <Link
+                      href={
+                        unitId
+                          ? `/app/${condoSlug}/residents/new?unit=${unitId}`
+                          : filteredCondominium
+                            ? `/app/${condoSlug}/residents/new?condominium=${filteredCondominium.slug}`
+                            : `/app/${condoSlug}/residents/new`
+                      }
+                    >
+                      Novo morador
+                    </Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          )
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <table className="w-full text-sm">
@@ -344,29 +350,33 @@ async function ResidentsContent({
         selectedUnitId={unitId}
       />
 
-      {units.length === 0 ? (
-        <EmptyState
-          title="Cadastre unidades primeiro"
-          description="É necessário ter unidades antes de registrar moradores."
-          action={
-            access.permissions.canManageStructure ? (
-              <Button asChild>
-                <Link href={`/app/${condoSlug}/units/new`}>Nova unidade</Link>
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : filteredResidents.length === 0 ? (
-        <EmptyState
-          title={
-            unitId || towerId ? "Nenhum morador neste filtro" : "Nenhum morador cadastrado"
-          }
-          description={
-            unitId || towerId
-              ? "Não há moradores para os filtros selecionados."
-              : "Cadastre o primeiro morador do condomínio."
-          }
-          action={
+      {filteredResidents.length === 0 ? (
+        units.length === 0 &&
+        (canManageInCategory(access, "structure") ||
+          access.permissions.canManageResidents ||
+          access.permissions.canRegisterResidentsWithApproval) ? (
+          <EmptyState
+            title="Cadastre unidades primeiro"
+            description="É necessário ter unidades antes de registrar moradores."
+            action={
+              canManageInCategory(access, "structure") ? (
+                <Button asChild>
+                  <Link href={`/app/${condoSlug}/units/new`}>Nova unidade</Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <EmptyState
+            title={
+              unitId || towerId ? "Nenhum morador neste filtro" : "Nenhum morador cadastrado"
+            }
+            description={
+              unitId || towerId
+                ? "Não há moradores para os filtros selecionados."
+                : "Cadastre o primeiro morador do condomínio."
+            }
+            action={
             access.permissions.canManageResidents ? (
               <Button asChild>
                 <Link
@@ -381,7 +391,8 @@ async function ResidentsContent({
               </Button>
             ) : undefined
           }
-        />
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
           <table className="w-full text-sm">

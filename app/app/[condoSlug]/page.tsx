@@ -5,10 +5,11 @@ import {
   getMemberRoleLabel,
   isGranjaOnlyMemberRole,
 } from "@/lib/auth/member-roles";
-import { canCreateInCategory } from "@/lib/auth/permission-matrix";
+import { canCreateInCategory, canManageInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
+import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { countNotificationDashboardAlerts } from "@/lib/services/notifications";
 import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
@@ -83,17 +84,40 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const base = `/app/${condoSlug}`;
   const unitFilter = await getUnitListFilterForAccess(access);
-  const scope = access.permissions.canManageStructure ? null : unitFilter;
+  const scope =
+    access.permissions.canManageStructure ||
+    (isGeneralCondominium(condoSlug) && canViewInCategory(access, "structure"))
+      ? null
+      : unitFilter;
   const isGeneralCondoDashboard = isGeneralCondominium(condoSlug);
+  const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
+  const overviewCondominiumIds = isGeneralCondoDashboard && !isGlobalRegistrationView
+    ? await (async () => {
+        const condominiumsResult = await listCondominiums();
+        if (!condominiumsResult.ok) {
+          return [];
+        }
+
+        return condominiumsResult.data
+          .filter((condominium) => !isGeneralCondominium(condominium.slug))
+          .map((condominium) => condominium.id);
+      })()
+    : undefined;
+
   const [result, generalOverviewResult] = await Promise.all([
     getDashboardData(access.condominium.id, scope, {
       condominiumId: access.condominium.id,
       profileId: access.profile.id,
       isStaff: access.permissions.canManageAnnouncements,
     }),
-    isGeneralCondoDashboard ? getGeneralCondominiumOverviewMetrics() : Promise.resolve(null),
+    isGeneralCondoDashboard
+      ? getGeneralCondominiumOverviewMetrics(
+          overviewCondominiumIds?.length
+            ? { condominiumIds: overviewCondominiumIds }
+            : undefined,
+        )
+      : Promise.resolve(null),
   ]);
-  const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
   const registrationScopeIds = isGlobalRegistrationView
     ? []
     : await getRegistrationScopeCondominiumIds({
@@ -305,7 +329,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     {
       label: "Cadastrar unidade",
       href: `${base}/units/new`,
-      allowed: access.permissions.canManageStructure,
+      allowed: canManageInCategory(access, "structure"),
     },
     {
       label: "Cadastrar morador",

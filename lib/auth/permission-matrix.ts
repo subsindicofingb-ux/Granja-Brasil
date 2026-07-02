@@ -252,40 +252,41 @@ function applyCategoryToPermissions(
       return {
         canManageStructure: cells.create || cells.delete,
       };
-    case "residents":
+    case "residents": {
+      const canManageResidents =
+        cells.delete || (cells.create && base.canManageResidents);
+
       return {
-        canConsultResidents: cells.view,
+        canConsultResidents: cells.view || cells.create || cells.delete,
         canRegisterResidentsWithApproval:
-          cells.create && base.canRegisterResidentsWithApproval,
-        canManageResidents:
-          cells.delete || (cells.create && base.canManageResidents),
+          cells.create && !canManageResidents,
+        canManageResidents: canManageResidents,
       };
+    }
     case "vehicles":
       return {
-        canConsultVehicles: cells.view || base.canConsultVehicles,
-        canViewUnitVehicles: cells.view || base.canViewUnitVehicles,
-        canRegisterUnitVehicles:
-          cells.create && base.canRegisterUnitVehicles,
+        canConsultVehicles: cells.view || cells.create || cells.delete,
+        canViewUnitVehicles:
+          base.canViewUnitVehicles || cells.view || cells.create || cells.delete,
+        canRegisterUnitVehicles: cells.create && base.canRegisterUnitVehicles,
         canRegisterVehiclesWithApproval:
           cells.create && base.canRegisterVehiclesWithApproval,
-        canManageVehicles:
-          cells.delete || (cells.create && base.canManageVehicles),
+        canManageVehicles: cells.create || cells.delete,
       };
     case "areas":
       return {
-        canManageAreas: cells.create,
+        canManageAreas: cells.create || cells.delete,
       };
     case "reservations":
       return {
         canManageReservations: cells.view || cells.create,
         canApproveReservations: cells.delete || cells.create,
-        canBookReservationsForCondo:
-          cells.create && base.canBookReservationsForCondo,
+        canBookReservationsForCondo: cells.create || base.canBookReservationsForCondo,
       };
     case "announcements":
       return {
         canManageAnnouncements: cells.create || cells.delete,
-        canSendAnnouncements: cells.view || cells.create,
+        canSendAnnouncements: cells.view || cells.create || cells.delete,
       };
     case "correspondence":
       return {
@@ -298,19 +299,16 @@ function applyCategoryToPermissions(
       };
     case "notifications":
       return {
-        canViewUnitNotifications: cells.view,
+        canViewUnitNotifications: cells.view || cells.create || cells.delete,
         canSendUnitNotifications: cells.create || cells.delete,
       };
     case "visitors":
       return {
-        canViewVisitorAuthorizations: cells.view,
-        canConsultVisitorAuthorizations: cells.view && base.canConsultVisitorAuthorizations,
-        canRegisterVisitorAuthorizations:
-          cells.create && base.canRegisterVisitorAuthorizations,
-        canApproveVisitorAuthorizations:
-          cells.delete && base.canApproveVisitorAuthorizations,
-        canManageVisitorAuthorizations:
-          cells.create || cells.delete,
+        canViewVisitorAuthorizations: cells.view || cells.create || cells.delete,
+        canConsultVisitorAuthorizations: cells.view || cells.create,
+        canRegisterVisitorAuthorizations: cells.create,
+        canApproveVisitorAuthorizations: cells.delete,
+        canManageVisitorAuthorizations: cells.create || cells.delete,
       };
     case "members":
       return {
@@ -356,6 +354,13 @@ export function canCreateInCategory(
   category: PermissionCategoryId,
 ): boolean {
   return access.categoryCrud[category]?.create ?? false;
+}
+
+export function canManageInCategory(
+  access: { categoryCrud: Record<PermissionCategoryId, CategoryCrud> },
+  category: PermissionCategoryId,
+): boolean {
+  return canCreateInCategory(access, category) || canDeleteInCategory(access, category);
 }
 
 export function canDeleteInCategory(
