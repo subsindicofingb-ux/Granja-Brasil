@@ -7,6 +7,7 @@ import {
   formatCondominiumDisplayName,
   isGeneralCondominium,
 } from "@/lib/condominiums/display";
+import { getGranjaChildCondominiumIds } from "@/lib/condominiums/granja-scope";
 import { resolveDoormanOperationalPanel, getOperationalCondominiumIds } from "@/lib/condominiums/doorman-panel";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { searchVehiclesForConsult, listPendingVehiclesForConsult } from "@/lib/services/vehicles";
@@ -47,7 +48,12 @@ async function ConsultContent({
     isBlockSource && panelResult?.ok
       ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
       : null;
-  const includeUnapproved = isGeneralCondoPage && access.permissions.canManageVehicles;
+  const granjaChildIdsResult = isGeneralCondoPage ? await getGranjaChildCondominiumIds() : null;
+  const searchCondominiumIds =
+    blockCondominiumIds ?? (granjaChildIdsResult?.ok ? granjaChildIdsResult.data : undefined);
+  const includeUnapproved =
+    isGeneralCondoPage &&
+    (access.permissions.canManageVehicles || access.permissions.canConsultVehicles);
   const isPendingView =
     includeUnapproved && status === VEHICLE_STATUS.PENDING;
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
@@ -68,7 +74,7 @@ async function ConsultContent({
           isGeneralCondoPage || blockCondominiumIds
             ? undefined
             : access.condominium.id,
-        condominiumIds: blockCondominiumIds ?? undefined,
+        condominiumIds: searchCondominiumIds,
         plate: normalizedPlate,
         includeUnapproved,
         ...(unitQuery === "none"

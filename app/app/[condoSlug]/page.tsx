@@ -9,7 +9,7 @@ import { canCreateInCategory, canManageInCategory, canViewInCategory } from "@/l
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
-import { listCondominiums } from "@/lib/services/condominiums-admin";
+import { getGranjaChildCondominiumIds } from "@/lib/condominiums/granja-scope";
 import { countNotificationDashboardAlerts } from "@/lib/services/notifications";
 import { countVehicles, listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { ROLES, VEHICLE_STATUS } from "@/lib/constants";
@@ -90,19 +90,17 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       ? null
       : unitFilter;
   const isGeneralCondoDashboard = isGeneralCondominium(condoSlug);
-  const isGlobalRegistrationView = access.role === ROLES.SUPER_ADMIN;
-  const overviewCondominiumIds = isGeneralCondoDashboard && !isGlobalRegistrationView
-    ? await (async () => {
-        const condominiumsResult = await listCondominiums();
-        if (!condominiumsResult.ok) {
-          return [];
-        }
-
-        return condominiumsResult.data
-          .filter((condominium) => !isGeneralCondominium(condominium.slug))
-          .map((condominium) => condominium.id);
-      })()
-    : undefined;
+  const isGranjaAdministrationDashboard =
+    isGeneralCondoDashboard &&
+    (access.role === ROLES.SUPER_ADMIN || access.role === ROLES.ADMIN);
+  const isGlobalRegistrationView = isGranjaAdministrationDashboard;
+  const scopedOverviewCondominiumIdsResult =
+    isGeneralCondoDashboard && !isGranjaAdministrationDashboard
+      ? await getGranjaChildCondominiumIds()
+      : null;
+  const scopedOverviewCondominiumIds = scopedOverviewCondominiumIdsResult?.ok
+    ? scopedOverviewCondominiumIdsResult.data
+    : [];
 
   const [result, generalOverviewResult] = await Promise.all([
     getDashboardData(access.condominium.id, scope, {
@@ -112,9 +110,11 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     }),
     isGeneralCondoDashboard
       ? getGeneralCondominiumOverviewMetrics(
-          overviewCondominiumIds?.length
-            ? { condominiumIds: overviewCondominiumIds }
-            : undefined,
+          isGranjaAdministrationDashboard
+            ? undefined
+            : scopedOverviewCondominiumIds?.length
+              ? { condominiumIds: scopedOverviewCondominiumIds }
+              : undefined,
         )
       : Promise.resolve(null),
   ]);
