@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { reviewRegistrationRequestAction } from "@/lib/actions/registration-requests";
+import { getMemberRoleLabel } from "@/lib/auth/member-roles";
 import {
   getRegistrationProfileTypeLabel,
   getRegistrationRequestStatusBadgeClass,
@@ -17,6 +18,8 @@ import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 import { FormAlert } from "@/components/shared/feedback";
 import { ResidentAccessDeviceFields } from "@/components/access-devices/resident-access-device-fields";
 import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
+import { REGISTRATION_PROFILE_TYPES, ROLES, type Role } from "@/lib/constants";
+import type { PublicUnitOption } from "@/lib/services/registration-requests";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +32,8 @@ interface RegistrationRequestListProps {
   showCondominium?: boolean;
   accessDevicesByCondominiumId?: Record<string, AccessDeviceOption[]>;
   requestAccessDeviceIdsByRequestId?: Record<string, string[]>;
+  assignableRoles: Role[];
+  unitsByCondominiumId?: Record<string, PublicUnitOption[]>;
 }
 
 function formatRequestedUnit(request: RegistrationRequestRecord): string {
@@ -45,16 +50,28 @@ function ReviewForm({
   request,
   accessDevices,
   defaultAccessDeviceIds,
+  assignableRoles,
+  units,
 }: {
   condoSlug: string;
   request: RegistrationRequestRecord;
   accessDevices: AccessDeviceOption[];
   defaultAccessDeviceIds: string[];
+  assignableRoles: Role[];
+  units: PublicUnitOption[];
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(reviewRegistrationRequestAction, {});
   const requestCondoSlug = request.condominium?.slug ?? condoSlug;
-  const showQualification = requiresRegistrationUnit(request.profile_type);
+  const isOtherProfile = request.profile_type === REGISTRATION_PROFILE_TYPES.OTHER;
+  const [membershipRole, setMembershipRole] = useState<Role>(
+    assignableRoles[0] ?? ROLES.STAFF,
+  );
+  const showResidentQualification =
+    requiresRegistrationUnit(request.profile_type) ||
+    (isOtherProfile && membershipRole === ROLES.RESIDENT);
+  const showAccessDevices =
+    showResidentQualification && accessDevices.length > 0;
 
   useEffect(() => {
     if (state.success) {
@@ -70,7 +87,30 @@ function ReviewForm({
 
       <FormAlert error={state.error} success={state.success} />
 
-      {showQualification && (
+      {isOtherProfile && (
+        <div className="space-y-2">
+          <Label htmlFor={`membership_role_${request.id}`}>Função no condomínio</Label>
+          <select
+            id={`membership_role_${request.id}`}
+            name="membership_role"
+            value={membershipRole}
+            onChange={(event) => setMembershipRole(event.target.value as Role)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            required
+          >
+            {assignableRoles.map((role) => (
+              <option key={role} value={role}>
+                {getMemberRoleLabel(role)}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Defina a função correta antes de liberar o acesso ao app.
+          </p>
+        </div>
+      )}
+
+      {showResidentQualification && (
         <div className="space-y-2">
           <Label htmlFor={`resident_type_${request.id}`}>Qualificação do morador</Label>
           <select
@@ -87,10 +127,31 @@ function ReviewForm({
             ))}
           </select>
           <p className="text-xs text-muted-foreground">
-            {request.profile_type === "other"
-              ? "Defina a qualificação após analisar o pré-cadastro."
+            {isOtherProfile
+              ? "Informe a qualificação e a unidade, se a função for morador."
               : "Ajuste a qualificação, se necessário, antes de aprovar."}
           </p>
+          {isOtherProfile && membershipRole === ROLES.RESIDENT && units.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor={`unit_id_${request.id}`}>Unidade ou casa</Label>
+              <select
+                id={`unit_id_${request.id}`}
+                name="unit_id"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                required
+                defaultValue={request.requested_unit_id ?? ""}
+              >
+                <option value="" disabled>
+                  Selecione
+                </option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <label className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
             <input
               type="checkbox"
@@ -107,10 +168,12 @@ function ReviewForm({
         </div>
       )}
 
-      <ResidentAccessDeviceFields
-        devices={accessDevices}
-        defaultSelectedIds={defaultAccessDeviceIds}
-      />
+      {showAccessDevices && (
+        <ResidentAccessDeviceFields
+          devices={accessDevices}
+          defaultSelectedIds={defaultAccessDeviceIds}
+        />
+      )}
 
       <div className="space-y-2">
         <Label htmlFor={`review_notes_${request.id}`}>Observações (opcional)</Label>
@@ -139,6 +202,8 @@ export function RegistrationRequestList({
   showCondominium = false,
   accessDevicesByCondominiumId = {},
   requestAccessDeviceIdsByRequestId = {},
+  assignableRoles,
+  unitsByCondominiumId = {},
 }: RegistrationRequestListProps) {
   if (requests.length === 0) {
     return (
@@ -222,6 +287,8 @@ export function RegistrationRequestList({
               request={request}
               accessDevices={accessDevicesByCondominiumId[request.condominium_id] ?? []}
               defaultAccessDeviceIds={requestAccessDeviceIdsByRequestId[request.id] ?? []}
+              assignableRoles={assignableRoles}
+              units={unitsByCondominiumId[request.condominium_id] ?? []}
             />
           )}
         </div>

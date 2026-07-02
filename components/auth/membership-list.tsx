@@ -20,14 +20,16 @@ interface MembershipListProps {
   condoSlug: string;
   members: MemberRow[];
   currentProfileId: string;
-  canManage: boolean;
+  actorRole: Role;
+  canDelete: boolean;
 }
 
 export function MembershipList({
   condoSlug,
   members,
   currentProfileId,
-  canManage,
+  actorRole,
+  canDelete,
 }: MembershipListProps) {
   const [state, formAction, pending] = useActionState(removeMembershipAction, {});
 
@@ -50,7 +52,7 @@ export function MembershipList({
             <tr>
               <th className="px-4 py-3 text-left font-medium">Nome</th>
               <th className="px-4 py-3 text-left font-medium">Papel</th>
-              {canManage && <th className="px-4 py-3 text-right font-medium">Ações</th>}
+              {canDelete && <th className="px-4 py-3 text-right font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -65,9 +67,11 @@ export function MembershipList({
                 <td className="px-4 py-3 text-muted-foreground">
                   {getMemberRoleLabel(member.role)}
                 </td>
-                {canManage && (
+                {canDelete && (
                   <td className="px-4 py-3 text-right">
-                    {member.profile?.id !== currentProfileId && member.role !== ROLES.RESIDENT ? (
+                    {member.profile?.id !== currentProfileId &&
+                    member.role !== ROLES.RESIDENT &&
+                    (member.role !== ROLES.SUPER_ADMIN || actorRole === ROLES.SUPER_ADMIN) ? (
                       <form action={formAction}>
                         <input type="hidden" name="condo_slug" value={condoSlug} />
                         <input type="hidden" name="membership_id" value={member.id} />

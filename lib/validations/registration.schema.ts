@@ -1,6 +1,16 @@
 import { z } from "zod";
-import { DEMO_CONDO_SLUG, REGISTRATION_PROFILE_TYPES, RESIDENT_TYPES } from "@/lib/constants";
+import { DEMO_CONDO_SLUG, REGISTRATION_PROFILE_TYPES, RESIDENT_TYPES, ROLES } from "@/lib/constants";
 import { requiresRegistrationUnit } from "@/lib/registrations/profile-type";
+
+const membershipRoleValues = [
+  ROLES.RESIDENT,
+  ROLES.DOORMAN,
+  ROLES.STAFF,
+  ROLES.SUB_SYNDIC,
+  ROLES.SYNDIC,
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN,
+] as const;
 
 const profileTypeValues = [
   REGISTRATION_PROFILE_TYPES.RESIDENT,
@@ -64,4 +74,5 @@ export const reviewRegistrationRequestSchema = z.object({
   unit_id: z.string().uuid().optional(),
   resident_type: z.enum(residentTypeValues).optional(),
   mark_as_unit_responsible: z.coerce.boolean().optional(),
+  membership_role: z.enum(membershipRoleValues).optional(),
 });

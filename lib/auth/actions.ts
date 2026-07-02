@@ -12,6 +12,7 @@ import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
 import { cleanupOrphanResidentMemberships } from "@/lib/auth/membership-cleanup";
 import { SIGNUP_SUCCESS_PATH } from "@/lib/auth/signup-success";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
+import { canCreateInCategory, canDeleteInCategory } from "@/lib/auth/permission-matrix";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
 import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
@@ -641,8 +642,12 @@ export async function addMembershipAction(
 
   const access = await requireCondoAccess(condoSlug);
 
-  if (!access.permissions.canManageMembers) {
-    return { error: "Sem permissão para gerenciar membros." };
+  if (role === ROLES.SUPER_ADMIN && access.role !== ROLES.SUPER_ADMIN) {
+    return { error: "Somente Super Admin pode cadastrar outro Super Admin." };
+  }
+
+  if (!canCreateInCategory(access, "members")) {
+    return { error: "Sem permissão para cadastrar membros." };
   }
 
   if (!canAssignMemberRole(access.role, role)) {
@@ -716,7 +721,7 @@ export async function removeMembershipAction(
 
   const access = await requireCondoAccess(condoSlug);
 
-  if (!access.permissions.canManageMembers) {
+  if (!canDeleteInCategory(access, "members")) {
     return { error: "Sem permissão para remover membros." };
   }
 
@@ -732,6 +737,13 @@ export async function removeMembershipAction(
 
   if (!membership) {
     return { error: "Vínculo não encontrado." };
+  }
+
+  if (
+    membership.role === ROLES.SUPER_ADMIN &&
+    access.role !== ROLES.SUPER_ADMIN
+  ) {
+    return { error: "Somente Super Admin pode excluir outro Super Admin." };
   }
 
   if (

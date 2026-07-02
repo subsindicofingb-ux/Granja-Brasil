@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { canAssignMemberRole } from "@/lib/auth/member-roles";
 import type { AuthActionState } from "@/lib/auth/types";
+import type { Role } from "@/lib/constants";
 import { notifyRegistrationRequestEvent } from "@/lib/registrations/notifications";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import {
@@ -39,14 +41,30 @@ export async function reviewRegistrationRequestAction(
     unit_id: formData.get("unit_id") || undefined,
     resident_type: formData.get("resident_type") || undefined,
     mark_as_unit_responsible: formData.get("mark_as_unit_responsible") === "on",
+    membership_role: formData.get("membership_role") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const { request_id, action, review_notes, unit_id, resident_type, mark_as_unit_responsible } =
-    parsed.data;
+  const {
+    request_id,
+    action,
+    review_notes,
+    unit_id,
+    resident_type,
+    mark_as_unit_responsible,
+    membership_role,
+  } = parsed.data;
+
+  if (
+    action === "approve" &&
+    membership_role &&
+    !canAssignMemberRole(access.role, membership_role as Role)
+  ) {
+    return { error: "Você não pode atribuir esta função ao usuário." };
+  }
 
   const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
 
@@ -61,6 +79,7 @@ export async function reviewRegistrationRequestAction(
           residentType: resident_type,
           markAsUnitResponsible: mark_as_unit_responsible,
           accessDeviceIds,
+          membershipRole: membership_role as Role | undefined,
         })
       : await rejectRegistrationRequest({
           requestId: request_id,
@@ -78,7 +97,7 @@ export async function reviewRegistrationRequestAction(
   return {
     success:
       action === "approve"
-        ? "Cadastro aprovado. O morador já pode acessar o condomínio."
+        ? "Cadastro aprovado. O usuário já pode acessar o condomínio."
         : "Solicitação recusada.",
   };
 }

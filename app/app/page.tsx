@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { RegistrationRequestList } from "@/components/registrations/registration-request-list";
 import { getAccessibleCondominiums } from "@/lib/auth/access";
+import { getAssignableMemberRoles } from "@/lib/auth/member-roles";
 import { getActiveCondoSlug } from "@/lib/auth/active-condo";
 import { PENDING_APPROVAL_PATH, userHasAppAccess } from "@/lib/auth/pending-approval";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -15,6 +16,8 @@ import { BRAND_TAGLINE } from "@/lib/brand";
 import { ROLES } from "@/lib/constants";
 import {
   listAllPendingRegistrationRequests,
+  listPublicUnitsByCondominium,
+  type PublicUnitOption,
 } from "@/lib/services/registration-requests";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -41,6 +44,27 @@ export default async function AppHomePage() {
 
   const globalPendingResult = superAdmin ? await listAllPendingRegistrationRequests() : null;
   const globalPendingRequests = globalPendingResult?.ok ? (globalPendingResult.data ?? []) : [];
+  const superAdminAssignableRoles = getAssignableMemberRoles(ROLES.SUPER_ADMIN);
+  const unitsByCondominiumId: Record<string, PublicUnitOption[]> = {};
+
+  if (superAdmin && globalPendingRequests.length > 0) {
+    const condominiumIds = Array.from(
+      new Set(globalPendingRequests.map((request) => request.condominium_id)),
+    );
+    const unitResults = await Promise.all(
+      condominiumIds.map(async (condominiumId) => ({
+        condominiumId,
+        result: await listPublicUnitsByCondominium(condominiumId),
+      })),
+    );
+
+    for (const entry of unitResults) {
+      if (entry.result.ok) {
+        unitsByCondominiumId[entry.condominiumId] = entry.result.data ?? [];
+      }
+    }
+  }
+
   const adminCondoSlug = memberships[0]?.condominium.slug ?? activeSlug ?? "residencial-exemplo";
   const firstName = session.profile.full_name.split(/\s+/)[0] ?? session.profile.full_name;
 
@@ -127,6 +151,8 @@ export default async function AppHomePage() {
                     condoSlug={adminCondoSlug}
                     requests={globalPendingRequests}
                     showCondominium
+                    assignableRoles={superAdminAssignableRoles}
+                    unitsByCondominiumId={unitsByCondominiumId}
                   />
                 </CardContent>
               </Card>

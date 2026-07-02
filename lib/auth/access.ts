@@ -10,10 +10,17 @@ import {
   userHasAppAccess,
 } from "@/lib/auth/pending-approval";
 import {
+  applyPermissionMatrix,
+  getAllCategoryCrudForRole,
+} from "@/lib/auth/permission-matrix";
+import {
   buildCondoAccess,
   type CondoAccess,
+  type CondoSummary,
   type MembershipWithCondo,
 } from "@/lib/auth/types";
+import type { Profile } from "@/types";
+import { loadPermissionMatrix } from "@/lib/services/permission-matrix";
 import { ROLES } from "@/lib/constants";
 import { isProfileUnitResponsible } from "@/lib/services/notifications";
 import { createClient } from "@/lib/supabase/server";
@@ -117,6 +124,24 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
   }
 }
 
+async function resolveEffectiveAccess(input: {
+  membershipId: string | null;
+  role: Role;
+  condominium: CondoSummary;
+  profile: Profile;
+  email: string;
+}): Promise<CondoAccess> {
+  const matrix = await loadPermissionMatrix();
+  const permissions = applyPermissionMatrix(input.role, matrix);
+  const categoryCrud = getAllCategoryCrudForRole(input.role, matrix);
+
+  return buildCondoAccess({
+    ...input,
+    permissions,
+    categoryCrud,
+  });
+}
+
 async function enrichCondoAccess(access: CondoAccess): Promise<CondoAccess> {
   if (access.role !== ROLES.RESIDENT) {
     return access;
@@ -176,7 +201,7 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
         : membership.condominium;
 
     return enrichCondoAccess(
-      buildCondoAccess({
+      await resolveEffectiveAccess({
         membershipId: membership.id,
         role: membership.role,
         condominium: displayCondominium,
@@ -204,7 +229,7 @@ export async function getCondoAccess(slug: string): Promise<CondoAccess | null> 
     }
 
     return enrichCondoAccess(
-      buildCondoAccess({
+      await resolveEffectiveAccess({
         membershipId: null,
         role: "super_admin",
         condominium: {

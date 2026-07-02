@@ -20,7 +20,7 @@ const ALL_ASSIGNABLE_MEMBER_ROLES: Role[] = [
 
 export function getAssignableMemberRoles(actorRole: Role): Role[] {
   if (actorRole === ROLES.SUPER_ADMIN) {
-    return ALL_ASSIGNABLE_MEMBER_ROLES;
+    return [...ALL_ASSIGNABLE_MEMBER_ROLES, ROLES.SUPER_ADMIN];
   }
 
   if (actorRole === ROLES.SYNDIC || actorRole === ROLES.SUB_SYNDIC) {
@@ -35,6 +35,10 @@ export function getAssignableMemberRoles(actorRole: Role): Role[] {
 }
 
 export function canAssignMemberRole(actorRole: Role, targetRole: Role): boolean {
+  if (targetRole === ROLES.SUPER_ADMIN) {
+    return actorRole === ROLES.SUPER_ADMIN;
+  }
+
   return getAssignableMemberRoles(actorRole).includes(targetRole);
 }
 

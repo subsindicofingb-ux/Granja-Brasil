@@ -5,6 +5,7 @@ import {
   getAssignableMemberRoles,
   getMemberRoleLabel,
 } from "@/lib/auth/member-roles";
+import { canCreateInCategory, canDeleteInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { AddMembershipForm } from "@/components/auth/add-membership-form";
 import { MembershipList } from "@/components/auth/membership-list";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -40,9 +41,12 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
   const { role: roleParam } = await searchParams;
   const access = await requireCondoAccess(condoSlug);
 
-  if (!access.permissions.canManageMembers) {
+  if (!canViewInCategory(access, "members") && !access.permissions.canManageMembers) {
     notFound();
   }
+
+  const canCreateMembers = canCreateInCategory(access, "members");
+  const canDeleteMembers = canDeleteInCategory(access, "members");
 
   const assignableRoles = getAssignableMemberRoles(access.role);
   const defaultRole = resolveDefaultRole(roleParam, assignableRoles);
@@ -80,23 +84,25 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
         }
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">
-            {roleLabel ? `Vincular ${roleLabel.toLowerCase()}` : "Vincular membro"}
-          </CardTitle>
-          <CardDescription>
-            Busca usuário por e-mail no Supabase Auth e cria membership (respeita RLS).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AddMembershipForm
-            condoSlug={condoSlug}
-            assignableRoles={assignableRoles}
-            defaultRole={defaultRole}
-          />
-        </CardContent>
-      </Card>
+      {canCreateMembers && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {roleLabel ? `Vincular ${roleLabel.toLowerCase()}` : "Vincular membro"}
+            </CardTitle>
+            <CardDescription>
+              Busca usuário por e-mail no Supabase Auth e cria membership (respeita RLS).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AddMembershipForm
+              condoSlug={condoSlug}
+              assignableRoles={assignableRoles}
+              defaultRole={defaultRole}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -110,7 +116,8 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
             condoSlug={condoSlug}
             members={(members as MemberRow[] | null) ?? []}
             currentProfileId={access.profile.id}
-            canManage={access.permissions.canManageMembers}
+            actorRole={access.role}
+            canDelete={canDeleteMembers}
           />
         </CardContent>
       </Card>

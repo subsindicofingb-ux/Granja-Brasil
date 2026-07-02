@@ -1,8 +1,11 @@
 import { requireCondoPermission } from "@/lib/auth/access";
+import { getAssignableMemberRoles } from "@/lib/auth/member-roles";
 import { ROLES } from "@/lib/constants";
 import {
   listAllPendingRegistrationRequests,
+  listPublicUnitsByCondominium,
   listRegistrationRequestsForCondominiums,
+  type PublicUnitOption,
 } from "@/lib/services/registration-requests";
 import { getRegistrationScopeCondominiumIds } from "@/lib/registrations/scope";
 import {
@@ -38,8 +41,26 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
     : await listRegistrationRequestsForCondominiums(scopeCondominiumIds, "pending");
 
   const requests = requestsResult.ok ? (requestsResult.data ?? []) : [];
+  const assignableRoles = getAssignableMemberRoles(access.role);
   const condominiumIds = Array.from(new Set(requests.map((request) => request.condominium_id)));
   const requestIds = requests.map((request) => request.id);
+  const unitsByCondominiumId: Record<string, PublicUnitOption[]> = {};
+
+  if (requestsResult.ok) {
+    const unitResults = await Promise.all(
+      condominiumIds.map(async (condominiumId) => ({
+        condominiumId,
+        result: await listPublicUnitsByCondominium(condominiumId),
+      })),
+    );
+
+    for (const entry of unitResults) {
+      if (entry.result.ok) {
+        unitsByCondominiumId[entry.condominiumId] = entry.result.data ?? [];
+      }
+    }
+  }
+
   const [accessDevicesResult, requestAccessDevicesResult] = requestsResult.ok
     ? await Promise.all([
         loadActiveAccessDevicesByCondominiumIds(condominiumIds),
@@ -69,6 +90,8 @@ export default async function RegistrationRequestsPage({ params }: RegistrationR
           condoSlug={condoSlug}
           requests={requests}
           showCondominium={isGlobalView || scopeCondominiumIds.length > 1}
+          assignableRoles={assignableRoles}
+          unitsByCondominiumId={unitsByCondominiumId}
           accessDevicesByCondominiumId={
             accessDevicesResult.ok ? accessDevicesResult.data : {}
           }

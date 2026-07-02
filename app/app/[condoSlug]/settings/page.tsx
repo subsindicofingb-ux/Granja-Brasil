@@ -74,6 +74,24 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       <PermissionGate access={access} allow={(ctx) => ctx.role === ROLES.SUPER_ADMIN}>
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Hierarquia de permissões</CardTitle>
+            <CardDescription>
+              Defina o que cada papel pode ver, cadastrar e excluir por categoria.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/admin/permission-hierarchy`}>
+                Configurar hierarquia
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PermissionGate>
+
+      <PermissionGate access={access} allow={(ctx) => ctx.role === ROLES.SUPER_ADMIN}>
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Administração geral</CardTitle>
             <CardDescription>Cadastro de condomínios na plataforma.</CardDescription>
           </CardHeader>

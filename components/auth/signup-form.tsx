@@ -219,6 +219,11 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
               </option>
             ))}
           </select>
+          {selectedProfileType === REGISTRATION_PROFILE_TYPES.OTHER && (
+            <p className="text-xs text-muted-foreground">
+              Após o envio, o responsável do condomínio definirá sua função e liberará o acesso.
+            </p>
+          )}
         </div>
 
         {requiresUnit && isGeneralCondo ? (

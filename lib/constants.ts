@@ -141,6 +141,12 @@ export const NAV_ITEMS: NavItem[] = [
     visible: ({ role }) => role === ROLES.SUPER_ADMIN,
   },
   {
+    label: "Hierarquia",
+    href: "admin/permission-hierarchy",
+    icon: "Settings",
+    visible: ({ role }) => role === ROLES.SUPER_ADMIN,
+  },
+  {
     label: "Solicitações",
     href: "settings/registration-requests",
     icon: "Inbox",

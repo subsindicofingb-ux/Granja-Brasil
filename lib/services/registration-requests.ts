@@ -432,6 +432,7 @@ export async function fulfillRegistrationRequest(input: {
   residentType?: ResidentType;
   markAsUnitResponsible?: boolean;
   accessDeviceIds?: string[];
+  membershipRole?: Role;
 }): Promise<
   ServiceResult<{
     request: RegistrationRequestRecord;
@@ -457,7 +458,17 @@ export async function fulfillRegistrationRequest(input: {
   }
 
   const request = mapRequestRow(requestRow as RequestRow);
-  const needsUnit = requiresRegistrationUnit(request.profile_type);
+  const isOtherProfile = request.profile_type === REGISTRATION_PROFILE_TYPES.OTHER;
+  const resolvedMembershipRole =
+    input.membershipRole ?? mapProfileTypeToMembershipRole(request.profile_type);
+
+  if (isOtherProfile && !input.membershipRole) {
+    return serviceError("Selecione a função do usuário antes de aprovar.");
+  }
+
+  const needsUnit =
+    requiresRegistrationUnit(request.profile_type) ||
+    (isOtherProfile && resolvedMembershipRole === ROLES.RESIDENT);
   let resolvedUnitId = input.unitId ?? request.requested_unit_id ?? request.unit_id ?? null;
 
   if (
@@ -627,7 +638,7 @@ export async function fulfillRegistrationRequest(input: {
     const { error: membershipError } = await admin.from("memberships").insert({
       profile_id: request.profile_id,
       condominium_id: input.condominiumId,
-      role: mapProfileTypeToMembershipRole(request.profile_type),
+      role: resolvedMembershipRole,
     });
 
     if (membershipError) {
@@ -1116,6 +1127,7 @@ export async function approveRegistrationRequest(input: {
   residentType?: ResidentType;
   markAsUnitResponsible?: boolean;
   accessDeviceIds?: string[];
+  membershipRole?: Role;
 }): Promise<ServiceResult<RegistrationRequestRecord>> {
   const result = await fulfillRegistrationRequest({
     requestId: input.requestId,
@@ -1126,6 +1138,7 @@ export async function approveRegistrationRequest(input: {
     residentType: input.residentType,
     markAsUnitResponsible: input.markAsUnitResponsible,
     accessDeviceIds: input.accessDeviceIds,
+    membershipRole: input.membershipRole,
   });
 
   if (!result.ok) {

@@ -72,8 +72,7 @@ export const REGISTRATION_UNIT_NOT_APPLICABLE = "—";
 export function requiresRegistrationUnit(profileType: RegistrationProfileType): boolean {
   return (
     profileType === REGISTRATION_PROFILE_TYPES.RESIDENT ||
-    profileType === REGISTRATION_PROFILE_TYPES.VISITOR ||
-    profileType === REGISTRATION_PROFILE_TYPES.OTHER
+    profileType === REGISTRATION_PROFILE_TYPES.VISITOR
   );
 }
 
@@ -85,6 +84,10 @@ export function formatRegistrationUnitLabel(input: {
 }): string {
   if (!requiresRegistrationUnit(input.profileType)) {
     return "Não se aplica";
+  }
+
+  if (input.profileType === REGISTRATION_PROFILE_TYPES.OTHER) {
+    return "A definir pelo responsável";
   }
 
   if (!input.unitNumber || input.unitNumber === REGISTRATION_UNIT_NOT_APPLICABLE) {

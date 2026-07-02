@@ -1,7 +1,12 @@
 import type { User } from "@supabase/supabase-js";
 import type { Role } from "@/lib/constants";
 import type { Profile } from "@/types";
-import { getRolePermissions } from "@/lib/auth/roles";
+import {
+  getAllCategoryCrudForRole,
+  type PermissionCategoryId,
+  type CategoryCrud,
+} from "@/lib/auth/permission-matrix";
+import { getRolePermissions, type RolePermissions } from "@/lib/auth/roles";
 
 export type CondoSummary = {
   id: string;
@@ -18,7 +23,8 @@ export type MembershipWithCondo = {
 export type CondoAccess = {
   membershipId: string | null;
   role: Role;
-  permissions: ReturnType<typeof getRolePermissions>;
+  permissions: RolePermissions;
+  categoryCrud: Record<PermissionCategoryId, CategoryCrud>;
   condominium: CondoSummary;
   profile: {
     id: string;
@@ -44,11 +50,17 @@ export function buildCondoAccess(input: {
   condominium: CondoSummary;
   profile: Profile;
   email: string;
+  permissions?: RolePermissions;
+  categoryCrud?: Record<PermissionCategoryId, CategoryCrud>;
 }): CondoAccess {
+  const categoryCrud =
+    input.categoryCrud ?? getAllCategoryCrudForRole(input.role, null);
+
   return {
     membershipId: input.membershipId,
     role: input.role,
-    permissions: getRolePermissions(input.role),
+    permissions: input.permissions ?? getRolePermissions(input.role),
+    categoryCrud,
     condominium: input.condominium,
     profile: {
       id: input.profile.id,
