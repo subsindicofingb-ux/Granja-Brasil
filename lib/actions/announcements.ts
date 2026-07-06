@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { ROLES } from "@/lib/constants";
 import type { AuthActionState } from "@/lib/auth/types";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import {
@@ -165,6 +166,10 @@ export async function createResidentAnnouncementAction(
     (ctx) => ctx.permissions.canSendAnnouncements,
     { redirectTo: `/app/${condoSlug}/announcements` },
   );
+
+  if (access.role !== ROLES.RESIDENT) {
+    return { error: "Somente moradores podem enviar mensagens por este canal." };
+  }
 
   if (isGeneralCondominium(condoSlug)) {
     return { error: "Moradores devem enviar mensagens a partir do condomínio de residência." };

@@ -16,6 +16,16 @@ export type RegistrationRequestNotificationEvent = {
   accessDeviceNames?: string[];
 };
 
+export type RegistrationApprovedNotificationEvent = {
+  type: "registration_request_approved";
+  condominiumId: string;
+  condominiumName: string;
+  fullName: string;
+  email: string;
+  unitLabel: string;
+  accessDeviceNames?: string[];
+};
+
 export type RegistrationRequestRecord = {
   id: string;
   profile_id: string;

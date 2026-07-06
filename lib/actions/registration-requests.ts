@@ -1,16 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { canAssignMemberRole } from "@/lib/auth/member-roles";
 import type { AuthActionState } from "@/lib/auth/types";
 import type { Role } from "@/lib/constants";
-import { notifyRegistrationRequestEvent } from "@/lib/registrations/notifications";
+import {
+  notifyRegistrationApprovedEvent,
+  notifyRegistrationRequestEvent,
+} from "@/lib/registrations/notifications";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import {
   approveRegistrationRequest,
   rejectRegistrationRequest,
 } from "@/lib/services/registration-requests";
+import {
+  listActiveAccessDevicesForCondominium,
+} from "@/lib/services/resident-access-grants";
+import { formatRegistrationUnitLabel } from "@/lib/registrations/profile-type";
 import { reviewRegistrationRequestSchema } from "@/lib/validations/registration.schema";
 
 function revalidateRegistrationPaths(condoSlug: string) {
@@ -90,6 +98,43 @@ export async function reviewRegistrationRequestAction(
 
   if (!result.ok) {
     return { error: result.error ?? "Não foi possível analisar a solicitação." };
+  }
+
+  if (action === "approve") {
+    const request = result.data;
+    const unitLabel = formatRegistrationUnitLabel({
+      profileType: request.profile_type,
+      unitNumber: request.unit_number,
+      unitKind: request.unit_kind,
+      condominiumSlug: request.condominium?.slug ?? requestCondoSlug,
+    });
+
+    let accessDeviceNames: string[] = [];
+
+    if (accessDeviceIds.length > 0) {
+      const devicesResult = await listActiveAccessDevicesForCondominium(access.condominium.id);
+      if (devicesResult.ok) {
+        accessDeviceNames = devicesResult.data
+          .filter((device) => accessDeviceIds.includes(device.id))
+          .map((device) => device.display_name);
+      }
+    }
+
+    after(async () => {
+      try {
+        await notifyRegistrationApprovedEvent({
+          type: "registration_request_approved",
+          condominiumId: access.condominium.id,
+          condominiumName: request.condominium?.name ?? access.condominium.name,
+          fullName: request.full_name,
+          email: request.email,
+          unitLabel,
+          accessDeviceNames,
+        });
+      } catch (error) {
+        console.error("[email:registration-approved]", error);
+      }
+    });
   }
 
   revalidateRegistrationPaths(requestCondoSlug);

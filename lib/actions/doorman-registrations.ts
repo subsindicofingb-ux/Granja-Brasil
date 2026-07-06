@@ -2,9 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
-import { notifyNewRegistrationRequest } from "@/lib/actions/registration-requests";
+import {
+  notifyNewRegistrationRequest,
+} from "@/lib/actions/registration-requests";
+import { notifyRegistrationApprovedEvent } from "@/lib/registrations/notifications";
 import { REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
@@ -118,24 +122,37 @@ export async function createDoormanRegistrationRequestAction(
       : [];
 
   const unitLabel = result.data.request.unit_number ?? "—";
+  const condominiumName = result.data.request.condominium?.name ?? "Condomínio";
 
-  try {
-    await notifyNewRegistrationRequest({
-      requestId: result.data.request.id,
-      condominiumId: result.data.request.condominium_id,
-      condominiumName: result.data.request.condominium?.name ?? "Condomínio",
-      fullName: result.data.request.full_name,
-      email: result.data.request.email,
-      unitLabel,
-      profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
-      residentType: result.data.request.resident_type,
-      source: "doorman",
-      fulfilledImmediately: true,
-      accessDeviceNames,
-    });
-  } catch (error) {
-    console.error("[email:doorman-registration-request]", error);
-  }
+  after(async () => {
+    try {
+      await notifyNewRegistrationRequest({
+        requestId: result.data.request.id,
+        condominiumId: result.data.request.condominium_id,
+        condominiumName,
+        fullName: result.data.request.full_name,
+        email: result.data.request.email,
+        unitLabel,
+        profileType: REGISTRATION_PROFILE_TYPES.RESIDENT,
+        residentType: result.data.request.resident_type,
+        source: "doorman",
+        fulfilledImmediately: true,
+        accessDeviceNames,
+      });
+
+      await notifyRegistrationApprovedEvent({
+        type: "registration_request_approved",
+        condominiumId: result.data.request.condominium_id,
+        condominiumName,
+        fullName: result.data.request.full_name,
+        email: result.data.request.email,
+        unitLabel,
+        accessDeviceNames,
+      });
+    } catch (error) {
+      console.error("[email:doorman-registration-request]", error);
+    }
+  });
 
   revalidateDoormanRegistrationPaths(
     condoSlug,

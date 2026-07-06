@@ -195,3 +195,55 @@ export async function sendRegistrationRequestNotification(
 
   return sent;
 }
+
+export async function sendRegistrationApprovedNotification(
+  event: import("@/lib/registrations/types").RegistrationApprovedNotificationEvent,
+): Promise<boolean> {
+  if (!isEmailConfigured()) {
+    return false;
+  }
+
+  const recipientEmail = event.email.trim().toLowerCase();
+  if (!recipientEmail) {
+    return false;
+  }
+
+  const condoSlug = await getCondominiumSlug(event.condominiumId);
+  const loginLink = `${getSiteUrl()}/login`;
+  const appLink = condoSlug ? `${getSiteUrl()}/app/${condoSlug}` : loginLink;
+
+  const accessLine =
+    event.accessDeviceNames && event.accessDeviceNames.length > 0
+      ? `Seu acesso facial ControlID foi liberado nos locais: ${event.accessDeviceNames.join(", ")}.`
+      : "Seu acesso ao painel do condomínio já está liberado.";
+
+  const text = [
+    `Olá, ${event.fullName},`,
+    ``,
+    `Bem-vindo(a) ao ${event.condominiumName}!`,
+    ``,
+    `Seu cadastro foi aprovado.`,
+    `Unidade: ${event.unitLabel}`,
+    accessLine,
+    ``,
+    `Acesse o sistema com seu e-mail e senha para acompanhar avisos, reservas e demais serviços do condomínio.`,
+  ].join("\n");
+
+  const subject = `Bem-vindo(a) ao ${event.condominiumName}`;
+
+  const result = await sendEmail({
+    to: [recipientEmail],
+    subject,
+    text,
+    html: buildEmailLayout({
+      preview: subject,
+      title: "Cadastro aprovado",
+      bodyHtml: textToHtmlParagraphs(text),
+      actionLabel: "Acessar o condomínio",
+      actionUrl: appLink,
+    }),
+    tags: [{ name: "category", value: "registration-approved" }],
+  });
+
+  return result.ok;
+}

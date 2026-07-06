@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MessageSquarePlus, Plus } from "lucide-react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { listAnnouncementsByCondominium, getAnnouncementUnreadState } from "@/lib/services/announcements";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
@@ -20,31 +21,23 @@ interface AnnouncementsPageProps {
 
 async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
+  const isResident = access.role === ROLES.RESIDENT;
   const canCreate = access.permissions.canManageAnnouncements;
-  const canSendMessage = access.permissions.canSendAnnouncements && !canCreate;
   const canContactGranja = canCreate && !isGeneralCondominium(condoSlug);
 
   return (
     <PageHeader
       title="Avisos"
       description={
-        canSendMessage
-          ? "Comunicados do condomínio. Você pode ler avisos e enviar mensagens pelo Fale com o condomínio."
+        isResident
+          ? "Comunicados publicados pelo condomínio. Somente leitura."
           : canContactGranja
             ? "Comunicados com moradores, mensagens recebidas e conversas com a Granja Brasil."
             : "Comunicados do condomínio para moradores e portaria."
       }
       action={
-        canCreate || canContactGranja || canSendMessage ? (
+        !isResident && (canCreate || canContactGranja) ? (
           <div className="flex flex-wrap gap-2">
-            {canSendMessage && (
-              <Button asChild>
-                <Link href={`/app/${condoSlug}/announcements/new`}>
-                  <MessageSquarePlus className="h-4 w-4" />
-                  Fale com o condomínio
-                </Link>
-              </Button>
-            )}
             {canContactGranja && (
               <Button variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/announcements/contact`}>
