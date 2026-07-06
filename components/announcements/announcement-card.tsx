@@ -15,6 +15,7 @@ interface AnnouncementCardProps {
   condoSlug: string;
   announcement: AnnouncementWithDetails;
   canManage: boolean;
+  isResidentView?: boolean;
   isUnreadIncoming?: boolean;
   hasUnreadReply?: boolean;
 }
@@ -23,6 +24,7 @@ export function AnnouncementCard({
   condoSlug,
   announcement,
   canManage,
+  isResidentView = false,
   isUnreadIncoming = false,
   hasUnreadReply = false,
 }: AnnouncementCardProps) {
@@ -65,11 +67,15 @@ export function AnnouncementCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="line-clamp-3 text-sm text-muted-foreground">{announcement.body}</p>
-        {canManage && (
+        {canManage ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/app/${condoSlug}/announcements/${announcement.id}`}>Editar</Link>
           </Button>
-        )}
+        ) : isResidentView ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/app/${condoSlug}/announcements/${announcement.id}`}>Ler</Link>
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

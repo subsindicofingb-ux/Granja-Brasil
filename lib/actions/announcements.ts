@@ -201,10 +201,14 @@ export async function createResidentAnnouncementAction(
     return { error: result.error };
   }
 
-  scheduleAnnouncementCreatedNotification({
-    announcement: result.data,
-    senderProfileId: access.profile.id,
-  });
+  try {
+    await notifyAnnouncementCreated({
+      announcement: result.data,
+      senderProfileId: access.profile.id,
+    });
+  } catch (error) {
+    console.error("[email:resident-announcement]", error);
+  }
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}`);

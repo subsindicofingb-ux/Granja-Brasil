@@ -142,14 +142,11 @@ async function resolveStaffRecipients(
     granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
 
   if (isGranjaMessage && announcement.target_condominium_id) {
-    const [granjaStaff, localStaff] = await Promise.all([
-      getStaffProfileIdsForCondominium(granjaCondominiumId),
-      getStaffProfileIdsForCondominium(announcement.target_condominium_id),
-    ]);
-
-    return [...new Set([...granjaStaff, ...localStaff])];
+    // Morador → Granja: notifica só a administração Granja, não o síndico local.
+    return getStaffProfileIdsForCondominium(granjaCondominiumId);
   }
 
+  // Morador → síndico local: notifica só a equipe do condomínio de origem.
   return getStaffProfileIdsForCondominium(announcement.condominium_id);
 }
 

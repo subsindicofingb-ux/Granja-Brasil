@@ -188,6 +188,7 @@ async function AnnouncementsContent({
               condoSlug={condoSlug}
               announcement={announcement}
               canManage={access.permissions.canManageAnnouncements}
+              isResidentView={access.role === ROLES.RESIDENT}
               isUnreadIncoming={unreadIncomingSet.has(announcement.id)}
               hasUnreadReply={unreadReplySet.has(announcement.id)}
             />

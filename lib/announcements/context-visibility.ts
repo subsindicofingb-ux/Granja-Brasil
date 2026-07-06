@@ -35,11 +35,13 @@ export function isAnnouncementVisibleInContext(
       return false;
     }
 
-    if (isGranjaSource && announcement.target_condominium_id && !isGranjaContext) {
-      return false;
+    // Morador → Granja: visível só na administração Granja.
+    if (isGranjaSource && announcement.target_condominium_id) {
+      return isGranjaContext;
     }
 
-    if (isLocalToContext || isGranjaContext) {
+    // Morador → síndico local: visível só no condomínio de origem (Granja não vê).
+    if (isLocalToContext) {
       return true;
     }
 

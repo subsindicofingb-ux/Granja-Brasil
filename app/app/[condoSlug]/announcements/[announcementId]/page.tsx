@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { ROLES } from "@/lib/constants";
 import { notifyAnnouncementRead } from "@/lib/email/announcement-notifications";
 import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
@@ -95,7 +96,8 @@ export default async function AnnouncementDetailPage({
   }
 
   const isAuthor = announcement.created_by === access.profile.id;
-  const isResidentView = !access.permissions.canManageAnnouncements;
+  const isResidentView = access.role === ROLES.RESIDENT;
+  const isResidentConversation = isResidentView && announcement.staff_only && isAuthor;
   const showEditForm =
     access.permissions.canManageAnnouncements &&
     !announcement.staff_only &&
@@ -136,7 +138,7 @@ export default async function AnnouncementDetailPage({
   const showReplyForm =
     !announcement.parent_id &&
     (access.permissions.canManageAnnouncements ||
-      (access.permissions.canSendAnnouncements && announcement.staff_only));
+      (isResidentConversation && announcement.staff_only));
 
   if (!isAuthor) {
     const readResult = await markAnnouncementAsRead({
@@ -289,7 +291,9 @@ export default async function AnnouncementDetailPage({
       {!announcement.parent_id && showReplyForm && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Responder</CardTitle>
+            <CardTitle className="text-base">
+              {isResidentConversation ? "Continuar conversa" : "Responder"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <AnnouncementReplyForm condoSlug={condoSlug} parentAnnouncementId={announcementId} />
