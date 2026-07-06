@@ -5,11 +5,11 @@ import { serviceError, serviceOk, type ServiceResult } from "@/lib/services/type
 const MAX_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const RECEIPT_TYPES = new Set([...IMAGE_TYPES, "application/pdf"]);
-const CONTROL_ID_PHOTO_FOLDERS = new Set(["residents", "registration-requests"]);
+const CONTROL_ID_PHOTO_FOLDERS = new Set(["residents", "registration-requests", "visitors"]);
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
-  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests" | "notifications";
+  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests" | "notifications" | "visitors";
   file: File | null;
 }): Promise<ServiceResult<string | null>> {
   const file = input.file;

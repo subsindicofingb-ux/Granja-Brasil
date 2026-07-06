@@ -15,6 +15,11 @@ export type VisitorAuthorizationRecord = {
   status: VisitorAuthorizationStatus;
   notes: string | null;
   doorman_notes: string | null;
+  photo_url: string | null;
+  sync_controlid: boolean;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+  controlid_registration: string | null;
   requested_by: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
@@ -62,4 +67,6 @@ export type VisitorAuthorizationFormInput = {
   access_starts_at: string;
   access_ends_at: string;
   notes: string | null;
+  photo_url?: string | null;
+  sync_controlid?: boolean;
 };

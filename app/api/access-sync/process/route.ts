@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAccessSyncWorkerSecret } from "@/lib/access-devices/sync-env";
+import {
+  processExpiredVisitorAuthorizations,
+  processPendingVisitorAccessSyncJobs,
+} from "@/lib/services/visitor-access-sync";
 import { processPendingAccessSyncJobs } from "@/lib/services/access-sync";
 
 export const runtime = "nodejs";
@@ -36,15 +40,29 @@ export async function POST(request: Request) {
   const url = new URL(request.url);
   const limit = Number(url.searchParams.get("limit") ?? "1");
 
-  const result = await processPendingAccessSyncJobs({
-    limit: Number.isFinite(limit) ? limit : 1,
-  });
+  await processExpiredVisitorAuthorizations();
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 500 });
+  const [residentResult, visitorResult] = await Promise.all([
+    processPendingAccessSyncJobs({
+      limit: Number.isFinite(limit) ? limit : 1,
+    }),
+    processPendingVisitorAccessSyncJobs({
+      limit: Number.isFinite(limit) ? limit : 1,
+    }),
+  ]);
+
+  if (!residentResult.ok) {
+    return NextResponse.json({ error: residentResult.error }, { status: 500 });
   }
 
-  return NextResponse.json(result.data);
+  if (!visitorResult.ok) {
+    return NextResponse.json({ error: visitorResult.error }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    residents: residentResult.data,
+    visitors: visitorResult.data,
+  });
 }
 
 export async function GET(request: Request) {

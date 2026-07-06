@@ -11,7 +11,10 @@ import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import { GUEST_TYPE_OPTIONS } from "@/lib/visitor-authorizations/labels";
 import type { VisitorAuthorizationFormInput } from "@/lib/visitor-authorizations/types";
 import type { UnitWithTower } from "@/lib/services/units";
+import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
+import { ResidentAccessDeviceFields } from "@/components/access-devices/resident-access-device-fields";
 import { FormAlert } from "@/components/shared/feedback";
+import { PhotoField } from "@/components/shared/photo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +24,13 @@ interface VisitorAuthorizationFormProps {
   mode: "create" | "edit";
   units: UnitWithTower[];
   condominiumNamesById?: Record<string, string>;
-  defaultValues: VisitorAuthorizationFormInput & { authorizationId?: string };
+  accessDevices?: AccessDeviceOption[];
+  defaultAccessDeviceIds?: string[];
+  defaultValues: VisitorAuthorizationFormInput & {
+    authorizationId?: string;
+    photoUrl?: string | null;
+    syncControlId?: boolean;
+  };
 }
 
 export function VisitorAuthorizationForm({
@@ -29,12 +38,15 @@ export function VisitorAuthorizationForm({
   mode,
   units,
   condominiumNamesById,
+  accessDevices = [],
+  defaultAccessDeviceIds = [],
   defaultValues,
 }: VisitorAuthorizationFormProps) {
   const action =
     mode === "create" ? createVisitorAuthorizationAction : updateVisitorAuthorizationAction;
   const [state, formAction, pending] = useActionState(action, {});
   const [guestType, setGuestType] = useState(defaultValues.guest_type);
+  const [syncControlId, setSyncControlId] = useState(defaultValues.syncControlId ?? false);
 
   if (units.length === 0) {
     return (
@@ -45,13 +57,18 @@ export function VisitorAuthorizationForm({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} encType="multipart/form-data" className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       {mode === "edit" && defaultValues.authorizationId && (
-        <input type="hidden" name="authorization_id" value={defaultValues.authorizationId} />
+        <>
+          <input type="hidden" name="authorization_id" value={defaultValues.authorizationId} />
+          <input type="hidden" name="existing_photo_url" value={defaultValues.photoUrl ?? ""} />
+        </>
       )}
 
       <FormAlert error={state.error} success={state.success} />
+
+      <PhotoField label="Foto do visitante" currentPhotoUrl={defaultValues.photoUrl} />
 
       <div className="space-y-2">
         <Label htmlFor="unit_id">Unidade</Label>
@@ -167,6 +184,34 @@ export function VisitorAuthorizationForm({
           />
         </div>
       </div>
+
+      {accessDevices.length > 0 && (
+        <div className="space-y-3 rounded-md border p-3">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="sync_controlid"
+              value="1"
+              checked={syncControlId}
+              onChange={(event) => setSyncControlId(event.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium">Liberar nos ControlIDs</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Após aprovação do síndico, o visitante poderá fazer check-in e sincronizar nos equipamentos
+                selecionados. No check-out ou ao fim do período, o cadastro facial será removido.
+              </span>
+            </span>
+          </label>
+          {syncControlId && (
+            <ResidentAccessDeviceFields
+              devices={accessDevices}
+              defaultSelectedIds={defaultAccessDeviceIds}
+            />
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="notes">Observações</Label>

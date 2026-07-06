@@ -4,8 +4,8 @@ Dois PDFs para divulgação e onboarding da plataforma.
 
 | Arquivo | Público | Conteúdo |
 |---------|---------|----------|
-| `pdf/Granja-Brasil-Moradores.pdf` | Moradores | Benefícios, funcionalidades, passo a passo e **QR Code** para cadastro |
-| `pdf/Granja-Brasil-Sindicos-Administradores.pdf` | Síndicos e administradores | Arquitetura multi-condomínio, fluxos de comunicação, módulos, papéis, ControlID e **QR Code** para login |
+| `pdf/Granja-Brasil-Moradores.pdf` | Moradores | **1 página** — benefícios, passo a passo, funcionalidades e **QR Code** para cadastro |
+| `pdf/Granja-Brasil-Sindicos-Administradores.pdf` | Síndicos e administradores | **7 páginas** — capa + 6 passos sequenciais (arquitetura → go-live) e **QR Code** |
 
 ## Como abrir
 

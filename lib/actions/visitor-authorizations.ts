@@ -4,8 +4,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import { resolveUnitContext } from "@/lib/services/unit-access";
+import {
+  activateVisitorAccessGrantsOnApproval,
+  checkInVisitorAuthorization,
+  checkOutVisitorAuthorization,
+  listUnitIdsForVisitorRegistration,
+  replaceVisitorAuthorizationAccessDevices,
+} from "@/lib/services/visitor-access-grants";
 import {
   approveVisitorAuthorization,
   cancelVisitorAuthorization,
@@ -14,6 +22,11 @@ import {
   updateVisitorAuthorization,
   updateVisitorDoormanNotes,
 } from "@/lib/services/visitor-authorizations";
+import {
+  formDataHasRemovePhoto,
+  resolvePhotoUrl,
+  uploadCondoImage,
+} from "@/lib/storage/upload-image";
 import {
   parseDoormanNotesFormData,
   parseVisitorAuthorizationFormData,
@@ -28,6 +41,11 @@ function revalidateVisitorPaths(condoSlug: string, authorizationId?: string) {
   }
 }
 
+function getPhotoFile(formData: FormData): File | null {
+  const value = formData.get("photo");
+  return value instanceof File ? value : null;
+}
+
 async function assertCanRegisterForUnit(
   isStaff: boolean,
   profileId: string,
@@ -38,17 +56,43 @@ async function assertCanRegisterForUnit(
     return null;
   }
 
-  const unitsResult = await listUnitIdsForProfile(profileId, condominiumId);
+  const unitsResult = await listUnitIdsForVisitorRegistration(profileId, condominiumId);
 
   if (!unitsResult.ok) {
     return { error: unitsResult.error };
   }
 
   if (!unitsResult.data.includes(unitId)) {
-    return { error: "Você só pode autorizar visitantes para suas unidades." };
+    return {
+      error: "Somente o responsável da unidade (proprietário, inquilino ou responsável) pode cadastrar visitantes.",
+    };
   }
 
   return null;
+}
+
+async function resolveVisitorPhotoUrl(
+  formData: FormData,
+  condominiumId: string,
+  existingPhotoUrl?: string | null,
+): Promise<AuthActionState | { photoUrl: string | null }> {
+  const uploadResult = await uploadCondoImage({
+    condominiumId,
+    folder: "visitors",
+    file: getPhotoFile(formData),
+  });
+
+  if (!uploadResult.ok) {
+    return { error: uploadResult.error };
+  }
+
+  return {
+    photoUrl: resolvePhotoUrl(
+      uploadResult.data,
+      existingPhotoUrl,
+      formDataHasRemovePhoto(formData),
+    ),
+  };
 }
 
 export async function createVisitorAuthorizationAction(
@@ -83,16 +127,50 @@ export async function createVisitorAuthorizationAction(
     return unitCheck;
   }
 
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
+  const photoResult = await resolveVisitorPhotoUrl(formData, unitContext.data.unitCondominiumId);
+  if ("error" in photoResult && photoResult.error) {
+    return { error: photoResult.error };
+  }
+  const photoUrl = "photoUrl" in photoResult ? photoResult.photoUrl : null;
+
+  const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
+  const syncControlId = formData.get("sync_controlid") === "1";
+
   const result = await createVisitorAuthorization({
     condominiumId: access.condominium.id,
     scopeCondominiumId,
     requestedBy: access.profile.id,
     createdByStaff: isStaff,
-    data: toVisitorAuthorizationPayload(parsed.data),
+    data: {
+      ...toVisitorAuthorizationPayload(parsed.data),
+      photo_url: photoUrl,
+      sync_controlid: syncControlId && accessDeviceIds.length > 0,
+    },
   });
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  if (accessDeviceIds.length > 0) {
+    const devicesResult = await replaceVisitorAuthorizationAccessDevices({
+      visitorAuthorizationId: result.data.id,
+      condominiumId: unitContext.data.unitCondominiumId,
+      accessDeviceIds,
+    });
+
+    if (!devicesResult.ok) {
+      return { error: devicesResult.error ?? "Autorização criada, mas locais de acesso não foram salvos." };
+    }
+  }
+
+  if (isStaff && syncControlId && accessDeviceIds.length > 0) {
+    await activateVisitorAccessGrantsOnApproval(result.data.id, unitContext.data.unitCondominiumId);
   }
 
   revalidateVisitorPaths(condoSlug, result.data.id);
@@ -121,15 +199,48 @@ export async function updateVisitorAuthorizationAction(
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
 
+  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+  if (!unitContext.ok) {
+    return { error: unitContext.error };
+  }
+
+  const existingPhotoUrl = String(formData.get("existing_photo_url") ?? "") || null;
+  const photoResult = await resolveVisitorPhotoUrl(
+    formData,
+    unitContext.data.unitCondominiumId,
+    existingPhotoUrl,
+  );
+  if ("error" in photoResult && photoResult.error) {
+    return { error: photoResult.error };
+  }
+  const photoUrl = "photoUrl" in photoResult ? photoResult.photoUrl : null;
+
+  const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
+  const syncControlId = formData.get("sync_controlid") === "1";
+
   const result = await updateVisitorAuthorization({
     authorizationId,
     condominiumId: access.condominium.id,
     scopeCondominiumId,
-    data: toVisitorAuthorizationPayload(parsed.data),
+    data: {
+      ...toVisitorAuthorizationPayload(parsed.data),
+      photo_url: photoUrl,
+      sync_controlid: syncControlId && accessDeviceIds.length > 0,
+    },
   });
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  const devicesResult = await replaceVisitorAuthorizationAccessDevices({
+    visitorAuthorizationId: authorizationId,
+    condominiumId: unitContext.data.unitCondominiumId,
+    accessDeviceIds,
+  });
+
+  if (!devicesResult.ok) {
+    return { error: devicesResult.error ?? "Dados salvos, mas locais de acesso não foram atualizados." };
   }
 
   revalidateVisitorPaths(condoSlug, authorizationId);
@@ -157,6 +268,16 @@ export async function approveVisitorAuthorizationAction(
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  if (result.data.sync_controlid) {
+    const grantsResult = await activateVisitorAccessGrantsOnApproval(
+      authorizationId,
+      access.condominium.id,
+    );
+    if (!grantsResult.ok) {
+      return { error: grantsResult.error ?? "Aprovado, mas locais ControlID não foram preparados." };
+    }
   }
 
   revalidateVisitorPaths(condoSlug, authorizationId);
@@ -247,4 +368,60 @@ export async function updateDoormanNotesAction(
 
   revalidateVisitorPaths(condoSlug, authorizationId);
   return { success: "Notas da portaria salvas." };
+}
+
+export async function checkInVisitorAuthorizationAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const authorizationId = String(formData.get("authorization_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) =>
+      ctx.permissions.canManageVisitorAuthorizations ||
+      ctx.permissions.canConsultVisitorAuthorizations,
+    { redirectTo: `/app/${condoSlug}/visitors/${authorizationId}` },
+  );
+
+  const result = await checkInVisitorAuthorization({
+    visitorAuthorizationId: authorizationId,
+    condominiumId: access.condominium.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateVisitorPaths(condoSlug, authorizationId);
+  return { success: "Check-in registrado. Sync ControlID em andamento." };
+}
+
+export async function checkOutVisitorAuthorizationAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const authorizationId = String(formData.get("authorization_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) =>
+      ctx.permissions.canManageVisitorAuthorizations ||
+      ctx.permissions.canConsultVisitorAuthorizations,
+    { redirectTo: `/app/${condoSlug}/visitors/${authorizationId}` },
+  );
+
+  const result = await checkOutVisitorAuthorization({
+    visitorAuthorizationId: authorizationId,
+    condominiumId: access.condominium.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateVisitorPaths(condoSlug, authorizationId);
+  return { success: "Check-out registrado. Remoção facial ControlID em andamento." };
 }

@@ -4,6 +4,11 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import {
+  getVisitorAuthorizationAccessDeviceIds,
+  listVisitorAccessGrants,
+} from "@/lib/services/visitor-access-grants";
+import { listActiveAccessDevicesForCondominium } from "@/lib/services/resident-access-grants";
 import { getVisitorAuthorizationById } from "@/lib/services/visitor-authorizations";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { formatUnitWithTower } from "@/lib/residents/labels";
@@ -12,6 +17,8 @@ import { getGuestTypeLabel } from "@/lib/visitor-authorizations/labels";
 import { VISITOR_AUTHORIZATION_STATUS } from "@/lib/constants";
 import { VisitorAuthorizationActions } from "@/components/visitors/visitor-authorization-actions";
 import { VisitorAuthorizationForm } from "@/components/visitors/visitor-authorization-form";
+import { VisitorAccessControl } from "@/components/visitors/visitor-access-control";
+import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
 import { VisitorDisplayStatusBadge } from "@/components/visitors/visitor-display-status-badge";
 import { DoormanNotesForm } from "@/components/visitors/doorman-notes-form";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -93,6 +100,15 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
     ? editPanelResult.data.condominiumNamesById
     : {};
 
+  const [accessDevicesResult, deviceIdsResult, grantsResult] = await Promise.all([
+    listActiveAccessDevicesForCondominium(access.condominium.id),
+    getVisitorAuthorizationAccessDeviceIds(authorization.id),
+    listVisitorAccessGrants(authorization.id),
+  ]);
+
+  const canManageAccess =
+    isStaff || canConsult;
+
   const showDoormanNotes =
     canConsult &&
     (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
@@ -138,6 +154,17 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
               <span className="text-muted-foreground">Placa</span>
               <span className="font-medium">{authorization.vehicle_plate ?? "—"}</span>
             </div>
+            {authorization.photo_url && (
+              <div className="space-y-2">
+                <span className="text-muted-foreground">Foto</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={authorization.photo_url}
+                  alt={authorization.full_name}
+                  className="h-28 w-28 rounded-md border object-cover"
+                />
+              </div>
+            )}
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Início</span>
               <span className="font-medium">{formatDateTime(authorization.access_starts_at)}</span>
@@ -194,9 +221,13 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
               mode="edit"
               units={editUnits}
               condominiumNamesById={condominiumNamesById}
+              accessDevices={accessDevicesResult.ok ? accessDevicesResult.data : []}
+              defaultAccessDeviceIds={deviceIdsResult.ok ? deviceIdsResult.data : []}
               defaultValues={{
                 ...toVisitorAuthorizationFormInput(authorization),
                 authorizationId: authorization.id,
+                photoUrl: authorization.photo_url,
+                syncControlId: authorization.sync_controlid,
               }}
             />
           </CardContent>
@@ -217,6 +248,35 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
           </CardContent>
         </Card>
       )}
+
+      {authorization.sync_controlid && grantsResult.ok && grantsResult.data.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Locais ControlID</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResidentAccessDeviceSummary
+              grants={grantsResult.data.map((grant) => ({
+                access_device: grant.access_device
+                  ? {
+                      display_name: grant.access_device.display_name,
+                      access_type: grant.access_device.access_type,
+                      is_pilot: grant.access_device.is_pilot,
+                    }
+                  : undefined,
+                sync_status: grant.sync_status,
+                sync_error: grant.sync_error,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <VisitorAccessControl
+        condoSlug={condoSlug}
+        authorization={authorization}
+        canManage={canManageAccess}
+      />
 
       <VisitorAuthorizationActions
         condoSlug={condoSlug}

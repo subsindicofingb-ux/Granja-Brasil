@@ -3,7 +3,11 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitsByCondominium } from "@/lib/services/units";
-import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import {
+  listActiveAccessDevicesForCondominium,
+  loadActiveAccessDevicesByCondominiumIds,
+} from "@/lib/services/resident-access-grants";
+import { listUnitIdsForVisitorRegistration } from "@/lib/services/visitor-access-grants";
 import { serviceOk } from "@/lib/services/types";
 import { DEFAULT_VISITOR_AUTHORIZATION_FORM } from "@/lib/visitor-authorizations/defaults";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -42,6 +46,14 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
       );
     }
 
+    const condominiumIds = [
+      ...new Set(panelResult.data.units.map((unit) => unit.tower.condominium_id)),
+    ];
+    const devicesResult = await loadActiveAccessDevicesByCondominiumIds(condominiumIds);
+    const accessDevices = devicesResult.ok
+      ? Object.values(devicesResult.data).flat()
+      : [];
+
     return (
       <div className="mx-auto max-w-lg space-y-6">
         <PageHeader
@@ -59,6 +71,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
               mode="create"
               units={panelResult.data.units}
               condominiumNamesById={panelResult.data.condominiumNamesById}
+              accessDevices={accessDevices}
               defaultValues={DEFAULT_VISITOR_AUTHORIZATION_FORM}
             />
           </CardContent>
@@ -67,11 +80,12 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
     );
   }
 
-  const [unitsResult, ownedUnitsResult] = await Promise.all([
+  const [unitsResult, ownedUnitsResult, devicesResult] = await Promise.all([
     listUnitsByCondominium(access.condominium.id),
     isStaff
       ? Promise.resolve(serviceOk([] as string[]))
-      : listUnitIdsForProfile(access.profile.id, access.condominium.id),
+      : listUnitIdsForVisitorRegistration(access.profile.id, access.condominium.id),
+    listActiveAccessDevicesForCondominium(access.condominium.id),
   ]);
 
   let units = unitsResult.ok ? unitsResult.data : [];
@@ -88,7 +102,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
         description={
           isStaff
             ? "Registro imediato como aprovado (staff)."
-            : "Solicitação enviada para aprovação do condomínio."
+            : "Solicitação enviada para aprovação do síndico."
         }
       />
 
@@ -101,6 +115,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
             condoSlug={condoSlug}
             mode="create"
             units={units}
+            accessDevices={devicesResult.ok ? devicesResult.data : []}
             defaultValues={DEFAULT_VISITOR_AUTHORIZATION_FORM}
           />
         </CardContent>

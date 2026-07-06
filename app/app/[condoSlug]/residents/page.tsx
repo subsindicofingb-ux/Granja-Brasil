@@ -37,7 +37,7 @@ async function ResidentsHeader({ condoSlug }: { condoSlug: string }) {
       description={
         access.permissions.canConsultResidents && !access.permissions.canManageResidents
           ? "Consulta de moradores cadastrados nas unidades."
-          : "Proprietários, inquilinos, dependentes e responsáveis."
+          : "Proprietários, inquilinos, moradores e responsáveis."
       }
       action={
         access.permissions.canManageResidents ? (

@@ -498,6 +498,7 @@ export type SyncResidentToDeviceInput = {
   photoUrl: string | null;
   requiresPhoto: boolean;
   existingControlIdUserId?: number | null;
+  registration?: string;
 };
 
 export type SyncResidentToDeviceResult = {
@@ -508,7 +509,7 @@ export type SyncResidentToDeviceResult = {
 export async function syncResidentToControlIdDevice(
   input: SyncResidentToDeviceInput,
 ): Promise<SyncResidentToDeviceResult> {
-  const registration = buildControlIdRegistration(input.residentId);
+  const registration = input.registration ?? buildControlIdRegistration(input.residentId);
   const { session, baseUrl } = await loginControlIdSession({
     hostUrl: input.hostUrl,
     username: input.username,

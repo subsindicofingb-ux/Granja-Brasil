@@ -2,13 +2,13 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Granja Brasil — Guia do Morador</title>
+  <title>Granja Brasil — Guia do Morador (1 página)</title>
   <style>
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-      color: #14532d;
+      color: #064e3b;
       background: #fff;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
@@ -16,121 +16,68 @@
     .page {
       width: 210mm;
       height: 297mm;
-      page-break-after: always;
-      position: relative;
       overflow: hidden;
-    }
-    .page:last-child { page-break-after: auto; }
-
-    .cover {
-      background: linear-gradient(160deg, #ecfdf5 0%, #d1fae5 35%, #ffffff 70%);
-      padding: 16mm 14mm;
+      position: relative;
+      background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 35%, #f0fdf4 100%);
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 8mm;
     }
-    .cover-top { text-align: center; }
-    .cover-top img { width: 72mm; height: auto; }
-    .cover-badge {
-      display: inline-block;
-      margin-top: 5mm;
-      padding: 2mm 5mm;
-      border-radius: 999px;
-      background: #059669;
+
+    .hero {
+      background: linear-gradient(135deg, #064e3b 0%, #059669 55%, #10b981 100%);
       color: #fff;
-      font-size: 9pt;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .cover h1 {
-      margin-top: 6mm;
-      font-size: 24pt;
-      line-height: 1.15;
-      color: #064e3b;
-      text-align: center;
-    }
-    .cover .subtitle {
-      margin-top: 4mm;
-      text-align: center;
-      font-size: 11.5pt;
-      color: #047857;
-      line-height: 1.45;
-      max-width: 150mm;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .cover-hero {
+      padding: 9mm 11mm 7mm;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4mm;
-    }
-    .hero-card {
-      background: rgba(255,255,255,0.9);
-      border: 1px solid #a7f3d0;
-      border-radius: 3mm;
-      padding: 4mm;
-      text-align: center;
-    }
-    .hero-card .icon {
-      width: 10mm;
-      height: 10mm;
-      margin: 0 auto 2mm;
-      background: #059669;
-      border-radius: 50%;
-      display: flex;
+      grid-template-columns: auto 1fr;
+      gap: 5mm;
       align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-size: 12pt;
     }
-    .hero-card strong { display: block; font-size: 9pt; color: #064e3b; }
-    .hero-card span { font-size: 8pt; color: #047857; line-height: 1.3; }
-    .cover-note {
-      text-align: center;
-      font-size: 9pt;
-      color: #047857;
-      padding: 3mm 6mm;
-      border-radius: 3mm;
-      background: rgba(255,255,255,0.7);
-      border: 1px dashed #6ee7b7;
+    .hero img { width: 44mm; filter: brightness(1.05); }
+    .hero-text h1 { font-size: 22pt; line-height: 1.1; margin-bottom: 2mm; }
+    .hero-text p { font-size: 11pt; opacity: 0.95; line-height: 1.4; max-width: 125mm; }
+    .hero-badges { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 3mm; }
+    .hero-badge {
+      display: inline-block;
+      padding: 1.5mm 3.5mm;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      font-size: 8pt;
+      letter-spacing: 0.03em;
+    }
+    .hero-badge.highlight {
+      background: #fef08a;
+      color: #713f12;
+      border-color: #facc15;
+      font-weight: 800;
+      font-size: 8.5pt;
     }
 
-    .inner { padding: 12mm 14mm; background: #fff; }
-    .page-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 2px solid #a7f3d0;
-      padding-bottom: 3mm;
-      margin-bottom: 6mm;
+    .main {
+      padding: 6mm 11mm 5mm;
+      display: grid;
+      grid-template-columns: 1fr 58mm;
+      gap: 5mm;
+      flex: 1;
     }
-    .page-header img { height: 10mm; }
-    .page-header span { font-size: 7.5pt; color: #047857; }
-    h2.section {
-      font-size: 15pt;
+
+    .steps-title, .features-title {
+      font-size: 14pt;
+      font-weight: 800;
       color: #064e3b;
-      margin-bottom: 2mm;
+      margin-bottom: 3mm;
     }
-    .lead {
-      font-size: 9.5pt;
-      color: #047857;
-      line-height: 1.45;
-      margin-bottom: 5mm;
-    }
-
     .steps {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 3mm;
-      margin-bottom: 6mm;
+      margin-bottom: 5mm;
     }
     .step {
-      background: linear-gradient(180deg, #ecfdf5, #fff);
-      border: 1px solid #bbf7d0;
+      background: #fff;
+      border: 1.5px solid #86efac;
       border-radius: 3mm;
-      padding: 4mm;
+      padding: 3.5mm;
       text-align: center;
     }
     .step-num {
@@ -144,257 +91,273 @@
       line-height: 8mm;
       margin: 0 auto 2mm;
     }
-    .step h3 { font-size: 9pt; color: #064e3b; margin-bottom: 1.5mm; }
-    .step p { font-size: 7.8pt; color: #047857; line-height: 1.35; }
+    .step h3 { font-size: 11.5pt; margin-bottom: 1.5mm; color: #064e3b; }
+    .step p { font-size: 10.5pt; color: #064e3b; line-height: 1.35; }
 
     .features {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 3mm;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2.5mm;
     }
     .feature {
-      display: flex;
-      gap: 2.5mm;
-      padding: 3mm;
+      background: #fff;
+      border: 1px solid #bbf7d0;
       border-radius: 2.5mm;
-      border: 1px solid #d1fae5;
-      background: #f0fdf4;
+      padding: 3mm 2mm;
+      text-align: center;
     }
     .feature .ico {
-      flex-shrink: 0;
-      width: 8mm;
-      height: 8mm;
-      border-radius: 2mm;
+      width: 9mm;
+      height: 9mm;
+      border-radius: 50%;
       background: #059669;
       color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10pt;
+      font-size: 11pt;
+      line-height: 9mm;
+      margin: 0 auto 2mm;
     }
-    .feature h3 { font-size: 8.5pt; color: #064e3b; margin-bottom: 0.5mm; }
-    .feature p { font-size: 7.2pt; color: #047857; line-height: 1.35; }
+    .feature h3 { font-size: 10.5pt; margin-bottom: 1mm; color: #064e3b; }
+    .feature p { font-size: 9.5pt; color: #064e3b; line-height: 1.32; }
 
-    .highlight-box {
-      margin-top: 5mm;
-      padding: 4mm;
+    .qr-panel {
+      background: #fff;
+      border: 2.5px solid #059669;
       border-radius: 3mm;
-      background: linear-gradient(90deg, #059669, #10b981);
-      color: #fff;
+      padding: 4mm;
       text-align: center;
-    }
-    .highlight-box h3 { font-size: 10pt; margin-bottom: 1.5mm; }
-    .highlight-box p { font-size: 8pt; opacity: 0.95; line-height: 1.4; }
-
-    .footer-note {
-      position: absolute;
-      bottom: 8mm;
-      left: 14mm;
-      right: 14mm;
-      text-align: center;
-      font-size: 7pt;
-      color: #6b7280;
-    }
-
-    .qr-page {
-      background: linear-gradient(180deg, #ecfdf5 0%, #ffffff 45%);
+      box-shadow: 0 2mm 8mm rgba(5,150,105,0.15);
+      height: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      text-align: center;
-      padding: 16mm;
     }
-    .qr-page .logo { width: 65mm; margin-bottom: 8mm; }
-    .qr-page h1 {
-      font-size: 20pt;
-      color: #064e3b;
-      margin-bottom: 4mm;
-      max-width: 150mm;
-      line-height: 1.2;
-    }
-    .qr-page .intro {
-      font-size: 10pt;
-      color: #047857;
-      max-width: 140mm;
-      line-height: 1.45;
-      margin-bottom: 8mm;
-    }
-    .qr-block {
-      background: #fff;
-      border: 2px solid #059669;
-      border-radius: 5mm;
-      padding: 7mm 8mm;
-      box-shadow: 0 3mm 10mm rgba(5,150,105,0.12);
-      width: 95mm;
-    }
-    .qr-block img { width: 52mm; height: 52mm; }
-    .qr-block h2 { font-size: 14pt; color: #064e3b; margin-top: 4mm; }
-    .qr-block .url {
-      font-size: 11pt;
+    .qr-panel img { width: 38mm; height: 38mm; margin: 0 auto; }
+    .qr-panel h2 { font-size: 11pt; color: #064e3b; margin-top: 3mm; font-weight: 800; }
+    .qr-panel .url {
+      font-size: 8.5pt;
       font-weight: 700;
       color: #059669;
-      margin-top: 3mm;
+      margin-top: 2mm;
       word-break: break-all;
+      line-height: 1.3;
     }
-    .qr-page .footnote {
-      margin-top: 10mm;
-      font-size: 8.5pt;
-      color: #6b7280;
+    .qr-panel .no-app {
+      margin-top: 3mm;
+      font-size: 9.5pt;
+      font-weight: 800;
+      color: #713f12;
+      line-height: 1.35;
+      text-align: center;
+      padding: 3mm;
+      background: #fef9c3;
+      border: 2px solid #facc15;
+      border-radius: 2.5mm;
+    }
+    .qr-panel     .no-app span {
+      display: block;
+      font-size: 8pt;
+      font-weight: 600;
+      color: #854d0e;
+      margin-top: 1.5mm;
+    }
+    .no-app .howto {
+      margin-top: 2.5mm;
+      padding-top: 2.5mm;
+      border-top: 1px dashed #facc15;
+      text-align: left;
+    }
+    .no-app .howto strong {
+      display: block;
+      font-size: 7.5pt;
+      color: #713f12;
+      margin-bottom: 1.5mm;
+    }
+    .no-app .howto p {
+      font-size: 7pt;
+      font-weight: 500;
+      color: #854d0e;
+      line-height: 1.35;
+      margin-bottom: 1mm;
+    }
+
+    .benefits {
+      margin: 0 11mm 4mm;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3mm;
+    }
+    .benefit {
+      background: #fff;
+      border: 1.5px solid #86efac;
+      border-radius: 3mm;
+      padding: 4mm;
+      display: flex;
+      gap: 3mm;
+      align-items: center;
+    }
+    .benefit strong { font-size: 10pt; display: block; color: #064e3b; }
+    .benefit span { font-size: 9pt; color: #047857; line-height: 1.35; }
+    .benefit .bico { font-size: 16pt; line-height: 1; }
+
+    .cta {
+      margin: 0 11mm 8mm;
+      background: linear-gradient(90deg, #059669, #10b981);
+      color: #fff;
+      border-radius: 3mm;
+      padding: 5mm 5mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 5mm;
+    }
+    .cta h3 { font-size: 12pt; margin-bottom: 1.5mm; }
+    .cta p { font-size: 9.5pt; opacity: 0.96; line-height: 1.4; max-width: 128mm; }
+    .cta .pill {
+      flex-shrink: 0;
+      background: #fef08a;
+      color: #713f12;
+      border: 2px solid #facc15;
+      border-radius: 999px;
+      padding: 3mm 5mm;
+      font-size: 10pt;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.25;
+    }
+
+    .footer {
+      position: absolute;
+      bottom: 5mm;
+      left: 11mm;
+      right: 11mm;
+      text-align: center;
+      font-size: 8pt;
+      color: #64748b;
     }
   </style>
 </head>
 <body>
-
-  <!-- PÁGINA 1 — CAPA -->
-  <section class="page cover">
-    <div class="cover-top">
+  <section class="page">
+    <header class="hero">
       <img src="{{LOGO}}" alt="Granja Brasil" />
-      <div class="cover-badge">App do morador</div>
-      <h1>Tudo do seu condomínio na palma da mão</h1>
-      <p class="subtitle">
-        Avisos, reservas, visitas, encomendas e comunicação com o síndico — simples, rápido e seguro.
-      </p>
+      <div class="hero-text">
+        <h1>Seu condomínio na palma da mão</h1>
+        <p>Avisos, reservas, visitas, encomendas e mensagens ao síndico — tudo em um só lugar, seguro.</p>
+        <div class="hero-badges">
+          <span class="hero-badge highlight">Não precisa instalar app</span>
+          <span class="hero-badge">Cadastro em 2 minutos</span>
+          <span class="hero-badge">Aprovação pelo síndico</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+      <div>
+        <p class="steps-title">Como começar agora</p>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <h3>Escaneie o QR</h3>
+            <p>Cadastre-se com e-mail ou Google. Informe condomínio e unidade.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <h3>Aguarde ok</h3>
+            <p>O síndico valida seu vínculo. Você recebe aviso por e-mail.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <h3>Pronto!</h3>
+            <p>Acesse pelo navegador do celular — sem baixar nada da loja.</p>
+          </div>
+        </div>
+
+        <p class="features-title">Tudo o que você ganha ao aderir</p>
+        <div class="features">
+          <div class="feature">
+            <div class="ico">📢</div>
+            <h3>Avisos</h3>
+            <p>Comunicados urgentes e importantes</p>
+          </div>
+          <div class="feature">
+            <div class="ico">📅</div>
+            <h3>Reservas</h3>
+            <p>Salão, churrasqueira e áreas comuns</p>
+          </div>
+          <div class="feature">
+            <div class="ico">🚪</div>
+            <h3>Visitas</h3>
+            <p>Autorize antes da chegada</p>
+          </div>
+          <div class="feature">
+            <div class="ico">📦</div>
+            <h3>Encomendas</h3>
+            <p>Receba aviso na hora em que chega na portaria</p>
+          </div>
+          <div class="feature">
+            <div class="ico">🚗</div>
+            <h3>Veículos</h3>
+            <p>Cadastre placa e TAG e consulte o acesso liberado</p>
+          </div>
+          <div class="feature">
+            <div class="ico">💬</div>
+            <h3>Mensagens</h3>
+            <p>Fale com seu síndico ou com a adm. da Granja</p>
+          </div>
+          <div class="feature">
+            <div class="ico">📋</div>
+            <h3>Notificações</h3>
+            <p>Comunicados oficiais com comprovante</p>
+          </div>
+          <div class="feature">
+            <div class="ico">🔐</div>
+            <h3>Acesso</h3>
+            <p>Portaria e condomínio liberados após aprovação</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="qr-panel">
+        <img src="{{QR_SIGNUP}}" alt="QR Code cadastro" />
+        <h2>Cadastre-se aqui</h2>
+        <div class="url">{{SIGNUP_URL}}</div>
+        <div class="no-app">
+          NÃO PRECISA INSTALAR APP
+          <span>Adicione o atalho à tela inicial do seu celular ou computador.</span>
+          <div class="howto">
+            <strong>Como adicionar o atalho:</strong>
+            <p><strong>Celular Android:</strong> abra {{SIGNUP_URL}} no Chrome → menu ⋮ → “Adicionar à tela inicial”.</p>
+            <p><strong>iPhone:</strong> abra no Safari → botão Compartilhar → “Adicionar à Tela de Início”.</p>
+            <p><strong>Computador:</strong> acesse no Chrome ou Edge → menu → “Criar atalho” ou “Adicionar à tela inicial”.</p>
+          </div>
+        </div>
+      </aside>
     </div>
 
-    <div class="cover-hero">
-      <div class="hero-card">
-        <div class="icon">📢</div>
-        <strong>Avisos</strong>
-        <span>Comunicados importantes do condomínio</span>
+    <div class="benefits">
+      <div class="benefit">
+        <span class="bico">⚡</span>
+        <div><strong>Rápido</strong><span>Cadastro em minutos, sem papelada.</span></div>
       </div>
-      <div class="hero-card">
-        <div class="icon">📅</div>
-        <strong>Reservas</strong>
-        <span>Salão, churrasqueira e áreas comuns</span>
+      <div class="benefit">
+        <span class="bico">🛡️</span>
+        <div><strong>Seguro</strong><span>Só entra quem o síndico aprovar.</span></div>
       </div>
-      <div class="hero-card">
-        <div class="icon">🚪</div>
-        <strong>Visitas</strong>
-        <span>Autorize visitantes e prestadores</span>
-      </div>
-      <div class="hero-card">
-        <div class="icon">📦</div>
-        <strong>Encomendas</strong>
-        <span>Saiba quando retirar na portaria</span>
+      <div class="benefit">
+        <span class="bico">📱</span>
+        <div><strong>Prático</strong><span>Celular ou computador — sem download.</span></div>
       </div>
     </div>
 
-    <p class="cover-note">Cadastre-se pelo QR Code na última página deste guia.</p>
+    <div class="cta">
+      <div>
+        <h3>Granja Brasil — gestão inteligente do seu condomínio</h3>
+        <p>Conecta moradores, portaria, síndicos e administração central. Dúvidas? Fale com o síndico ou acesse {{APP_URL}}</p>
+      </div>
+      <div class="pill">Escaneie<br/>e comece</div>
+    </div>
+
+    <p class="footer">© {{YEAR}} Granja Brasil · {{APP_URL}} · contato@granjabrasil.app.br</p>
   </section>
-
-  <!-- PÁGINA 2 — CONTEÚDO -->
-  <section class="page inner">
-    <div class="page-header">
-      <img src="{{LOGO}}" alt="Granja Brasil" />
-      <span>Guia do Morador · {{YEAR}}</span>
-    </div>
-
-    <h2 class="section">Como começar em 3 passos</h2>
-    <p class="lead">
-      O cadastro é gratuito. Após enviar seus dados, o síndico aprova e você passa a usar todas as funcionalidades.
-    </p>
-
-    <div class="steps">
-      <div class="step">
-        <div class="step-num">1</div>
-        <h3>Cadastre-se</h3>
-        <p>Escolha seu condomínio, informe a unidade e crie sua conta com e-mail ou Google.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <h3>Aguarde aprovação</h3>
-        <p>O responsável do condomínio valida seu vínculo com a unidade.</p>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <h3>Use o app</h3>
-        <p>Entre em {{APP_URL}} e acompanhe tudo pelo celular ou computador.</p>
-      </div>
-    </div>
-
-    <h2 class="section">O que você pode fazer</h2>
-    <div class="features">
-      <div class="feature">
-        <div class="ico">📢</div>
-        <div>
-          <h3>Avisos do condomínio</h3>
-          <p>Comunicados normais, importantes e urgentes.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">💬</div>
-        <div>
-          <h3>Fale com o condomínio</h3>
-          <p>Mensagens ao síndico ou à Granja Brasil.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">📅</div>
-        <div>
-          <h3>Reservar áreas comuns</h3>
-          <p>Salão, churrasqueira, academia e demais espaços.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">🚪</div>
-        <div>
-          <h3>Autorizar visitantes</h3>
-          <p>Cadastre visitas e prestadores com antecedência.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">🚗</div>
-        <div>
-          <h3>Veículos da unidade</h3>
-          <p>Consulte placas e solicite novos cadastros com TAG.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">📦</div>
-        <div>
-          <h3>Correspondências</h3>
-          <p>Encomendas registradas pela portaria.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">📋</div>
-        <div>
-          <h3>Notificações formais</h3>
-          <p>Comunicados oficiais com comprovante de leitura.</p>
-        </div>
-      </div>
-      <div class="feature">
-        <div class="ico">🔐</div>
-        <div>
-          <h3>Acesso seguro</h3>
-          <p>Cadastro aprovado libera acesso nos equipamentos.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="highlight-box">
-      <h3>Granja Brasil — Gestão inteligente do seu condomínio</h3>
-      <p>Um único app conecta moradores, portaria, síndicos e a administração central.</p>
-    </div>
-
-    <p class="footer-note">© {{YEAR}} Granja Brasil · {{APP_URL}} · contato@granjabrasil.app.br</p>
-  </section>
-
-  <!-- PÁGINA 3 — QR CODE -->
-  <section class="page qr-page">
-    <img class="logo" src="{{LOGO}}" alt="Granja Brasil" />
-    <h1>Baixe o app no navegador</h1>
-    <p class="intro">
-      Não precisa instalar nada. Acesse pelo celular, faça login e adicione à tela inicial para usar como app.
-    </p>
-    <div class="qr-block">
-      <img src="{{QR_SIGNUP}}" alt="QR Code cadastro" />
-      <h2>Cadastre-se aqui</h2>
-      <div class="url">{{SIGNUP_URL}}</div>
-    </div>
-    <p class="footnote">Dúvidas? Fale com o síndico ou acesse {{APP_URL}}</p>
-  </section>
-
 </body>
 </html>

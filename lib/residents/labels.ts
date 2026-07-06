@@ -3,7 +3,7 @@ import { RESIDENT_TYPES, type ResidentType } from "@/lib/constants";
 export const RESIDENT_TYPE_LABELS: Record<ResidentType, string> = {
   [RESIDENT_TYPES.OWNER]: "Proprietário",
   [RESIDENT_TYPES.TENANT]: "Inquilino",
-  [RESIDENT_TYPES.DEPENDENT]: "Dependente",
+  [RESIDENT_TYPES.DEPENDENT]: "Morador",
   [RESIDENT_TYPES.RESPONSIBLE]: "Responsável",
 };
 

@@ -41,6 +41,11 @@ const VISITOR_SELECT = `
   status,
   notes,
   doorman_notes,
+  photo_url,
+  sync_controlid,
+  checked_in_at,
+  checked_out_at,
+  controlid_registration,
   requested_by,
   reviewed_by,
   reviewed_at,
@@ -194,6 +199,8 @@ type VisitorWriteInput = {
   access_starts_at: string;
   access_ends_at: string;
   notes: string | null;
+  photo_url?: string | null;
+  sync_controlid?: boolean;
 };
 
 function toDbPayload(input: VisitorWriteInput) {
@@ -208,6 +215,8 @@ function toDbPayload(input: VisitorWriteInput) {
     access_starts_at: input.access_starts_at,
     access_ends_at: input.access_ends_at,
     notes: input.notes,
+    photo_url: input.photo_url ?? null,
+    sync_controlid: input.sync_controlid ?? false,
   };
 }
 
