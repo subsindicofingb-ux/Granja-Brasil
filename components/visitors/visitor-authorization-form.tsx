@@ -31,6 +31,8 @@ interface VisitorAuthorizationFormProps {
     photoUrl?: string | null;
     syncControlId?: boolean;
   };
+  /** Morador/proprietário: unidade fixa, sem escolher outra unidade. */
+  lockUnitSelection?: boolean;
 }
 
 export function VisitorAuthorizationForm({
@@ -41,6 +43,7 @@ export function VisitorAuthorizationForm({
   accessDevices = [],
   defaultAccessDeviceIds = [],
   defaultValues,
+  lockUnitSelection = false,
 }: VisitorAuthorizationFormProps) {
   const action =
     mode === "create" ? createVisitorAuthorizationAction : updateVisitorAuthorizationAction;
@@ -55,6 +58,10 @@ export function VisitorAuthorizationForm({
       </div>
     );
   }
+
+  const singleUnit = units.length === 1 ? units[0] : null;
+  const resolvedUnitId = defaultValues.unit_id || singleUnit?.id || "";
+  const unitLocked = lockUnitSelection && singleUnit !== null;
 
   return (
     <form action={formAction} encType="multipart/form-data" className="space-y-4">
@@ -72,22 +79,34 @@ export function VisitorAuthorizationForm({
 
       <div className="space-y-2">
         <Label htmlFor="unit_id">Unidade</Label>
-        <select
-          id="unit_id"
-          name="unit_id"
-          required
-          defaultValue={defaultValues.unit_id || ""}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-        >
-          <option value="" disabled>
-            Selecione a unidade
-          </option>
-          {units.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {formatUnitOptionLabel(unit, condominiumNamesById)}
+        {unitLocked ? (
+          <>
+            <input type="hidden" name="unit_id" value={singleUnit.id} />
+            <p className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+              {formatUnitOptionLabel(singleUnit, condominiumNamesById)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Visitas só podem ser autorizadas para a sua unidade.
+            </p>
+          </>
+        ) : (
+          <select
+            id="unit_id"
+            name="unit_id"
+            required
+            defaultValue={resolvedUnitId}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          >
+            <option value="" disabled>
+              Selecione a unidade
             </option>
-          ))}
-        </select>
+            {units.map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {formatUnitOptionLabel(unit, condominiumNamesById)}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="space-y-2">

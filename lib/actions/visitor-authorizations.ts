@@ -64,7 +64,7 @@ async function assertCanRegisterForUnit(
 
   if (!unitsResult.data.includes(unitId)) {
     return {
-      error: "Somente o responsável da unidade (proprietário, inquilino ou responsável) pode cadastrar visitantes.",
+      error: "Você só pode autorizar visitas para a sua unidade neste condomínio.",
     };
   }
 

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
-import { listUnitsByCondominium } from "@/lib/services/units";
+import { listUnitsByCondominium, type UnitWithTower } from "@/lib/services/units";
 import {
   listActiveAccessDevicesForCondominium,
   loadActiveAccessDevicesByCondominiumIds,
@@ -88,12 +88,18 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
     listActiveAccessDevicesForCondominium(access.condominium.id),
   ]);
 
-  let units = unitsResult.ok ? unitsResult.data : [];
+  let units: UnitWithTower[] = [];
 
-  if (!isStaff && ownedUnitsResult.ok) {
-    const owned = new Set(ownedUnitsResult.data);
-    units = units.filter((unit) => owned.has(unit.id));
+  if (isStaff) {
+    units = unitsResult.ok ? unitsResult.data : [];
+  } else if (!ownedUnitsResult.ok || ownedUnitsResult.data.length === 0) {
+    units = [];
+  } else {
+    const allowed = new Set(ownedUnitsResult.data);
+    units = (unitsResult.ok ? unitsResult.data : []).filter((unit) => allowed.has(unit.id));
   }
+
+  const defaultUnitId = !isStaff && units.length === 1 ? units[0].id : "";
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -102,7 +108,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
         description={
           isStaff
             ? "Registro imediato como aprovado (staff)."
-            : "Solicitação enviada para aprovação do síndico."
+            : "Solicitação enviada para aprovação do síndico. Somente para a sua unidade."
         }
       />
 
@@ -116,7 +122,11 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
             mode="create"
             units={units}
             accessDevices={devicesResult.ok ? devicesResult.data : []}
-            defaultValues={DEFAULT_VISITOR_AUTHORIZATION_FORM}
+            lockUnitSelection={!isStaff}
+            defaultValues={{
+              ...DEFAULT_VISITOR_AUTHORIZATION_FORM,
+              unit_id: defaultUnitId,
+            }}
           />
         </CardContent>
       </Card>
