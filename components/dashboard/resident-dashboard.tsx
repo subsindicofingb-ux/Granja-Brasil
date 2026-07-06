@@ -138,8 +138,8 @@ export function ResidentDashboard({
 
   if (permissions.canSendAnnouncements) {
     quickActions.push({
-      title: "Falar com o condomínio",
-      description: "Envie uma mensagem ao síndico",
+      title: "Fale com o condomínio",
+      description: "Mensagem ao síndico ou Granja Brasil",
       href: `${base}/announcements/new`,
       icon: MessageSquarePlus,
       accent: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100/80",

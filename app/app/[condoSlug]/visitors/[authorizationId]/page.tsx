@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import { listUnitIdsForVisitorRegistration } from "@/lib/services/visitor-access-grants";
 import {
   getVisitorAuthorizationAccessDeviceIds,
   listVisitorAccessGrants,
@@ -59,14 +61,14 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
   const isStaff = access.permissions.canManageVisitorAuthorizations;
   const canApprove = access.permissions.canApproveVisitorAuthorizations;
   const canConsult = access.permissions.canConsultVisitorAuthorizations;
+  const isResident = access.role === ROLES.RESIDENT;
 
   let canCancel = isStaff;
 
   if (!isStaff && access.permissions.canRegisterVisitorAuthorizations) {
-    const unitsResult = await listUnitIdsForProfile(
-      access.profile.id,
-      access.condominium.id,
-    );
+    const unitsResult = isResident
+      ? await listUnitIdsForVisitorRegistration(access.profile.id, access.condominium.id)
+      : await listUnitIdsForProfile(access.profile.id, access.condominium.id);
     canCancel =
       unitsResult.ok &&
       unitsResult.data.includes(authorization.unit_id) &&
@@ -106,8 +108,17 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
     listVisitorAccessGrants(authorization.id),
   ]);
 
-  const canManageAccess =
-    isStaff || canConsult;
+  const residentUnitsResult = isResident
+    ? await listUnitIdsForVisitorRegistration(access.profile.id, access.condominium.id)
+    : { ok: true as const, data: [] as string[] };
+
+  const canManageOwnUnitVisitors =
+    isResident &&
+    access.permissions.canRegisterVisitorAuthorizations &&
+    residentUnitsResult.ok &&
+    residentUnitsResult.data.includes(authorization.unit_id);
+
+  const canManageAccess = isStaff || canConsult || canManageOwnUnitVisitors;
 
   const showDoormanNotes =
     canConsult &&

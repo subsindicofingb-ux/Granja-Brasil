@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { UnitWithTower } from "@/lib/services/units";
 import { buildVisitorControlIdRegistration } from "@/lib/access-devices/registration";
 import {
   enqueueVisitorAccessSyncJob,
@@ -286,10 +287,52 @@ export async function listVisitorAccessGrants(visitorAuthorizationId: string) {
   );
 }
 
+type ResidentUnitRow = {
+  unit_id: string;
+  units: {
+    id: string;
+    tower_id: string;
+    number: string;
+    block: string | null;
+    created_at: string;
+    updated_at: string;
+    towers: {
+      id: string;
+      name: string;
+      condominium_id: string;
+    };
+  };
+};
+
+function mapResidentUnitRow(row: ResidentUnitRow) {
+  return {
+    id: row.units.id,
+    tower_id: row.units.tower_id,
+    number: row.units.number,
+    block: row.units.block,
+    created_at: row.units.created_at,
+    updated_at: row.units.updated_at,
+    tower: row.units.towers,
+  };
+}
+
 export async function listUnitIdsForVisitorRegistration(
   profileId: string,
   condominiumId: string,
 ): Promise<ServiceResult<string[]>> {
+  const unitsResult = await listUnitsForVisitorRegistration(profileId, condominiumId);
+
+  if (!unitsResult.ok) {
+    return unitsResult;
+  }
+
+  return serviceOk(unitsResult.data.map((unit) => unit.id));
+}
+
+export async function listUnitsForVisitorRegistration(
+  profileId: string,
+  condominiumId: string,
+): Promise<ServiceResult<UnitWithTower[]>> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -297,9 +340,16 @@ export async function listUnitIdsForVisitorRegistration(
     .select(
       `
       unit_id,
-      type,
       units!inner (
+        id,
+        tower_id,
+        number,
+        block,
+        created_at,
+        updated_at,
         towers!inner (
+          id,
+          name,
           condominium_id
         )
       )
@@ -313,6 +363,18 @@ export async function listUnitIdsForVisitorRegistration(
     return serviceError(mapSupabaseError(error));
   }
 
-  const unitIds = [...new Set((data ?? []).map((row) => row.unit_id as string))];
-  return serviceOk(unitIds);
+  const seen = new Set<string>();
+  const units: UnitWithTower[] = [];
+
+  for (const row of (data as ResidentUnitRow[] | null) ?? []) {
+    if (seen.has(row.unit_id)) {
+      continue;
+    }
+    seen.add(row.unit_id);
+    units.push(mapResidentUnitRow(row));
+  }
+
+  units.sort((left, right) => left.number.localeCompare(right.number, "pt-BR"));
+
+  return serviceOk(units);
 }

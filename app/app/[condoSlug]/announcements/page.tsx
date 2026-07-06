@@ -21,19 +21,30 @@ interface AnnouncementsPageProps {
 async function AnnouncementsHeader({ condoSlug }: { condoSlug: string }) {
   const access = await requireCondoAccess(condoSlug);
   const canCreate = access.permissions.canManageAnnouncements;
+  const canSendMessage = access.permissions.canSendAnnouncements && !canCreate;
   const canContactGranja = canCreate && !isGeneralCondominium(condoSlug);
 
   return (
     <PageHeader
       title="Avisos"
       description={
-        canContactGranja
-          ? "Comunicados com moradores, mensagens recebidas e conversas com a Granja Brasil."
-          : "Comunicados do condomínio para moradores e portaria."
+        canSendMessage
+          ? "Comunicados do condomínio. Você pode ler avisos e enviar mensagens pelo Fale com o condomínio."
+          : canContactGranja
+            ? "Comunicados com moradores, mensagens recebidas e conversas com a Granja Brasil."
+            : "Comunicados do condomínio para moradores e portaria."
       }
       action={
-        canCreate || canContactGranja ? (
+        canCreate || canContactGranja || canSendMessage ? (
           <div className="flex flex-wrap gap-2">
+            {canSendMessage && (
+              <Button asChild>
+                <Link href={`/app/${condoSlug}/announcements/new`}>
+                  <MessageSquarePlus className="h-4 w-4" />
+                  Fale com o condomínio
+                </Link>
+              </Button>
+            )}
             {canContactGranja && (
               <Button variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/announcements/contact`}>
@@ -164,7 +175,9 @@ async function AnnouncementsContent({
           description={
             towerId || targetCondominiumId
               ? "Não há avisos para o filtro selecionado."
-              : "Publique o primeiro comunicado do condomínio."
+              : access.permissions.canManageAnnouncements
+                ? "Publique o primeiro comunicado do condomínio."
+                : "Os comunicados do condomínio aparecerão aqui."
           }
           action={
             access.permissions.canManageAnnouncements ? (

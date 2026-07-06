@@ -26,11 +26,11 @@ export function ResidentAnnouncementForm({ condoSlug }: ResidentAnnouncementForm
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="destination" value="condominium" defaultChecked />
-            Meu condomínio (Síndico)
+            Meu condomínio (falar com o síndico)
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="destination" value="granja" />
-            Granja Brasil
+            Granja Brasil (administrador / super admin)
           </label>
         </div>
       </fieldset>

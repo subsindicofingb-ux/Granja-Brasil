@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
+import { ROLES } from "@/lib/constants";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -14,6 +16,7 @@ import {
   listUnitIdsForVisitorRegistration,
   replaceVisitorAuthorizationAccessDevices,
 } from "@/lib/services/visitor-access-grants";
+import { notifyVisitorAuthorizationRequest } from "@/lib/visitors/notifications";
 import {
   approveVisitorAuthorization,
   cancelVisitorAuthorization,
@@ -47,12 +50,12 @@ function getPhotoFile(formData: FormData): File | null {
 }
 
 async function assertCanRegisterForUnit(
-  isStaff: boolean,
+  isResidentRegistration: boolean,
   profileId: string,
   condominiumId: string,
   unitId: string,
 ): Promise<AuthActionState | null> {
-  if (isStaff) {
+  if (!isResidentRegistration) {
     return null;
   }
 
@@ -66,6 +69,37 @@ async function assertCanRegisterForUnit(
     return {
       error: "Você só pode autorizar visitas para a sua unidade neste condomínio.",
     };
+  }
+
+  return null;
+}
+
+async function assertCanCheckInOutVisitor(
+  access: Awaited<ReturnType<typeof requireCondoAccess>>,
+  unitId: string,
+): Promise<AuthActionState | null> {
+  if (
+    access.permissions.canManageVisitorAuthorizations ||
+    access.permissions.canConsultVisitorAuthorizations
+  ) {
+    return null;
+  }
+
+  if (access.role !== ROLES.RESIDENT || !access.permissions.canRegisterVisitorAuthorizations) {
+    return { error: "Sem permissão para registrar entrada ou saída do visitante." };
+  }
+
+  const unitsResult = await listUnitIdsForVisitorRegistration(
+    access.profile.id,
+    access.condominium.id,
+  );
+
+  if (!unitsResult.ok) {
+    return { error: unitsResult.error };
+  }
+
+  if (!unitsResult.data.includes(unitId)) {
+    return { error: "Você só pode registrar check-in/out de visitantes da sua unidade." };
   }
 
   return null;
@@ -113,11 +147,12 @@ export async function createVisitorAuthorizationAction(
   }
 
   const isStaff = access.permissions.canManageVisitorAuthorizations;
+  const isResidentRegistration = access.role === ROLES.RESIDENT;
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
 
   const unitCheck = await assertCanRegisterForUnit(
-    isStaff,
+    isResidentRegistration,
     access.profile.id,
     access.condominium.id,
     parsed.data.unit_id,
@@ -171,6 +206,20 @@ export async function createVisitorAuthorizationAction(
 
   if (isStaff && syncControlId && accessDeviceIds.length > 0) {
     await activateVisitorAccessGrantsOnApproval(result.data.id, unitContext.data.unitCondominiumId);
+  }
+
+  if (!isStaff) {
+    after(async () => {
+      try {
+        await notifyVisitorAuthorizationRequest({
+          authorization: result.data,
+          condominiumId: access.condominium.id,
+          requesterName: access.profile.fullName,
+        });
+      } catch (error) {
+        console.error("[visitors:notify-request]", error);
+      }
+    });
   }
 
   revalidateVisitorPaths(condoSlug, result.data.id);
@@ -376,14 +425,14 @@ export async function checkInVisitorAuthorizationAction(
 ): Promise<AuthActionState> {
   const condoSlug = String(formData.get("condo_slug") ?? "");
   const authorizationId = String(formData.get("authorization_id") ?? "");
+  const unitId = String(formData.get("unit_id") ?? "");
 
-  const access = await requireCondoPermission(
-    condoSlug,
-    (ctx) =>
-      ctx.permissions.canManageVisitorAuthorizations ||
-      ctx.permissions.canConsultVisitorAuthorizations,
-    { redirectTo: `/app/${condoSlug}/visitors/${authorizationId}` },
-  );
+  const access = await requireCondoAccess(condoSlug);
+  const permissionCheck = await assertCanCheckInOutVisitor(access, unitId);
+
+  if (permissionCheck?.error) {
+    return permissionCheck;
+  }
 
   const result = await checkInVisitorAuthorization({
     visitorAuthorizationId: authorizationId,
@@ -404,14 +453,14 @@ export async function checkOutVisitorAuthorizationAction(
 ): Promise<AuthActionState> {
   const condoSlug = String(formData.get("condo_slug") ?? "");
   const authorizationId = String(formData.get("authorization_id") ?? "");
+  const unitId = String(formData.get("unit_id") ?? "");
 
-  const access = await requireCondoPermission(
-    condoSlug,
-    (ctx) =>
-      ctx.permissions.canManageVisitorAuthorizations ||
-      ctx.permissions.canConsultVisitorAuthorizations,
-    { redirectTo: `/app/${condoSlug}/visitors/${authorizationId}` },
-  );
+  const access = await requireCondoAccess(condoSlug);
+  const permissionCheck = await assertCanCheckInOutVisitor(access, unitId);
+
+  if (permissionCheck?.error) {
+    return permissionCheck;
+  }
 
   const result = await checkOutVisitorAuthorization({
     visitorAuthorizationId: authorizationId,

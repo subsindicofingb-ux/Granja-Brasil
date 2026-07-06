@@ -320,3 +320,29 @@ export async function notifyAnnouncementReply(input: {
     actionLabel: "Abrir conversa",
   });
 }
+
+export async function notifyAnnouncementRead(input: {
+  announcement: AnnouncementWithDetails;
+  readerProfileId: string;
+  readerName: string;
+}): Promise<void> {
+  const { announcement, readerProfileId, readerName } = input;
+
+  if (!announcement.created_by || announcement.created_by === readerProfileId) {
+    return;
+  }
+
+  const fallbackCondoSlug = await resolveFallbackSlug(announcement);
+
+  await sendAnnouncementEmailToProfiles({
+    profileIds: [announcement.created_by],
+    excludeProfileId: readerProfileId,
+    fallbackCondoSlug,
+    announcementId: announcement.id,
+    subject: `Leitura confirmada: ${announcement.title}`,
+    preview: `${readerName} leu seu aviso.`,
+    title: "Leitura confirmada",
+    bodyText: `${readerName} confirmou a leitura do aviso "${announcement.title}".`,
+    actionLabel: "Ver confirmações",
+  });
+}

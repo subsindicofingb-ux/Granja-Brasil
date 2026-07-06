@@ -54,7 +54,9 @@ export function VisitorAuthorizationForm({
   if (units.length === 0) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-        Nenhuma unidade disponível para autorização neste condomínio.
+        {lockUnitSelection
+          ? "Somente proprietários, responsáveis ou inquilinos da unidade podem autorizar visitantes. Verifique seu vínculo com a unidade."
+          : "Nenhuma unidade disponível para autorização neste condomínio."}
       </div>
     );
   }

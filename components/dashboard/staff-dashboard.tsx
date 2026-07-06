@@ -48,6 +48,7 @@ export type StaffDashboardProps = {
   pendingRegistrationRequests: RegistrationRequestRecord[];
   totalVehicleCount: number;
   pendingVehicleCount: number;
+  pendingVisitorCount: number;
   isGlobalRegistrationView: boolean;
   quickActions: Array<{ label: string; href: string }>;
   notificationAlertCount?: number;
@@ -100,6 +101,7 @@ export function StaffDashboard({
   pendingRegistrationRequests,
   totalVehicleCount,
   pendingVehicleCount,
+  pendingVisitorCount,
   isGlobalRegistrationView,
   quickActions,
   notificationAlertCount = 0,
@@ -256,6 +258,15 @@ export function StaffDashboard({
       href: `${base}/notifications`,
       cta: "Ver notificações",
       tone: "border-red-300 bg-red-50 text-red-950",
+    });
+  }
+
+  if (permissions.canApproveVisitorAuthorizations && pendingVisitorCount > 0 && !isGeneralCondo) {
+    attentionItems.push({
+      message: `${pendingVisitorCount} solicitação(ões) de visitante aguardando aprovação.`,
+      href: `${base}/visitors?status=pending`,
+      cta: "Revisar visitantes",
+      tone: "border-emerald-200 bg-emerald-50 text-emerald-950",
     });
   }
 

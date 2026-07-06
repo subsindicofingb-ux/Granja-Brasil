@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { notifyAnnouncementRead } from "@/lib/email/announcement-notifications";
 import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
@@ -93,6 +95,7 @@ export default async function AnnouncementDetailPage({
   }
 
   const isAuthor = announcement.created_by === access.profile.id;
+  const isResidentView = !access.permissions.canManageAnnouncements;
   const showEditForm =
     access.permissions.canManageAnnouncements &&
     !announcement.staff_only &&
@@ -130,6 +133,10 @@ export default async function AnnouncementDetailPage({
     (reply) => reply.created_by !== access.profile.id,
   );
   const shouldTrackRead = !isAuthor || hasReplyFromOthers;
+  const showReplyForm =
+    !announcement.parent_id &&
+    (access.permissions.canManageAnnouncements ||
+      (access.permissions.canSendAnnouncements && announcement.staff_only));
 
   if (!isAuthor) {
     const readResult = await markAnnouncementAsRead({
@@ -138,6 +145,23 @@ export default async function AnnouncementDetailPage({
     });
     if (readResult.ok) {
       readAt = readResult.data.read_at;
+      if (
+        readResult.data.is_new_read &&
+        announcement.created_by &&
+        announcement.created_by !== access.profile.id
+      ) {
+        after(async () => {
+          try {
+            await notifyAnnouncementRead({
+              announcement,
+              readerProfileId: access.profile.id,
+              readerName: access.profile.fullName,
+            });
+          } catch (error) {
+            console.error("[email:announcement-read]", error);
+          }
+        });
+      }
     } else {
       readError = readResult.error;
     }
@@ -195,7 +219,7 @@ export default async function AnnouncementDetailPage({
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="text-muted-foreground">Destino: {audienceLabel}</p>
-            {announcement.expires_at && (
+            {announcement.expires_at && !isResidentView && (
               <p className="text-muted-foreground">
                 Expira em {formatDateTime(announcement.expires_at)}
               </p>
@@ -262,7 +286,7 @@ export default async function AnnouncementDetailPage({
         </Card>
       )}
 
-      {!announcement.parent_id && (
+      {!announcement.parent_id && showReplyForm && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Responder</CardTitle>

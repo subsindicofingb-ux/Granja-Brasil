@@ -28,6 +28,7 @@ import { DoormanDashboard } from "@/components/dashboard/doorman-dashboard";
 import { StaffDashboard } from "@/components/dashboard/staff-dashboard";
 import type { CorrespondenceNotice } from "@/lib/correspondence/types";
 import { countPendingCorrespondenceNotices, listPendingCorrespondenceForProfile } from "@/lib/services/correspondence";
+import { countPendingVisitorAuthorizations } from "@/lib/services/visitor-authorizations";
 import { resolveDoormanOperationalPanel, getOperationalCondominiumIds } from "@/lib/condominiums/doorman-panel";
 import { getWaterMeterDashboardSummary } from "@/lib/services/water-meters";
 import { DashboardSkeleton } from "@/components/dashboard/dashboard-skeleton";
@@ -311,7 +312,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
     notificationAlertCount = alertsResult.ok ? (alertsResult.data ?? 0) : 0;
   }
 
-  const [totalVehicleCount, pendingVehicleCount] =
+  const [totalVehicleCount, pendingVehicleCount, pendingVisitorCount] =
     !isGeneralCondoDashboard && access.permissions.canManageVehicles
       ? await Promise.all([
           countVehicles({ condominiumId: access.condominium.id }),
@@ -319,11 +320,21 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
             condominiumId: access.condominium.id,
             status: VEHICLE_STATUS.PENDING,
           }),
-        ]).then(([totalResult, pendingResult]) => [
+          access.permissions.canApproveVisitorAuthorizations
+            ? countPendingVisitorAuthorizations(access.condominium.id)
+            : Promise.resolve({ ok: true as const, data: 0 }),
+        ]).then(([totalResult, pendingResult, visitorResult]) => [
           totalResult.ok ? (totalResult.data ?? 0) : 0,
           pendingResult.ok ? (pendingResult.data ?? 0) : 0,
+          visitorResult.ok ? (visitorResult.data ?? 0) : 0,
         ])
-      : [0, 0];
+      : !isGeneralCondoDashboard && access.permissions.canApproveVisitorAuthorizations
+        ? await countPendingVisitorAuthorizations(access.condominium.id).then((result) => [
+            0,
+            0,
+            result.ok ? (result.data ?? 0) : 0,
+          ])
+        : [0, 0, 0];
 
   const quickActions = [
     {
@@ -376,6 +387,7 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
       pendingRegistrationRequests={pendingRegistrationRequests}
       totalVehicleCount={totalVehicleCount}
       pendingVehicleCount={pendingVehicleCount}
+      pendingVisitorCount={pendingVisitorCount}
       isGlobalRegistrationView={isGlobalRegistrationView}
       quickActions={quickActions}
       notificationAlertCount={notificationAlertCount}

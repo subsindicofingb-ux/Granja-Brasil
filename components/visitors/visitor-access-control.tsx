@@ -89,6 +89,7 @@ export function VisitorAccessControl({
           <form action={checkInAction}>
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="authorization_id" value={authorization.id} />
+            <input type="hidden" name="unit_id" value={authorization.unit_id} />
             <Button type="submit" size="sm" disabled={checkingIn || checkingOut}>
               {checkingIn ? "Registrando..." : "Registrar check-in"}
             </Button>
@@ -98,6 +99,7 @@ export function VisitorAccessControl({
           <form action={checkOutAction}>
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="authorization_id" value={authorization.id} />
+            <input type="hidden" name="unit_id" value={authorization.unit_id} />
             <Button type="submit" size="sm" variant="outline" disabled={checkingIn || checkingOut}>
               {checkingOut ? "Registrando..." : "Registrar check-out"}
             </Button>

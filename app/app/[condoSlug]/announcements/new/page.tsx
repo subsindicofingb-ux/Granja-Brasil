@@ -34,13 +34,13 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <PageHeader
-          title="Nova mensagem"
-          description="Envie uma mensagem para o síndico do seu condomínio ou para a Granja Brasil."
+          title="Fale com o condomínio"
+          description="Envie uma mensagem para o síndico do seu condomínio ou para a Granja Brasil (administrador / super admin)."
         />
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Sua mensagem</CardTitle>
+            <CardTitle className="text-base">Enviar mensagem</CardTitle>
           </CardHeader>
           <CardContent>
             <ResidentAnnouncementForm condoSlug={condoSlug} />

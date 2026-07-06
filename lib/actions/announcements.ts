@@ -9,6 +9,7 @@ import type { AuthActionState } from "@/lib/auth/types";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import {
   notifyAnnouncementCreated,
+  notifyAnnouncementRead,
   notifyAnnouncementReply,
 } from "@/lib/email/announcement-notifications";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
@@ -62,6 +63,20 @@ async function uploadAnnouncementAttachment(
   }
 
   return { ok: true, url: upload.data, name: file.name };
+}
+
+function scheduleAnnouncementReadNotification(input: {
+  announcement: AnnouncementWithDetails;
+  readerProfileId: string;
+  readerName: string;
+}) {
+  after(async () => {
+    try {
+      await notifyAnnouncementRead(input);
+    } catch (error) {
+      console.error("[email:announcement-read]", error);
+    }
+  });
 }
 
 function scheduleAnnouncementCreatedNotification(input: {
@@ -409,6 +424,18 @@ export async function markAnnouncementViewedAction(
 
     if (!readResult.ok) {
       return { ok: false, error: readResult.error ?? "Não foi possível registrar a leitura." };
+    }
+
+    if (
+      readResult.data.is_new_read &&
+      announcement.created_by &&
+      announcement.created_by !== access.profile.id
+    ) {
+      scheduleAnnouncementReadNotification({
+        announcement,
+        readerProfileId: access.profile.id,
+        readerName: access.profile.fullName,
+      });
     }
   }
 

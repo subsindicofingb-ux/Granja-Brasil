@@ -457,8 +457,21 @@ export async function updateAnnouncement(input: {
 export async function markAnnouncementAsRead(input: {
   announcementId: string;
   profileId: string;
-}): Promise<ServiceResult<{ read_at: string }>> {
+}): Promise<ServiceResult<{ read_at: string; is_new_read: boolean }>> {
   const readAt = new Date().toISOString();
+  const readClient = await getAnnouncementWriteClient();
+
+  const { data: existingRead, error: existingError } = await readClient
+    .from("announcement_reads")
+    .select("read_at")
+    .eq("announcement_id", input.announcementId)
+    .eq("profile_id", input.profileId)
+    .maybeSingle();
+
+  if (!existingError && existingRead?.read_at) {
+    return serviceOk({ read_at: existingRead.read_at as string, is_new_read: false });
+  }
+
   const sessionClient = await createClient();
 
   const { data: rpcReadAt, error: rpcError } = await sessionClient.rpc("mark_announcement_read", {
@@ -466,10 +479,8 @@ export async function markAnnouncementAsRead(input: {
   });
 
   if (!rpcError && rpcReadAt) {
-    return serviceOk({ read_at: rpcReadAt as string });
+    return serviceOk({ read_at: rpcReadAt as string, is_new_read: true });
   }
-
-  const readClient = await getAnnouncementWriteClient();
 
   const { data: updatedRows, error: updateError } = await readClient
     .from("announcement_reads")
@@ -479,7 +490,7 @@ export async function markAnnouncementAsRead(input: {
     .select("read_at");
 
   if (!updateError && updatedRows && updatedRows.length > 0) {
-    return serviceOk({ read_at: updatedRows[0].read_at as string });
+    return serviceOk({ read_at: updatedRows[0].read_at as string, is_new_read: true });
   }
 
   const { data, error } = await readClient
@@ -496,7 +507,7 @@ export async function markAnnouncementAsRead(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk({ read_at: data.read_at });
+  return serviceOk({ read_at: data.read_at, is_new_read: true });
 }
 
 export type AnnouncementUnreadState = {

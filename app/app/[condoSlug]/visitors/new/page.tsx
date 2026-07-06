@@ -1,14 +1,14 @@
 import { redirect } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
-import { listUnitsByCondominium, type UnitWithTower } from "@/lib/services/units";
+import { listUnitsByCondominium } from "@/lib/services/units";
 import {
   listActiveAccessDevicesForCondominium,
   loadActiveAccessDevicesByCondominiumIds,
 } from "@/lib/services/resident-access-grants";
-import { listUnitIdsForVisitorRegistration } from "@/lib/services/visitor-access-grants";
-import { serviceOk } from "@/lib/services/types";
+import { listUnitsForVisitorRegistration } from "@/lib/services/visitor-access-grants";
 import { DEFAULT_VISITOR_AUTHORIZATION_FORM } from "@/lib/visitor-authorizations/defaults";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -30,6 +30,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
   }
 
   const isStaff = access.permissions.canManageVisitorAuthorizations;
+  const isResidentRegistration = access.role === ROLES.RESIDENT;
   const isGeneralCondo = isGeneralCondominium(condoSlug);
 
   if (isGeneralCondo && isStaff) {
@@ -80,26 +81,15 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
     );
   }
 
-  const [unitsResult, ownedUnitsResult, devicesResult] = await Promise.all([
-    listUnitsByCondominium(access.condominium.id),
-    isStaff
-      ? Promise.resolve(serviceOk([] as string[]))
-      : listUnitIdsForVisitorRegistration(access.profile.id, access.condominium.id),
+  const [unitsResult, devicesResult] = await Promise.all([
+    isResidentRegistration
+      ? listUnitsForVisitorRegistration(access.profile.id, access.condominium.id)
+      : listUnitsByCondominium(access.condominium.id),
     listActiveAccessDevicesForCondominium(access.condominium.id),
   ]);
 
-  let units: UnitWithTower[] = [];
-
-  if (isStaff) {
-    units = unitsResult.ok ? unitsResult.data : [];
-  } else if (!ownedUnitsResult.ok || ownedUnitsResult.data.length === 0) {
-    units = [];
-  } else {
-    const allowed = new Set(ownedUnitsResult.data);
-    units = (unitsResult.ok ? unitsResult.data : []).filter((unit) => allowed.has(unit.id));
-  }
-
-  const defaultUnitId = !isStaff && units.length === 1 ? units[0].id : "";
+  const units = unitsResult.ok ? unitsResult.data : [];
+  const defaultUnitId = isResidentRegistration && units.length === 1 ? units[0].id : "";
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -122,7 +112,7 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
             mode="create"
             units={units}
             accessDevices={devicesResult.ok ? devicesResult.data : []}
-            lockUnitSelection={!isStaff}
+            lockUnitSelection={isResidentRegistration}
             defaultValues={{
               ...DEFAULT_VISITOR_AUTHORIZATION_FORM,
               unit_id: defaultUnitId,

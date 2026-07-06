@@ -157,6 +157,24 @@ export async function listVisitorAuthorizationsByCondominium(
   return serviceOk(rows);
 }
 
+export async function countPendingVisitorAuthorizations(
+  condominiumId: string,
+): Promise<ServiceResult<number>> {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from("visitor_authorizations")
+    .select("id", { count: "exact", head: true })
+    .eq("condominium_id", condominiumId)
+    .eq("status", VISITOR_AUTHORIZATION_STATUS.PENDING);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(count ?? 0);
+}
+
 export async function listVisitorAuthorizationsByUnit(
   unitId: string,
   condominiumId: string,
