@@ -468,9 +468,8 @@ export async function markAnnouncementAsRead(input: {
     .eq("profile_id", input.profileId)
     .maybeSingle();
 
-  if (!existingError && existingRead?.read_at) {
-    return serviceOk({ read_at: existingRead.read_at as string, is_new_read: false });
-  }
+  const previousReadAt =
+    !existingError && existingRead?.read_at ? (existingRead.read_at as string) : null;
 
   const sessionClient = await createClient();
 
@@ -479,7 +478,10 @@ export async function markAnnouncementAsRead(input: {
   });
 
   if (!rpcError && rpcReadAt) {
-    return serviceOk({ read_at: rpcReadAt as string, is_new_read: true });
+    return serviceOk({
+      read_at: rpcReadAt as string,
+      is_new_read: !previousReadAt,
+    });
   }
 
   const { data: updatedRows, error: updateError } = await readClient

@@ -67,13 +67,13 @@ export function AnnouncementCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="line-clamp-3 text-sm text-muted-foreground">{announcement.body}</p>
-        {canManage ? (
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/app/${condoSlug}/announcements/${announcement.id}`}>Editar</Link>
-          </Button>
-        ) : isResidentView ? (
+        {isResidentView ? (
           <Button variant="outline" size="sm" asChild>
             <Link href={`/app/${condoSlug}/announcements/${announcement.id}`}>Ler</Link>
+          </Button>
+        ) : canManage ? (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/app/${condoSlug}/announcements/${announcement.id}`}>Editar</Link>
           </Button>
         ) : null}
       </CardContent>

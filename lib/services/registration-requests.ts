@@ -876,25 +876,29 @@ export async function listRegistrationRequestsForCondominiums(
     return serviceOk([]);
   }
 
-  const supabase = await createClient();
+  try {
+    const admin = createAdminClient();
 
-  let query = supabase
-    .from("registration_requests")
-    .select(REQUEST_SELECT)
-    .in("condominium_id", condominiumIds)
-    .order("created_at", { ascending: false });
+    let query = admin
+      .from("registration_requests")
+      .select(REQUEST_SELECT)
+      .in("condominium_id", condominiumIds)
+      .order("created_at", { ascending: false });
 
-  if (status) {
-    query = query.eq("status", status);
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    return serviceOk(((data as RequestRow[] | null) ?? []).map(mapRequestRow));
+  } catch {
+    return serviceError("Não foi possível carregar as solicitações.");
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return serviceError(mapSupabaseError(error));
-  }
-
-  return serviceOk(((data as RequestRow[] | null) ?? []).map(mapRequestRow));
 }
 
 export async function countPendingRegistrationRequests(
@@ -910,19 +914,23 @@ export async function countPendingRegistrationRequestsForCondominiums(
     return serviceOk(0);
   }
 
-  const supabase = await createClient();
+  try {
+    const admin = createAdminClient();
 
-  const { count, error } = await supabase
-    .from("registration_requests")
-    .select("id", { count: "exact", head: true })
-    .in("condominium_id", condominiumIds)
-    .eq("status", "pending");
+    const { count, error } = await admin
+      .from("registration_requests")
+      .select("id", { count: "exact", head: true })
+      .in("condominium_id", condominiumIds)
+      .eq("status", "pending");
 
-  if (error) {
-    return serviceError(mapSupabaseError(error));
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+
+    return serviceOk(count ?? 0);
+  } catch {
+    return serviceError("Não foi possível contar as solicitações.");
   }
-
-  return serviceOk(count ?? 0);
 }
 
 export async function listAllPendingRegistrationRequests(): Promise<
