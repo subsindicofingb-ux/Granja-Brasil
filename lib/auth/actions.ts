@@ -252,11 +252,10 @@ export async function requestPasswordResetAction(
       return { error: formatPasswordResetError(linkError.message) };
     }
 
-    const actionLink = linkData.properties?.action_link;
     const hashedToken = linkData.properties?.hashed_token;
-    const recoveryLink =
-      actionLink ??
-      (hashedToken ? buildPasswordRecoveryCallbackUrl(hashedToken, preferredOrigin) : null);
+    const recoveryLink = hashedToken
+      ? buildPasswordRecoveryCallbackUrl(hashedToken, preferredOrigin, existingUser.email)
+      : linkData.properties?.action_link;
 
     if (recoveryLink && isEmailConfigured()) {
       const sent = await sendPasswordResetEmail({

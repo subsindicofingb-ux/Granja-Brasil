@@ -14,28 +14,8 @@ function PasswordRecoveryLoaderContent() {
     let cancelled = false;
 
     async function establishSession() {
-      const tokenHash =
-        searchParams.get("token_hash") ?? searchParams.get("token");
-      const type = searchParams.get("type");
-      const code = searchParams.get("code");
-
-      if (tokenHash && type) {
-        const params = new URLSearchParams({ token_hash: tokenHash, type });
-        window.location.assign(`/auth/confirm?${params.toString()}`);
-        return;
-      }
-
-      if (code) {
-        const params = new URLSearchParams({
-          code,
-          next: "/reset-password",
-          type: "recovery",
-        });
-        window.location.assign(`/auth/callback?${params.toString()}`);
-        return;
-      }
-
       const supabase = createClient();
+
       const hash = window.location.hash.startsWith("#")
         ? window.location.hash.slice(1)
         : window.location.hash;
@@ -57,6 +37,31 @@ function PasswordRecoveryLoaderContent() {
             return;
           }
         }
+      }
+
+      const tokenHash =
+        searchParams.get("token_hash") ?? searchParams.get("token");
+      const type = searchParams.get("type");
+      const email = searchParams.get("email");
+
+      if (tokenHash && type) {
+        const params = new URLSearchParams({ token_hash: tokenHash, type });
+        if (email) {
+          params.set("email", email);
+        }
+        window.location.assign(`/auth/confirm?${params.toString()}`);
+        return;
+      }
+
+      const code = searchParams.get("code");
+      if (code) {
+        const params = new URLSearchParams({
+          code,
+          next: "/reset-password",
+          type: "recovery",
+        });
+        window.location.assign(`/auth/callback?${params.toString()}`);
+        return;
       }
 
       const {

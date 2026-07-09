@@ -17,6 +17,9 @@ export function asBrowserSessionCookieOptions(
     return { path: "/", sameSite: "lax" };
   }
 
-  const { maxAge: _maxAge, expires: _expires, ...rest } = options;
-  return rest;
+  return {
+    ...options,
+    path: options.path ?? "/",
+    sameSite: options.sameSite ?? "lax",
+  };
 }
