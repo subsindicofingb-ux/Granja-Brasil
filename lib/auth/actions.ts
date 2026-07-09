@@ -30,7 +30,7 @@ import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
-import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl } from "@/lib/auth/site-url";
+import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl, resolveSiteUrl } from "@/lib/auth/site-url";
 import {
   formatPasswordPolicyError,
   getPasswordPolicyError,
@@ -91,7 +91,7 @@ function formatPasswordResetError(message: unknown): string {
 }
 
 function getPasswordResetRedirectUrl(preferredOrigin?: string | null): string {
-  return buildAuthCallbackUrl("/reset-password", preferredOrigin, "recovery");
+  return `${resolveSiteUrl(preferredOrigin)}/reset-password`;
 }
 
 export async function confirmPasswordRecoverySessionAction(): Promise<
