@@ -41,14 +41,10 @@ function PasswordRecoveryLoaderContent() {
 
       const tokenHash =
         searchParams.get("token_hash") ?? searchParams.get("token");
-      const type = searchParams.get("type");
-      const email = searchParams.get("email");
+      const type = searchParams.get("type") ?? "recovery";
 
-      if (tokenHash && type) {
+      if (tokenHash) {
         const params = new URLSearchParams({ token_hash: tokenHash, type });
-        if (email) {
-          params.set("email", email);
-        }
         window.location.assign(`/auth/confirm?${params.toString()}`);
         return;
       }

@@ -254,7 +254,7 @@ export async function requestPasswordResetAction(
 
     const hashedToken = linkData.properties?.hashed_token;
     const recoveryLink = hashedToken
-      ? buildPasswordRecoveryCallbackUrl(hashedToken, preferredOrigin, existingUser.email)
+      ? buildPasswordRecoveryCallbackUrl(hashedToken, preferredOrigin)
       : linkData.properties?.action_link;
 
     if (recoveryLink && isEmailConfigured()) {

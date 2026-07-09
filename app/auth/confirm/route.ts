@@ -16,10 +16,9 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash =
     requestUrl.searchParams.get("token_hash") ?? requestUrl.searchParams.get("token");
-  const type = requestUrl.searchParams.get("type");
-  const email = requestUrl.searchParams.get("email");
+  const type = (requestUrl.searchParams.get("type") ?? "recovery") as EmailOtpType;
 
-  if (!tokenHash || !type) {
+  if (!tokenHash) {
     return NextResponse.redirect(new URL("/forgot-password?error=recovery", requestUrl.origin));
   }
 
@@ -45,24 +44,14 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const { error } = await supabase.auth.verifyOtp(
-    email
-      ? {
-          email,
-          token_hash: tokenHash,
-          type: type as EmailOtpType,
-        }
-      : {
-          token_hash: tokenHash,
-          type: type as EmailOtpType,
-        },
-  );
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type,
+  });
 
   if (error) {
     return NextResponse.redirect(new URL("/forgot-password?error=recovery", requestUrl.origin));
   }
-
-  await supabase.auth.getUser();
 
   return response;
 }

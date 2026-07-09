@@ -35,15 +35,11 @@ export function buildAuthCallbackUrl(
 export function buildPasswordRecoveryCallbackUrl(
   tokenHash: string,
   preferredOrigin?: string | null,
-  email?: string | null,
 ): string {
   const siteUrl = resolveSiteUrl(preferredOrigin);
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: "recovery",
   });
-  if (email) {
-    params.set("email", email);
-  }
   return `${siteUrl}/auth/confirm?${params.toString()}`;
 }
