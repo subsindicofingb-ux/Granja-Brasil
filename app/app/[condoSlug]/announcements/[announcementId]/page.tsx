@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { ROLES } from "@/lib/constants";
 import { notifyAnnouncementRead } from "@/lib/email/announcement-notifications";
@@ -147,6 +148,8 @@ export default async function AnnouncementDetailPage({
     });
     if (readResult.ok) {
       readAt = readResult.data.read_at;
+      revalidatePath(`/app/${condoSlug}`);
+      revalidatePath(`/app/${condoSlug}/announcements`);
       if (
         readResult.data.is_new_read &&
         announcement.created_by &&
@@ -176,6 +179,8 @@ export default async function AnnouncementDetailPage({
 
       if (readResult.ok) {
         readAt = readResult.data.read_at;
+        revalidatePath(`/app/${condoSlug}`);
+        revalidatePath(`/app/${condoSlug}/announcements`);
       } else {
         readError = readResult.error;
       }

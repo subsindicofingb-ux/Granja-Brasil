@@ -19,7 +19,15 @@ export function resolveSiteUrl(preferredOrigin?: string | null): string {
   return "http://localhost:3000";
 }
 
-export function buildAuthCallbackUrl(nextPath: string, preferredOrigin?: string | null): string {
+export function buildAuthCallbackUrl(
+  nextPath: string,
+  preferredOrigin?: string | null,
+  authType?: string,
+): string {
   const siteUrl = resolveSiteUrl(preferredOrigin);
-  return `${siteUrl}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  const params = new URLSearchParams({ next: nextPath });
+  if (authType) {
+    params.set("type", authType);
+  }
+  return `${siteUrl}/auth/callback?${params.toString()}`;
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { PasswordRecoveryLoader } from "@/components/auth/password-recovery-loader";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { getAuthUser } from "@/lib/auth/session";
@@ -10,11 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export default async function ResetPasswordPage() {
   const user = await getAuthUser();
 
-  if (!user) {
-    redirect("/forgot-password");
+  if (user) {
+    await setPendingPasswordReset();
   }
-
-  await setPendingPasswordReset();
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row">
@@ -34,10 +32,14 @@ export default async function ResetPasswordPage() {
         <Card className="w-full max-w-md shadow-sm">
           <CardHeader>
             <CardTitle>Nova senha</CardTitle>
-            <CardDescription>Escolha uma senha com pelo menos 6 caracteres.</CardDescription>
+            <CardDescription>
+              {user
+                ? "Escolha uma senha com pelo menos 6 caracteres."
+                : "Aguarde enquanto validamos o link recebido por e-mail."}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResetPasswordForm />
+            {user ? <ResetPasswordForm /> : <PasswordRecoveryLoader />}
           </CardContent>
         </Card>
         <p className="mt-4 text-center text-xs text-muted-foreground">

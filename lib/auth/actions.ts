@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { ROLES } from "@/lib/constants";
 import { clearActiveCondoSlug } from "@/lib/auth/active-condo";
-import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
+import { clearPendingPasswordReset, setPendingPasswordReset } from "@/lib/auth/password-reset";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
@@ -76,7 +76,31 @@ function formatPasswordResetError(message: unknown): string {
 }
 
 function getPasswordResetRedirectUrl(preferredOrigin?: string | null): string {
-  return buildAuthCallbackUrl("/reset-password", preferredOrigin);
+  return buildAuthCallbackUrl("/reset-password", preferredOrigin, "recovery");
+}
+
+export async function confirmPasswordRecoverySessionAction(): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Supabase não configurado." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { ok: false, error: "Sessão de recuperação não encontrada." };
+    }
+
+    await setPendingPasswordReset();
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível confirmar a sessão de recuperação." };
+  }
 }
 
 async function findAuthUserByEmail(

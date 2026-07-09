@@ -1,3 +1,4 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/auth/session";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
@@ -34,50 +35,11 @@ function redirectWithOptionalPasswordReset(
   return response;
 }
 
-export async function GET(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=config", request.url));
-  }
-
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const type = requestUrl.searchParams.get("type");
-  const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
-  const supabase = await createClient();
-
-  if (!code) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      try {
-        await ensureProfile(user);
-        await cleanupOrphanResidentMemberships(user.id);
-      } catch {
-        // Sessão já existe; profile pode ser garantido depois.
-      }
-
-      const destination = await resolveSafeAppRedirect(supabase, next);
-      const redirectTarget =
-        destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
-      return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
-    }
-
-    const oauthError = requestUrl.searchParams.get("error");
-    if (oauthError) {
-      return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
-    }
-
-    return NextResponse.redirect(new URL("/login", requestUrl.origin));
-  }
-
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
-  }
-
+async function finalizeAuthRedirect(
+  requestUrl: URL,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  next: string,
+) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -95,4 +57,59 @@ export async function GET(request: Request) {
   const redirectTarget =
     destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
   return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+}
+
+export async function GET(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.redirect(new URL("/login?error=config", request.url));
+  }
+
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const type = requestUrl.searchParams.get("type");
+  const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
+  const supabase = await createClient();
+
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: type as EmailOtpType,
+    });
+
+    if (error) {
+      return NextResponse.redirect(
+        new URL("/forgot-password?error=recovery", requestUrl.origin),
+      );
+    }
+
+    return finalizeAuthRedirect(requestUrl, supabase, next);
+  }
+
+  if (!code) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      return finalizeAuthRedirect(requestUrl, supabase, next);
+    }
+
+    const oauthError = requestUrl.searchParams.get("error");
+    if (oauthError) {
+      return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
+    }
+
+    return NextResponse.redirect(new URL("/login", requestUrl.origin));
+  }
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return NextResponse.redirect(
+      new URL("/forgot-password?error=recovery", requestUrl.origin),
+    );
+  }
+
+  return finalizeAuthRedirect(requestUrl, supabase, next);
 }
