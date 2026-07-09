@@ -5,11 +5,11 @@ import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface LoginPageProps {
-  searchParams: Promise<{ redirect?: string; error?: string }>;
+  searchParams: Promise<{ redirect?: string; error?: string; reset?: string }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { redirect: redirectTo, error } = await searchParams;
+  const { redirect: redirectTo, error, reset } = await searchParams;
 
   const errorMessage =
     error === "config"
@@ -17,6 +17,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       : error === "callback"
         ? "Não foi possível concluir a autenticação. Tente novamente."
         : null;
+  const successMessage = reset === "success" ? "Senha atualizada com sucesso. Entre com a nova senha." : null;
 
   return (
     <LoginSessionGuard>
@@ -44,6 +45,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {successMessage && (
+              <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                {successMessage}
+              </div>
+            )}
             {errorMessage && (
               <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 {errorMessage}

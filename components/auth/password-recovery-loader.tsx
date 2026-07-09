@@ -44,7 +44,8 @@ function PasswordRecoveryLoaderContent() {
         }
       }
 
-      const tokenHash = searchParams.get("token_hash");
+      const tokenHash =
+        searchParams.get("token_hash") ?? searchParams.get("token");
       const type = searchParams.get("type");
 
       if (tokenHash && type) {

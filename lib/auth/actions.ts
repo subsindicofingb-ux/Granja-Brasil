@@ -30,7 +30,7 @@ import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
-import { buildAuthCallbackUrl } from "@/lib/auth/site-url";
+import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl } from "@/lib/auth/site-url";
 
 function formatAuthError(message: unknown): string {
   const text = message instanceof Error ? message.message : String(message);
@@ -233,7 +233,10 @@ export async function requestPasswordResetAction(
       return { error: formatPasswordResetError(linkError.message) };
     }
 
-    const recoveryLink = linkData.properties?.action_link;
+    const hashedToken = linkData.properties?.hashed_token;
+    const recoveryLink = hashedToken
+      ? buildPasswordRecoveryCallbackUrl(hashedToken, preferredOrigin)
+      : linkData.properties?.action_link;
 
     if (recoveryLink && isEmailConfigured()) {
       const sent = await sendPasswordResetEmail({
@@ -328,9 +331,9 @@ export async function updatePasswordAction(
 
     revalidatePath("/", "layout");
 
-    const safeRedirect = await resolveSafeAppRedirect(supabase, "/app");
+    await supabase.auth.signOut();
 
-    return { redirectTo: buildTabSessionRedirect(safeRedirect) };
+    return { redirectTo: "/login?reset=success" };
   } catch (err) {
     return { error: formatAuthError(err) };
   }

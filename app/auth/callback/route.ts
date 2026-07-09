@@ -66,7 +66,8 @@ export async function GET(request: Request) {
 
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const tokenHash = requestUrl.searchParams.get("token_hash");
+  const tokenHash =
+    requestUrl.searchParams.get("token_hash") ?? requestUrl.searchParams.get("token");
   const type = requestUrl.searchParams.get("type");
   const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
   const supabase = await createClient();

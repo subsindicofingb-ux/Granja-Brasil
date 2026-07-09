@@ -31,3 +31,16 @@ export function buildAuthCallbackUrl(
   }
   return `${siteUrl}/auth/callback?${params.toString()}`;
 }
+
+export function buildPasswordRecoveryCallbackUrl(
+  tokenHash: string,
+  preferredOrigin?: string | null,
+): string {
+  const siteUrl = resolveSiteUrl(preferredOrigin);
+  const params = new URLSearchParams({
+    token_hash: tokenHash,
+    type: "recovery",
+    next: "/reset-password",
+  });
+  return `${siteUrl}/auth/callback?${params.toString()}`;
+}
