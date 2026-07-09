@@ -30,11 +30,7 @@ import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
-import {
-  buildAuthCallbackUrl,
-  buildPasswordRecoveryCallbackUrl,
-  buildPasswordResetPageUrl,
-} from "@/lib/auth/site-url";
+import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl } from "@/lib/auth/site-url";
 import {
   formatPasswordPolicyError,
   getPasswordPolicyError,
@@ -95,10 +91,6 @@ function formatPasswordResetError(message: unknown): string {
 }
 
 function getPasswordResetRedirectUrl(preferredOrigin?: string | null): string {
-  return buildPasswordResetPageUrl(preferredOrigin);
-}
-
-function getPasswordRecoveryGenerateLinkRedirectUrl(preferredOrigin?: string | null): string {
   return buildAuthCallbackUrl("/reset-password", preferredOrigin, "recovery");
 }
 
@@ -218,7 +210,6 @@ export async function requestPasswordResetAction(
 
   const preferredOrigin = String(formData.get("site_url") ?? "").trim() || null;
   const redirectTo = getPasswordResetRedirectUrl(preferredOrigin);
-  const generateLinkRedirectTo = getPasswordRecoveryGenerateLinkRedirectUrl(preferredOrigin);
 
   try {
     if (!getSupabaseServiceRoleKey()) {
@@ -250,7 +241,7 @@ export async function requestPasswordResetAction(
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "recovery",
       email: existingUser.email,
-      options: { redirectTo: generateLinkRedirectTo },
+      options: { redirectTo },
     });
 
     if (linkError) {

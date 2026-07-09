@@ -32,10 +32,6 @@ export function buildAuthCallbackUrl(
   return `${siteUrl}/auth/callback?${params.toString()}`;
 }
 
-export function buildPasswordResetPageUrl(preferredOrigin?: string | null): string {
-  return `${resolveSiteUrl(preferredOrigin)}/reset-password`;
-}
-
 export function buildPasswordRecoveryCallbackUrl(
   tokenHash: string,
   preferredOrigin?: string | null,
