@@ -41,5 +41,5 @@ export function buildPasswordRecoveryCallbackUrl(
     token_hash: tokenHash,
     type: "recovery",
   });
-  return `${siteUrl}/reset-password?${params.toString()}`;
+  return `${siteUrl}/auth/confirm?${params.toString()}`;
 }

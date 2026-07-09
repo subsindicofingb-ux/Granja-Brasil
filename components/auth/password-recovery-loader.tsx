@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { confirmPasswordRecoverySessionAction, verifyPasswordRecoveryTokenAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
 function PasswordRecoveryLoaderContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
@@ -16,6 +14,27 @@ function PasswordRecoveryLoaderContent() {
     let cancelled = false;
 
     async function establishSession() {
+      const tokenHash =
+        searchParams.get("token_hash") ?? searchParams.get("token");
+      const type = searchParams.get("type");
+      const code = searchParams.get("code");
+
+      if (tokenHash && type) {
+        const params = new URLSearchParams({ token_hash: tokenHash, type });
+        window.location.assign(`/auth/confirm?${params.toString()}`);
+        return;
+      }
+
+      if (code) {
+        const params = new URLSearchParams({
+          code,
+          next: "/reset-password",
+          type: "recovery",
+        });
+        window.location.assign(`/auth/callback?${params.toString()}`);
+        return;
+      }
+
       const supabase = createClient();
       const hash = window.location.hash.startsWith("#")
         ? window.location.hash.slice(1)
@@ -33,38 +52,11 @@ function PasswordRecoveryLoaderContent() {
           });
 
           if (!sessionError && !cancelled) {
-            window.history.replaceState({}, "", window.location.pathname);
-            const confirmed = await confirmPasswordRecoverySessionAction();
-            if (confirmed.ok) {
-              router.refresh();
-              return;
-            }
+            window.history.replaceState({}, "", "/reset-password");
+            window.location.assign("/reset-password");
+            return;
           }
         }
-      }
-
-      const tokenHash =
-        searchParams.get("token_hash") ?? searchParams.get("token");
-      const type = searchParams.get("type");
-
-      if (tokenHash && type) {
-        const verified = await verifyPasswordRecoveryTokenAction(tokenHash);
-
-        if (verified.ok && !cancelled) {
-          window.location.assign("/reset-password");
-          return;
-        }
-      }
-
-      const code = searchParams.get("code");
-      if (code && !cancelled) {
-        const params = new URLSearchParams({
-          code,
-          next: "/reset-password",
-          type: "recovery",
-        });
-        window.location.assign(`/auth/callback?${params.toString()}`);
-        return;
       }
 
       const {
@@ -72,11 +64,8 @@ function PasswordRecoveryLoaderContent() {
       } = await supabase.auth.getUser();
 
       if (user && !cancelled) {
-        const confirmed = await confirmPasswordRecoverySessionAction();
-        if (confirmed.ok) {
-          router.refresh();
-          return;
-        }
+        window.location.assign("/reset-password");
+        return;
       }
 
       if (!cancelled) {
@@ -89,7 +78,7 @@ function PasswordRecoveryLoaderContent() {
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams]);
+  }, [searchParams]);
 
   if (error) {
     return (
