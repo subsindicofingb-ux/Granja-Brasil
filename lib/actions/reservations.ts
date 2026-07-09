@@ -141,7 +141,7 @@ export async function createReservationAction(
   const unitCheck = await assertCanBookForUnit(
     condoSlug,
     unitId,
-    isStaff,
+    isStaff && !isResidentForm,
     access.profile.id,
     access.condominium.id,
   );

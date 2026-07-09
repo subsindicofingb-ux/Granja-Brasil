@@ -344,6 +344,7 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
+    await supabase.auth.signOut();
 
     return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
   } catch (err) {

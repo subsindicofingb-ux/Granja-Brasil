@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  APP_SESSION_TAB_KEY,
   clearAppSessionTab,
   hasAppSessionTab,
 } from "@/lib/auth/session-tab";
@@ -69,7 +68,6 @@ export function SessionTabGuard({ children, staleRedirect = "/login" }: SessionT
 }
 
 export function LoginSessionGuard({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const checked = useRef(false);
   const [ready, setReady] = useState(false);
 
@@ -88,19 +86,17 @@ export function LoginSessionGuard({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (sessionStorage.getItem(APP_SESSION_TAB_KEY) === "1") {
-        router.replace("/app");
-        router.refresh();
+      if (hasAppSessionTab()) {
+        window.location.assign("/app");
         return;
       }
 
       clearAppSessionTab();
       void supabase.auth.signOut().finally(() => {
         setReady(true);
-        router.refresh();
       });
     });
-  }, [router]);
+  }, []);
 
   if (!ready) {
     return <SessionLoading />;

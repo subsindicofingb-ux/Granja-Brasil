@@ -67,6 +67,8 @@ export function ReservationForm({
   );
   const singleUnit = units.length === 1 ? units[0] : null;
   const isResident = mode === "resident";
+  const requiresGuestCountForResident =
+    isResident && selectedArea != null && !selectedArea.usesSlotBooking;
 
   if (areas.length === 0) {
     return (
@@ -91,9 +93,6 @@ export function ReservationForm({
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       <input type="hidden" name="form_mode" value={mode} />
-      {singleUnit && isResident && (
-        <input type="hidden" name="unit_id" value={singleUnit.id} />
-      )}
       <FormAlert error={state.error} success={state.success} />
 
       <div className="space-y-2">
@@ -121,13 +120,45 @@ export function ReservationForm({
         </select>
       </div>
 
-      {(!isResident || !singleUnit) && (
+      {isResident ? (
+        units.length === 1 ? (
+          <>
+            <input type="hidden" name="unit_id" value={units[0].id} />
+            <div className="space-y-2">
+              <Label>Unidade</Label>
+              <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
+                {formatUnitOptionLabel(units[0], condominiumNamesById)}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="unit_id">Unidade</Label>
+            <select
+              id="unit_id"
+              name="unit_id"
+              required
+              defaultValue=""
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+            >
+              <option value="" disabled>
+                Selecione a unidade
+              </option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {formatUnitOptionLabel(unit, condominiumNamesById)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )
+      ) : (
         <div className="space-y-2">
           <Label htmlFor="unit_id">Unidade</Label>
           <select
             id="unit_id"
             name="unit_id"
-            required={!singleUnit || !isResident}
+            required
             defaultValue={singleUnit?.id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
           >
@@ -178,10 +209,15 @@ export function ReservationForm({
             </>
           ) : (
             selectedArea && (
-              <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                Horário da reserva: {selectedArea.operatingHours.start} –{" "}
-                {selectedArea.operatingHours.end} (conforme regras do espaço).
-              </p>
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                <p>
+                  Início: {selectedArea.operatingHours.start} · Fim:{" "}
+                  {selectedArea.operatingHours.end}
+                </p>
+                <p className="mt-1 text-xs">
+                  O horário de término é definido automaticamente pelas regras do espaço.
+                </p>
+              </div>
             )
           )}
         </>
@@ -198,7 +234,7 @@ export function ReservationForm({
         </div>
       )}
 
-      {selectedArea?.requiresGuestCount && (
+      {(selectedArea?.requiresGuestCount || requiresGuestCountForResident) && selectedArea && (
         <div className="space-y-2">
           <Label htmlFor="guest_count">Número de convidados</Label>
           <Input
@@ -208,8 +244,11 @@ export function ReservationForm({
             min={1}
             max={selectedArea.capacity}
             required
-            placeholder={`Máximo ${selectedArea.capacity}`}
+            placeholder={`Máximo ${selectedArea.capacity} pessoas`}
           />
+          <p className="text-xs text-muted-foreground">
+            Capacidade máxima do espaço: {selectedArea.capacity} pessoas (incluindo moradores).
+          </p>
         </div>
       )}
 

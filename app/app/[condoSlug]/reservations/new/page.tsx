@@ -27,9 +27,11 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     redirect(`/app/${condoSlug}/reservations`);
   }
 
+  const isResidentRole = access.role === ROLES.RESIDENT;
   const isStaff =
-    access.permissions.canApproveReservations ||
-    access.permissions.canBookReservationsForCondo;
+    !isResidentRole &&
+    (access.permissions.canApproveReservations ||
+      access.permissions.canBookReservationsForCondo);
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const isDoorman = access.role === ROLES.DOORMAN;
 
@@ -88,18 +90,40 @@ export default async function NewReservationPage({ params }: NewReservationPageP
       ? listCommonAreasByCondominium(access.condominium.id, { isActive: true })
       : listReservableCommonAreasForContext(bookingContext, { isActive: true }),
     listUnitsByCondominium(access.condominium.id),
-    isStaff
-      ? Promise.resolve(serviceOk([] as string[]))
-      : listUnitIdsForProfile(access.profile.id, access.condominium.id),
+    isResidentRole
+      ? listUnitIdsForProfile(access.profile.id, access.condominium.id)
+      : Promise.resolve(serviceOk([] as string[])),
   ]);
 
   const areas = areasResult.ok ? areasResult.data : [];
   const areaOptions = await buildReservationAreaOptions(areas);
   let units = unitsResult.ok ? unitsResult.data : [];
 
-  if (!isStaff && ownedUnitsResult.ok) {
+  if (isResidentRole) {
+    if (!ownedUnitsResult.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={ownedUnitsResult.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
     const owned = new Set(ownedUnitsResult.data);
     units = units.filter((unit) => owned.has(unit.id));
+
+    if (units.length === 0) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message="Nenhuma unidade vinculada ao seu cadastro neste condomínio." />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
   }
 
   return (

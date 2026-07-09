@@ -30,6 +30,7 @@ import {
   requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
+import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 
 type ReservationRow = ReservationRecord;
 
@@ -535,16 +536,24 @@ export async function createReservation(input: {
     areaCondominiumId: area.condominium_id,
     granjaCondominiumId,
   });
-  const guestCountRequired = requiresGuestCount(area.name);
+  const guestCountRequired =
+    requiresGuestCount(area.name) ||
+    (input.enforceGuestCount === true && !isSlotBasedArea(area));
 
-  if (guestCountRequired && input.enforceGuestCount !== false) {
+  if (guestCountRequired) {
     if (!input.guestCount || input.guestCount < 1) {
       return serviceError("Informe o número de convidados.");
     }
 
     if (input.guestCount > area.capacity) {
-      return serviceError(`O número de convidados não pode exceder ${area.capacity}.`);
+      return serviceError(
+        `O número de convidados não pode exceder ${area.capacity} (capacidade do espaço).`,
+      );
     }
+  } else if (input.guestCount != null && input.guestCount > area.capacity) {
+    return serviceError(
+      `O número de convidados não pode exceder ${area.capacity} (capacidade do espaço).`,
+    );
   }
 
   const startAt = new Date(input.startAt);
