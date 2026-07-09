@@ -22,21 +22,9 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
       return;
     }
 
+    // Marca a aba ANTES de qualquer navegação para o SessionTabGuard não
+    // encerrar a sessão e causar loop login ↔ /app.
     markAppSessionTab();
-
-    try {
-      const url = new URL(state.redirectTo, window.location.origin);
-      if (url.pathname === "/auth/tab-session") {
-        const next = url.searchParams.get("next");
-        const destination =
-          next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
-        window.location.assign(destination);
-        return;
-      }
-    } catch {
-      // Usa redirectTo como está.
-    }
-
     window.location.assign(state.redirectTo);
   }, [state.redirectTo]);
 

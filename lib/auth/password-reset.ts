@@ -40,3 +40,11 @@ export function applyPendingPasswordResetCookie(response: NextResponse): NextRes
   response.cookies.set(PENDING_PASSWORD_RESET_COOKIE, "1", cookieOptions);
   return response;
 }
+
+export function clearPendingPasswordResetCookie(response: NextResponse): NextResponse {
+  response.cookies.set(PENDING_PASSWORD_RESET_COOKIE, "", {
+    ...cookieOptions,
+    maxAge: 0,
+  });
+  return response;
+}

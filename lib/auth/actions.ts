@@ -178,6 +178,7 @@ export async function signInAction(
       await cleanupOrphanResidentMemberships(data.user.id);
     }
 
+    await clearPendingPasswordReset();
     revalidatePath("/", "layout");
 
     const safeRedirect = await resolveSafeAppRedirect(
