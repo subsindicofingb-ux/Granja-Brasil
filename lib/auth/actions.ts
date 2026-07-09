@@ -87,8 +87,6 @@ function formatAuthError(message: unknown): string {
 const PASSWORD_RESET_SUCCESS_MESSAGE =
   "Se existir uma conta com este e-mail, enviamos um link para redefinir a senha. Verifique a caixa de entrada e o spam.";
 
-const PASSWORD_RESET_SUCCESS_PATH = "/login?reset=success";
-
 function formatPasswordResetError(message: unknown): string {
   const text = message instanceof Error ? message.message : String(message);
   return formatAuthError(text);
@@ -349,13 +347,13 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
-    // Não faz signOut aqui: a página remonta sem usuário e o loader
-    // mostra "link expirado" antes do redirect. O login encerra a sessão.
-    return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
+    // Mantém a sessão e entra no app — evita segundo login e o loop
+    // causado por signOut em paralelo com o formulário.
+    return { redirectTo: buildTabSessionRedirect("/app") };
   } catch (err) {
     const formatted = formatAuthError(err);
     if (!formatted) {
-      return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
+      return { redirectTo: buildTabSessionRedirect("/app") };
     }
 
     return { error: formatted };

@@ -41,12 +41,20 @@ export async function middleware(request: NextRequest) {
   const pendingPasswordReset =
     request.cookies.get(PENDING_PASSWORD_RESET_COOKIE)?.value === "1";
 
+  // Cookie de recuperação só bloqueia /app enquanto a senha ainda não foi salva.
+  // Após salvar, o cookie é limpo; se restar residual, limpa e segue.
   if (pendingPasswordReset && user && pathname.startsWith("/app")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/reset-password";
-    url.search = "";
-    const redirectResponse = NextResponse.redirect(url);
+    // Não redireciona de volta para reset-password (causava loop).
+    // Limpa o cookie e deixa o usuário no app.
+    const redirectResponse = NextResponse.next({ request });
     copyCookies(response, redirectResponse);
+    redirectResponse.cookies.set(PENDING_PASSWORD_RESET_COOKIE, "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
     return redirectResponse;
   }
 

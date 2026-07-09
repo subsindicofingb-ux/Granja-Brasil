@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
-  clearAppSessionTab,
   hasAppSessionTab,
+  markAppSessionTab,
 } from "@/lib/auth/session-tab";
 import { createClient } from "@/lib/supabase/client";
 
@@ -47,16 +47,10 @@ export function SessionTabGuard({ children, staleRedirect = "/login" }: SessionT
         return;
       }
 
-      clearAppSessionTab();
-      void supabase.auth.signOut().finally(() => {
-        if (staleRedirect) {
-          router.replace(staleRedirect);
-          router.refresh();
-          return;
-        }
-
-        setReady(true);
-      });
+      // Sessão válida sem marca de aba (ex.: acabou de redefinir senha):
+      // marca e segue — nunca faz signOut aqui (isso causava o 2º login).
+      markAppSessionTab();
+      setReady(true);
     });
   }, [router, staleRedirect]);
 
@@ -86,15 +80,9 @@ export function LoginSessionGuard({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (hasAppSessionTab()) {
-        window.location.assign("/app");
-        return;
-      }
-
-      clearAppSessionTab();
-      void supabase.auth.signOut().finally(() => {
-        setReady(true);
-      });
+      // Já autenticado: entra no app. Não faz signOut (corrida com o formulário).
+      markAppSessionTab();
+      window.location.assign("/app");
     });
   }, []);
 
