@@ -82,12 +82,6 @@ async function finalizeAuthRedirect(
   return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
 }
 
-function copyResponseCookies(source: NextResponse, target: NextResponse) {
-  source.cookies.getAll().forEach((cookie) => {
-    target.cookies.set(cookie.name, cookie.value, cookie);
-  });
-}
-
 export async function GET(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL("/login?error=config", request.url));
@@ -101,8 +95,7 @@ export async function GET(request: NextRequest) {
   const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
 
   if (tokenHash && type) {
-    const redirectTarget = type === "recovery" ? "/reset-password" : next;
-    const response = redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+    const response = redirectWithOptionalPasswordReset(requestUrl, next);
     const supabase = createRouteHandlerClient(request, response);
     const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
@@ -115,14 +108,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return response;
+    const destination = await resolveSafeAppRedirect(supabase, next);
+    const redirectTarget =
+      destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+    const finalResponse = redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+
+    response.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value);
+    });
+
+    return finalResponse;
   }
 
   if (!code) {
-    if (type === "recovery" || next === "/reset-password") {
-      return NextResponse.redirect(new URL("/reset-password", requestUrl.origin));
-    }
-
     const response = NextResponse.redirect(new URL("/login", requestUrl.origin));
     const supabase = createRouteHandlerClient(request, response);
     const {
@@ -141,11 +139,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", requestUrl.origin));
   }
 
-  const isRecovery = type === "recovery" || next === "/reset-password";
-  const response = redirectWithOptionalPasswordReset(
-    requestUrl,
-    isRecovery ? "/reset-password" : next,
-  );
+  const response = redirectWithOptionalPasswordReset(requestUrl, next);
   const supabase = createRouteHandlerClient(request, response);
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -155,14 +149,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (isRecovery) {
-    return response;
-  }
-
   const destination = await resolveSafeAppRedirect(supabase, next);
-  const redirectTarget = buildTabSessionRedirect(destination);
-  const finalResponse = NextResponse.redirect(new URL(redirectTarget, requestUrl.origin));
-  copyResponseCookies(response, finalResponse);
+  const redirectTarget =
+    destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+  const finalResponse = redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+
+  response.cookies.getAll().forEach((cookie) => {
+    finalResponse.cookies.set(cookie.name, cookie.value);
+  });
 
   return finalResponse;
 }

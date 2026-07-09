@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AuthDivider } from "@/components/auth/auth-divider";
 import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { signInAction } from "@/lib/auth/actions";
+import { markAppSessionTab } from "@/lib/auth/session-tab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,9 +18,26 @@ export function LoginForm({ redirectTo = "/app" }: LoginFormProps) {
   const [state, formAction, pending] = useActionState(signInAction, {});
 
   useEffect(() => {
-    if (state.redirectTo) {
-      window.location.assign(state.redirectTo);
+    if (!state.redirectTo) {
+      return;
     }
+
+    markAppSessionTab();
+
+    try {
+      const url = new URL(state.redirectTo, window.location.origin);
+      if (url.pathname === "/auth/tab-session") {
+        const next = url.searchParams.get("next");
+        const destination =
+          next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+        window.location.assign(destination);
+        return;
+      }
+    } catch {
+      // Usa redirectTo como está.
+    }
+
+    window.location.assign(state.redirectTo);
   }, [state.redirectTo]);
 
   return (
