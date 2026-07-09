@@ -16,6 +16,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhotoField } from "@/components/shared/photo-field";
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint";
+import {
+  isPasswordPolicyCompliant,
+  PASSWORD_MIN_LENGTH,
+} from "@/lib/auth/password-policy";
 
 interface SignUpFormProps {
   condominiums: PublicCondominiumOption[];
@@ -76,7 +81,7 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
   const canSubmit =
     condominiums.length > 0 &&
     fullName.trim().length > 0 &&
-    (isGoogleSignUp || (email.trim().length > 0 && password.length >= 6)) &&
+    (isGoogleSignUp || (email.trim().length > 0 && isPasswordPolicyCompliant(password))) &&
     selectedCondoId &&
     hasRequiredUnit;
 
@@ -153,9 +158,10 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               autoComplete="new-password"
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
               required
             />
+            <PasswordRequirementsHint />
           </div>
         </>
       ) : null}

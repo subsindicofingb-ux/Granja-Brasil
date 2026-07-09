@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { PasswordRecoveryLoader } from "@/components/auth/password-recovery-loader";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { PASSWORD_REQUIREMENTS_HINT } from "@/lib/auth/password-policy";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { getAuthUser } from "@/lib/auth/session";
 import { setPendingPasswordReset } from "@/lib/auth/password-reset";
@@ -33,9 +34,7 @@ export default async function ResetPasswordPage() {
           <CardHeader>
             <CardTitle>Nova senha</CardTitle>
             <CardDescription>
-              {user
-                ? "Escolha uma senha com pelo menos 6 caracteres."
-                : "Aguarde enquanto validamos o link recebido por e-mail."}
+              {user ? PASSWORD_REQUIREMENTS_HINT : "Aguarde enquanto validamos o link recebido por e-mail."}
             </CardDescription>
           </CardHeader>
           <CardContent>

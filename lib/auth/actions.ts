@@ -31,8 +31,17 @@ import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/reg
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
 import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl } from "@/lib/auth/site-url";
+import {
+  formatPasswordPolicyError,
+  getPasswordPolicyError,
+} from "@/lib/auth/password-policy";
 
 function formatAuthError(message: unknown): string {
+  const policyError = formatPasswordPolicyError(message);
+  if (policyError) {
+    return policyError;
+  }
+
   const text = message instanceof Error ? message.message : String(message);
   const lower = text.toLowerCase();
 
@@ -287,8 +296,9 @@ export async function updatePasswordAction(
     return { error: "Informe a nova senha." };
   }
 
-  if (password.length < 6) {
-    return { error: "A senha deve ter pelo menos 6 caracteres." };
+  const passwordPolicyError = getPasswordPolicyError(password);
+  if (passwordPolicyError) {
+    return { error: passwordPolicyError };
   }
 
   if (password !== confirmPassword) {
@@ -328,12 +338,8 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
-
-    revalidatePath("/", "layout");
-
     await supabase.auth.signOut();
-
-    return { redirectTo: "/login?reset=success" };
+    redirect("/login?reset=success");
   } catch (err) {
     return { error: formatAuthError(err) };
   }
@@ -419,8 +425,9 @@ export async function signUpAction(
       return { error: "Informe a senha." };
     }
 
-    if (password.length < 6) {
-      return { error: "A senha deve ter pelo menos 6 caracteres." };
+    const passwordPolicyError = getPasswordPolicyError(password);
+    if (passwordPolicyError) {
+      return { error: passwordPolicyError };
     }
   }
 

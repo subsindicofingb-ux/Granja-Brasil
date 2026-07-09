@@ -1,20 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
+import { useActionState } from "react";
 import { updatePasswordAction } from "@/lib/auth/actions";
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint";
+import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export function ResetPasswordForm() {
   const [state, formAction, pending] = useActionState(updatePasswordAction, {});
-
-  useEffect(() => {
-    if (state.redirectTo) {
-      window.location.assign(state.redirectTo);
-    }
-  }, [state.redirectTo]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -24,6 +20,8 @@ export function ResetPasswordForm() {
         </div>
       )}
 
+      <PasswordRequirementsHint />
+
       <div className="space-y-2">
         <Label htmlFor="password">Nova senha</Label>
         <Input
@@ -31,8 +29,7 @@ export function ResetPasswordForm() {
           name="password"
           type="password"
           autoComplete="new-password"
-          placeholder="••••••••"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
         />
       </div>
@@ -44,8 +41,7 @@ export function ResetPasswordForm() {
           name="confirm_password"
           type="password"
           autoComplete="new-password"
-          placeholder="••••••••"
-          minLength={6}
+          minLength={PASSWORD_MIN_LENGTH}
           required
         />
       </div>
