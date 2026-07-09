@@ -3,7 +3,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { PasswordRecoveryLoader } from "@/components/auth/password-recovery-loader";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 import { PASSWORD_REQUIREMENTS_HINT } from "@/lib/auth/password-policy";
-import { hasPendingPasswordReset, setPendingPasswordReset } from "@/lib/auth/password-reset";
+import { setPendingPasswordReset } from "@/lib/auth/password-reset";
 import { BRAND_TAGLINE } from "@/lib/brand";
 import { getAuthUser } from "@/lib/auth/session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,10 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export const dynamic = "force-dynamic";
 
 export default async function ResetPasswordPage() {
-  const [user, pendingRecovery] = await Promise.all([
-    getAuthUser(),
-    hasPendingPasswordReset(),
-  ]);
+  const user = await getAuthUser();
 
   if (user) {
     await setPendingPasswordReset();
@@ -43,11 +40,7 @@ export default async function ResetPasswordPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {user ? (
-              <ResetPasswordForm />
-            ) : (
-              <PasswordRecoveryLoader hasRecoveryCookie={pendingRecovery} />
-            )}
+            {user ? <ResetPasswordForm /> : <PasswordRecoveryLoader />}
           </CardContent>
         </Card>
         <p className="mt-4 text-center text-xs text-muted-foreground">
