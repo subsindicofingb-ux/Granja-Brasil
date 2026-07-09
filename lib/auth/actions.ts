@@ -338,7 +338,8 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
-    redirect("/login?reset=success");
+
+    return { redirectTo: "/login?reset=success" };
   } catch (err) {
     return { error: formatAuthError(err) };
   }

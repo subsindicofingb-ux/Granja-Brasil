@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { updatePasswordAction } from "@/lib/auth/actions";
 import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint";
 import { PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
@@ -11,6 +11,12 @@ import { Label } from "@/components/ui/label";
 
 export function ResetPasswordForm() {
   const [state, formAction, pending] = useActionState(updatePasswordAction, {});
+
+  useEffect(() => {
+    if (state.redirectTo) {
+      window.location.assign(state.redirectTo);
+    }
+  }, [state.redirectTo]);
 
   return (
     <form action={formAction} className="space-y-4">
