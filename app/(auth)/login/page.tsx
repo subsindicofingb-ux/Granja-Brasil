@@ -1,8 +1,13 @@
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { LoginSessionGuard } from "@/components/auth/session-tab-guard";
 import { BRAND_TAGLINE } from "@/lib/brand";
+import { clearPendingPasswordReset } from "@/lib/auth/password-reset";
 import { LoginForm } from "@/components/auth/login-form";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const dynamic = "force-dynamic";
 
 interface LoginPageProps {
   searchParams: Promise<{ redirect?: string; error?: string; reset?: string }>;
@@ -10,6 +15,16 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { redirect: redirectTo, error, reset } = await searchParams;
+
+  if (reset === "success" && isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      await supabase.auth.signOut();
+      await clearPendingPasswordReset();
+    } catch {
+      // Ignora falha ao encerrar sessão após redefinição.
+    }
+  }
 
   const errorMessage =
     error === "config"

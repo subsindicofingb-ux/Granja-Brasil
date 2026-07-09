@@ -338,7 +338,6 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
-    await supabase.auth.signOut();
     redirect("/login?reset=success");
   } catch (err) {
     return { error: formatAuthError(err) };

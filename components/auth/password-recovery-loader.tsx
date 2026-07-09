@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import type { EmailOtpType } from "@supabase/supabase-js";
-import { confirmPasswordRecoverySessionAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
-function PasswordRecoveryLoaderContent() {
+type PasswordRecoveryLoaderProps = {
+  hasRecoveryCookie?: boolean;
+};
+
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function PasswordRecoveryLoaderContent({ hasRecoveryCookie = false }: PasswordRecoveryLoaderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +25,25 @@ function PasswordRecoveryLoaderContent() {
     let cancelled = false;
 
     async function establishSession() {
+      const tokenHash =
+        searchParams.get("token_hash") ?? searchParams.get("token");
+      const type = searchParams.get("type");
+      const code = searchParams.get("code");
+
+      if (tokenHash || code) {
+        const params = new URLSearchParams(searchParams.toString());
+        if (!params.get("next")) {
+          params.set("next", "/reset-password");
+        }
+        if (!params.get("type") && type) {
+          params.set("type", type);
+        } else if (!params.get("type")) {
+          params.set("type", "recovery");
+        }
+        window.location.assign(`/auth/callback?${params.toString()}`);
+        return;
+      }
+
       const supabase = createClient();
       const hash = window.location.hash.startsWith("#")
         ? window.location.hash.slice(1)
@@ -35,55 +62,31 @@ function PasswordRecoveryLoaderContent() {
 
           if (!sessionError && !cancelled) {
             window.history.replaceState({}, "", window.location.pathname);
-            const confirmed = await confirmPasswordRecoverySessionAction();
-            if (confirmed.ok) {
-              router.refresh();
-              return;
-            }
-          }
-        }
-      }
-
-      const tokenHash =
-        searchParams.get("token_hash") ?? searchParams.get("token");
-      const type = searchParams.get("type");
-
-      if (tokenHash && type) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: type as EmailOtpType,
-        });
-
-        if (!otpError && !cancelled) {
-          const confirmed = await confirmPasswordRecoverySessionAction();
-          if (confirmed.ok) {
-            router.replace("/reset-password");
             router.refresh();
             return;
           }
         }
       }
 
-      const code = searchParams.get("code");
-      if (code && !cancelled) {
-        const params = new URLSearchParams({
-          code,
-          next: "/reset-password",
-          type: "recovery",
-        });
-        window.location.assign(`/auth/callback?${params.toString()}`);
-        return;
-      }
+      const maxAttempts = hasRecoveryCookie ? 5 : 2;
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        if (cancelled) {
+          return;
+        }
 
-      if (user && !cancelled) {
-        const confirmed = await confirmPasswordRecoverySessionAction();
-        if (confirmed.ok) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
           router.refresh();
           return;
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await sleep(400);
+          router.refresh();
         }
       }
 
@@ -97,7 +100,7 @@ function PasswordRecoveryLoaderContent() {
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams]);
+  }, [router, searchParams, hasRecoveryCookie]);
 
   if (error) {
     return (
@@ -119,7 +122,7 @@ function PasswordRecoveryLoaderContent() {
   );
 }
 
-export function PasswordRecoveryLoader() {
+export function PasswordRecoveryLoader(props: PasswordRecoveryLoaderProps) {
   return (
     <Suspense
       fallback={
@@ -128,7 +131,7 @@ export function PasswordRecoveryLoader() {
         </p>
       }
     >
-      <PasswordRecoveryLoaderContent />
+      <PasswordRecoveryLoaderContent {...props} />
     </Suspense>
   );
 }

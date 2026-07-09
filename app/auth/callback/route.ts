@@ -1,12 +1,14 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
 import { ensureProfile } from "@/lib/auth/session";
 import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
 import { cleanupOrphanResidentMemberships } from "@/lib/auth/membership-cleanup";
 import { applyPendingPasswordResetCookie } from "@/lib/auth/password-reset";
-import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getSupabasePublicEnv, isSupabaseConfigured } from "@/lib/supabase/env";
+import { asBrowserSessionCookieOptions } from "@/lib/supabase/session-cookies";
+import type { Database } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,27 @@ function resolveNextPath(value: string | null, type: string | null) {
   }
 
   return value;
+}
+
+function createRouteHandlerClient(request: NextRequest, response: NextResponse) {
+  const env = getSupabasePublicEnv();
+
+  if (!env) {
+    throw new Error("Supabase não configurado.");
+  }
+
+  return createServerClient<Database>(env.url, env.anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, asBrowserSessionCookieOptions(options));
+        });
+      },
+    },
+  });
 }
 
 function redirectWithOptionalPasswordReset(
@@ -37,7 +60,7 @@ function redirectWithOptionalPasswordReset(
 
 async function finalizeAuthRedirect(
   requestUrl: URL,
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createRouteHandlerClient>,
   next: string,
 ) {
   const {
@@ -59,7 +82,7 @@ async function finalizeAuthRedirect(
   return redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.redirect(new URL("/login?error=config", request.url));
   }
@@ -70,9 +93,10 @@ export async function GET(request: Request) {
     requestUrl.searchParams.get("token_hash") ?? requestUrl.searchParams.get("token");
   const type = requestUrl.searchParams.get("type");
   const next = resolveNextPath(requestUrl.searchParams.get("next"), type);
-  const supabase = await createClient();
 
   if (tokenHash && type) {
+    const response = redirectWithOptionalPasswordReset(requestUrl, next);
+    const supabase = createRouteHandlerClient(request, response);
     const { error } = await supabase.auth.verifyOtp({
       token_hash: tokenHash,
       type: type as EmailOtpType,
@@ -84,10 +108,21 @@ export async function GET(request: Request) {
       );
     }
 
-    return finalizeAuthRedirect(requestUrl, supabase, next);
+    const destination = await resolveSafeAppRedirect(supabase, next);
+    const redirectTarget =
+      destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+    const finalResponse = redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+
+    response.cookies.getAll().forEach((cookie) => {
+      finalResponse.cookies.set(cookie.name, cookie.value);
+    });
+
+    return finalResponse;
   }
 
   if (!code) {
+    const response = NextResponse.redirect(new URL("/login", requestUrl.origin));
+    const supabase = createRouteHandlerClient(request, response);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -104,6 +139,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", requestUrl.origin));
   }
 
+  const response = redirectWithOptionalPasswordReset(requestUrl, next);
+  const supabase = createRouteHandlerClient(request, response);
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
@@ -112,5 +149,14 @@ export async function GET(request: Request) {
     );
   }
 
-  return finalizeAuthRedirect(requestUrl, supabase, next);
+  const destination = await resolveSafeAppRedirect(supabase, next);
+  const redirectTarget =
+    destination === "/reset-password" ? destination : buildTabSessionRedirect(destination);
+  const finalResponse = redirectWithOptionalPasswordReset(requestUrl, redirectTarget);
+
+  response.cookies.getAll().forEach((cookie) => {
+    finalResponse.cookies.set(cookie.name, cookie.value);
+  });
+
+  return finalResponse;
 }
