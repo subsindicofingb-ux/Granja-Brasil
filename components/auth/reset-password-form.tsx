@@ -9,20 +9,37 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const PASSWORD_RESET_SUCCESS_PATH = "/login?reset=success";
+
 export function ResetPasswordForm() {
   const [state, formAction, pending] = useActionState(updatePasswordAction, {});
+
+  const isRedirecting = Boolean(state.redirectTo);
+  const visibleError =
+    state.error && !state.error.includes("NEXT_REDIRECT") ? state.error : null;
 
   useEffect(() => {
     if (state.redirectTo) {
       window.location.assign(state.redirectTo);
+      return;
     }
-  }, [state.redirectTo]);
+
+    if (state.error?.includes("NEXT_REDIRECT")) {
+      window.location.assign(PASSWORD_RESET_SUCCESS_PATH);
+    }
+  }, [state.redirectTo, state.error]);
 
   return (
     <form action={formAction} className="space-y-4">
-      {state.error && (
+      {isRedirecting && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Senha salva com sucesso. Redirecionando para o login...
+        </div>
+      )}
+
+      {visibleError && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
+          {visibleError}
         </div>
       )}
 
@@ -52,8 +69,8 @@ export function ResetPasswordForm() {
         />
       </div>
 
-      <Button className="w-full" type="submit" disabled={pending}>
-        {pending ? "Salvando..." : "Salvar nova senha"}
+      <Button className="w-full" type="submit" disabled={pending || isRedirecting}>
+        {pending ? "Salvando..." : isRedirecting ? "Redirecionando..." : "Salvar nova senha"}
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">

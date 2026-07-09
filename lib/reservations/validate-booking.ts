@@ -9,6 +9,8 @@ import {
   addDaysToDateKey,
   dateKeyTouchesRange,
 } from "@/lib/reservations/calendar-availability";
+import { getSlotIntervalMinutes, isSlotBasedArea } from "@/lib/reservations/slot-booking";
+import { formatMinutes } from "@/lib/common-areas/labels";
 import {
   DEFAULT_CONDO_TIMEZONE,
   getAllowedDayInTimezone,
@@ -34,6 +36,30 @@ function daysBetweenDateKeys(fromKey: string, toKey: string): number {
 function isBlockingReservation(reservation: ReservationRecord, excludeId?: string): boolean {
   if (excludeId && reservation.id === excludeId) return false;
   return BLOCKING_RESERVATION_STATUSES.includes(reservation.status);
+}
+
+function hasMinuteGapConflict(
+  startAt: Date,
+  endAt: Date,
+  existingStart: Date,
+  existingEnd: Date,
+  bufferMinutes: number,
+): boolean {
+  if (bufferMinutes <= 0) {
+    return false;
+  }
+
+  if (startAt >= existingEnd) {
+    const gapMs = startAt.getTime() - existingEnd.getTime();
+    return gapMs < bufferMinutes * 60_000;
+  }
+
+  if (endAt <= existingStart) {
+    const gapMs = existingStart.getTime() - endAt.getTime();
+    return gapMs < bufferMinutes * 60_000;
+  }
+
+  return true;
 }
 
 export function validateBooking(input: BookingValidationInput): BookingValidationResult {
@@ -93,6 +119,25 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
     };
   }
 
+  const durationMinutes = endMinutes - startMinutes;
+
+  if (area.max_duration_minutes != null && durationMinutes > area.max_duration_minutes) {
+    return {
+      valid: false,
+      error: `Tempo máximo por reserva: ${formatMinutes(area.max_duration_minutes)}.`,
+    };
+  }
+
+  if (isSlotBasedArea(area)) {
+    const slotInterval = getSlotIntervalMinutes(area);
+    if (durationMinutes % slotInterval !== 0) {
+      return {
+        valid: false,
+        error: `A duração deve ser múltiplo de ${formatMinutes(slotInterval)}.`,
+      };
+    }
+  }
+
   const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
   if (daysUntilStart < area.min_advance_days) {
     return {
@@ -133,6 +178,17 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
       return { valid: false, error: "Conflito de horário com outra reserva." };
     }
 
+    if (
+      area.buffer_minutes > 0 &&
+      getLocalDateKey(existingStart, timeZone) === startDateKey &&
+      hasMinuteGapConflict(startAt, endAt, existingStart, existingEnd, area.buffer_minutes)
+    ) {
+      return {
+        valid: false,
+        error: `Intervalo mínimo entre turnos: ${area.buffer_minutes} min.`,
+      };
+    }
+
     if (area.buffer_days > 0) {
       const existingStartKey = getLocalDateKey(existingStart, timeZone);
       const existingEndKey = getLocalDateKey(existingEnd, timeZone);
@@ -142,7 +198,7 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
       if (dateKeyTouchesRange(startDateKey, bufferStartKey, bufferEndKey)) {
         return {
           valid: false,
-          error: `Intervalo mínimo entre reservas: ${area.buffer_days} dia(s).`,
+          error: `Descanso mínimo entre reservas: ${area.buffer_days} dia(s).`,
         };
       }
     }

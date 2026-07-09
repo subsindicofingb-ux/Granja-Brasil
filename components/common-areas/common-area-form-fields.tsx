@@ -242,11 +242,12 @@ export function CommonAreaFormFields({
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Regras de reserva</h3>
         <p className="text-xs text-muted-foreground">
-          A duração máxima segue o horário de funcionamento. Deixe em branco campos opcionais para sem limite.
+          Para salão e churrasqueira, deixe o tempo máximo em branco (reserva o dia inteiro). Para
+          quadras, informe duração do turno e tempo máximo de uso.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="buffer_days">Buffer entre reservas (dias)</Label>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="buffer_days">Descanso entre reservas (dias)</Label>
             <Input
               id="buffer_days"
               name="buffer_days"
@@ -254,6 +255,55 @@ export function CommonAreaFormFields({
               min={0}
               defaultValue={defaults.buffer_days}
             />
+            <p className="text-xs text-muted-foreground">
+              Dias livres obrigatórios entre reservas no mesmo espaço. Ideal para salão e festas
+              (ex.: 7 dias).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="slot_interval_minutes">Duração do turno (minutos)</Label>
+            <Input
+              id="slot_interval_minutes"
+              name="slot_interval_minutes"
+              type="number"
+              min={15}
+              step={15}
+              placeholder="Ex: 60"
+              defaultValue={defaults.slot_interval_minutes ?? ""}
+            />
+            <p className="text-xs text-muted-foreground">
+              Tamanho de cada bloco reservável. Ex.: 60 = turnos de 1 hora.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="max_duration_minutes">Tempo máximo por reserva (minutos)</Label>
+            <Input
+              id="max_duration_minutes"
+              name="max_duration_minutes"
+              type="number"
+              min={15}
+              step={15}
+              placeholder="Ex: 120"
+              defaultValue={defaults.max_duration_minutes ?? ""}
+            />
+            <p className="text-xs text-muted-foreground">
+              Limite de uso contínuo por reserva. Ex.: 120 = até 2 horas seguidas na quadra.
+            </p>
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="buffer_minutes">Intervalo entre turnos (minutos)</Label>
+            <Input
+              id="buffer_minutes"
+              name="buffer_minutes"
+              type="number"
+              min={0}
+              step={5}
+              defaultValue={defaults.buffer_minutes}
+            />
+            <p className="text-xs text-muted-foreground">
+              Tempo mínimo entre o fim de uma reserva e o início da próxima no mesmo dia. Ex.: 15
+              min para organizar a quadra.
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="min_advance_days">Antecedência mínima (dias)</Label>

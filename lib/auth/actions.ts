@@ -45,6 +45,10 @@ function formatAuthError(message: unknown): string {
   const text = message instanceof Error ? message.message : String(message);
   const lower = text.toLowerCase();
 
+  if (text.includes("NEXT_REDIRECT")) {
+    return "";
+  }
+
   if (text.includes("Unexpected token '<'") || text.includes("is not valid JSON")) {
     return "URL ou chave do Supabase inválida na Vercel. NEXT_PUBLIC_SUPABASE_URL deve ser https://SEU-REF.supabase.co e NEXT_PUBLIC_SUPABASE_ANON_KEY deve ser a chave anon/public do projeto.";
   }
@@ -78,6 +82,8 @@ function formatAuthError(message: unknown): string {
 
 const PASSWORD_RESET_SUCCESS_MESSAGE =
   "Se existir uma conta com este e-mail, enviamos um link para redefinir a senha. Verifique a caixa de entrada e o spam.";
+
+const PASSWORD_RESET_SUCCESS_PATH = "/login?reset=success";
 
 function formatPasswordResetError(message: unknown): string {
   const text = message instanceof Error ? message.message : String(message);
@@ -339,9 +345,14 @@ export async function updatePasswordAction(
 
     await clearPendingPasswordReset();
 
-    return { redirectTo: "/login?reset=success" };
+    return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
   } catch (err) {
-    return { error: formatAuthError(err) };
+    const formatted = formatAuthError(err);
+    if (!formatted) {
+      return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
+    }
+
+    return { error: formatted };
   }
 }
 

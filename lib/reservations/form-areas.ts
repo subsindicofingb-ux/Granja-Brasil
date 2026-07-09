@@ -4,6 +4,7 @@ import {
   requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
+import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import type { ReservationAreaOption } from "@/components/reservations/reservation-form";
 
 export async function buildReservationAreaOptions(
@@ -24,6 +25,9 @@ export async function buildReservationAreaOptions(
     }),
     capacity: area.capacity,
     operatingHours: area.operating_hours,
+    usesSlotBooking: isSlotBasedArea(area),
+    maxDurationMinutes: area.max_duration_minutes,
+    slotIntervalMinutes: area.slot_interval_minutes,
     rules: area.description,
   }));
 }

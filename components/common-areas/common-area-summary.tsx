@@ -3,7 +3,9 @@ import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import {
   formatAllowedDays,
   formatDays,
+  formatMinutes,
 } from "@/lib/common-areas/labels";
+import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -47,9 +49,29 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
       <div className="space-y-3">
         <p className="font-medium">Regras de reserva</p>
         <Row
-          label="Buffer entre reservas"
+          label="Descanso entre reservas"
           value={formatDays(area.buffer_days, "0 dias")}
         />
+        <Row
+          label="Modo de reserva"
+          value={isSlotBasedArea(area) ? "Por turno (quadra)" : "Dia inteiro (festa/salão)"}
+        />
+        {isSlotBasedArea(area) && (
+          <>
+            <Row
+              label="Duração do turno"
+              value={formatMinutes(area.slot_interval_minutes ?? 60)}
+            />
+            <Row
+              label="Tempo máximo por reserva"
+              value={formatMinutes(area.max_duration_minutes)}
+            />
+            <Row
+              label="Intervalo entre turnos"
+              value={formatMinutes(area.buffer_minutes, "0 min")}
+            />
+          </>
+        )}
         <Row
           label="Antecedência mínima"
           value={formatDays(area.min_advance_days, "0 dias")}

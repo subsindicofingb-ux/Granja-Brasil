@@ -46,6 +46,11 @@ export const residentReservationFormSchema = z.object({
   reservation_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data da reserva."),
+  reservation_start_time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Informe o horário de início.")
+    .optional(),
+  reservation_duration_minutes: z.coerce.number().int().positive().optional(),
   notes: optionalPartyDescription,
   guest_count: optionalGuestCount,
 });
@@ -58,6 +63,8 @@ export function parseReservationFormData(formData: FormData) {
       common_area_id: formData.get("common_area_id"),
       unit_id: formData.get("unit_id"),
       reservation_date: formData.get("reservation_date"),
+      reservation_start_time: formData.get("reservation_start_time") ?? undefined,
+      reservation_duration_minutes: formData.get("reservation_duration_minutes") ?? undefined,
       notes: formData.get("notes") ?? "",
       guest_count: formData.get("guest_count"),
     });
@@ -72,6 +79,8 @@ export function parseReservationFormData(formData: FormData) {
         common_area_id: parsed.data.common_area_id,
         unit_id: parsed.data.unit_id,
         reservation_date: parsed.data.reservation_date,
+        reservation_start_time: parsed.data.reservation_start_time,
+        reservation_duration_minutes: parsed.data.reservation_duration_minutes,
         notes: parsed.data.notes,
         guest_count: parsed.data.guest_count,
       },

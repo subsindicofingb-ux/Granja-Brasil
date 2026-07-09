@@ -84,7 +84,18 @@ function parseMaintenanceBlocks(value: unknown): MaintenanceBlock[] {
     }));
 }
 
+function parseSlotIntervalMinutes(rules: Record<string, unknown> | null): number | null {
+  const value = rules?.slot_interval_minutes;
+  if (typeof value === "number" && value > 0) {
+    return value;
+  }
+
+  return null;
+}
+
 function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
+  const rules = row.rules ?? {};
+
   return {
     id: row.id,
     condominium_id: row.condominium_id,
@@ -99,10 +110,13 @@ function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
     max_reservations_per_unit: row.max_reservations_per_unit,
     reservation_period_days: row.reservation_period_days,
     buffer_days: resolveBufferDays(row.buffer_days, row.buffer_minutes),
+    buffer_minutes: row.buffer_minutes ?? 0,
+    max_duration_minutes: row.max_duration_minutes,
+    slot_interval_minutes: parseSlotIntervalMinutes(rules),
     operating_hours: parseOperatingHours(row.operating_hours),
     allowed_days: parseAllowedDays(row.allowed_days),
     maintenance_blocks: parseMaintenanceBlocks(row.maintenance_blocks),
-    rules: row.rules ?? {},
+    rules,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -122,6 +136,8 @@ const COMMON_AREA_SELECT = `
   max_reservations_per_unit,
   reservation_period_days,
   buffer_days,
+  max_duration_minutes,
+  buffer_minutes,
   operating_hours,
   allowed_days,
   maintenance_blocks,
@@ -277,6 +293,13 @@ type CommonAreaWriteInput = Omit<
 > & { rules?: Record<string, unknown> };
 
 function toDbPayload(input: CommonAreaWriteInput) {
+  const rules = {
+    ...(input.rules ?? {}),
+    ...(input.slot_interval_minutes != null
+      ? { slot_interval_minutes: input.slot_interval_minutes }
+      : {}),
+  };
+
   return {
     name: input.name,
     description: input.description,
@@ -284,18 +307,18 @@ function toDbPayload(input: CommonAreaWriteInput) {
     is_active: input.is_active,
     requires_approval: input.requires_approval,
     requires_payment: input.requires_payment,
-    max_duration_minutes: null,
+    max_duration_minutes: input.max_duration_minutes,
     min_advance_minutes: 0,
     min_advance_days: input.min_advance_days,
     max_advance_days: input.max_advance_days,
     max_reservations_per_unit: input.max_reservations_per_unit,
     reservation_period_days: input.reservation_period_days,
-    buffer_minutes: 0,
+    buffer_minutes: input.buffer_minutes,
     buffer_days: input.buffer_days,
     operating_hours: input.operating_hours,
     allowed_days: input.allowed_days,
     maintenance_blocks: input.maintenance_blocks,
-    rules: (input.rules ?? {}) as Json,
+    rules: rules as Json,
   };
 }
 

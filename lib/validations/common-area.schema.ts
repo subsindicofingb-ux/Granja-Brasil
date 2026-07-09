@@ -12,6 +12,15 @@ const optionalRules = z
   })
   .refine((value) => value === null || value.length <= 2000, "Regras muito longas.");
 
+const optionalNonNegativeInt = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (value == null || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+  })
+  .refine((value) => value === null || value >= 0, "Informe um valor válido.");
+
 const optionalPositiveInt = z
   .union([z.string(), z.number(), z.null(), z.undefined()])
   .transform((value) => {
@@ -60,9 +69,15 @@ export const commonAreaFormSchema = z
       .int()
       .min(1, "Período mínimo: 1 dia."),
     buffer_days: z.coerce
-      .number({ invalid_type_error: "Buffer inválido." })
+      .number({ invalid_type_error: "Descanso entre reservas inválido." })
       .int()
-      .min(0, "Buffer não pode ser negativo."),
+      .min(0, "Não pode ser negativo."),
+    buffer_minutes: z.coerce
+      .number({ invalid_type_error: "Intervalo entre turnos inválido." })
+      .int()
+      .min(0, "Não pode ser negativo."),
+    max_duration_minutes: optionalNonNegativeInt,
+    slot_interval_minutes: optionalPositiveInt,
     operating_hours_start: z.string().regex(timeRegex, "Horário inicial inválido (HH:mm)."),
     operating_hours_end: z.string().regex(timeRegex, "Horário final inválido (HH:mm)."),
     allowed_days: z
@@ -85,6 +100,17 @@ export const commonAreaFormSchema = z
           code: z.ZodIssueCode.custom,
           message: "Fim do bloqueio deve ser posterior ao início.",
           path: ["maintenance_blocks", index, "end_at"],
+        });
+      }
+    }
+
+    if (data.max_duration_minutes != null && data.max_duration_minutes > 0) {
+      const slot = data.slot_interval_minutes ?? 60;
+      if (data.max_duration_minutes < slot) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "O tempo máximo por reserva deve ser maior ou igual à duração do turno.",
+          path: ["max_duration_minutes"],
         });
       }
     }
@@ -118,6 +144,9 @@ export function parseCommonAreaFormData(formData: FormData) {
     max_reservations_per_unit: formData.get("max_reservations_per_unit"),
     reservation_period_days: formData.get("reservation_period_days"),
     buffer_days: formData.get("buffer_days"),
+    buffer_minutes: formData.get("buffer_minutes"),
+    max_duration_minutes: formData.get("max_duration_minutes"),
+    slot_interval_minutes: formData.get("slot_interval_minutes"),
     operating_hours_start: formData.get("operating_hours_start"),
     operating_hours_end: formData.get("operating_hours_end"),
     allowed_days: allowedDays,
@@ -135,12 +164,20 @@ export function toCommonAreaPayload(
     is_active: data.is_active,
     requires_approval: data.requires_approval,
     requires_payment: data.requires_payment,
-    max_duration_minutes: null,
+    max_duration_minutes:
+      data.max_duration_minutes != null && data.max_duration_minutes > 0
+        ? data.max_duration_minutes
+        : null,
     min_advance_days: data.min_advance_days,
     max_advance_days: data.max_advance_days,
     max_reservations_per_unit: data.max_reservations_per_unit,
     reservation_period_days: data.reservation_period_days,
     buffer_days: data.buffer_days,
+    buffer_minutes: data.buffer_minutes,
+    slot_interval_minutes:
+      data.max_duration_minutes != null && data.max_duration_minutes > 0
+        ? data.slot_interval_minutes ?? 60
+        : null,
     operating_hours: {
       start: data.operating_hours_start,
       end: data.operating_hours_end,

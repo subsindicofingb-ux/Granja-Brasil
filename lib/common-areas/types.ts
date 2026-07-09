@@ -34,6 +34,9 @@ export type CommonAreaRecord = {
   max_reservations_per_unit: number | null;
   reservation_period_days: number;
   buffer_days: number;
+  buffer_minutes: number;
+  max_duration_minutes: number | null;
+  slot_interval_minutes: number | null;
   operating_hours: OperatingHours;
   allowed_days: AllowedDay[];
   maintenance_blocks: MaintenanceBlock[];
@@ -54,6 +57,9 @@ export type CommonAreaFormInput = {
   max_reservations_per_unit: number | null;
   reservation_period_days: number;
   buffer_days: number;
+  buffer_minutes: number;
+  max_duration_minutes: number | null;
+  slot_interval_minutes: number | null;
   operating_hours: OperatingHours;
   allowed_days: AllowedDay[];
   maintenance_blocks: MaintenanceBlock[];

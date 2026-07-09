@@ -17,7 +17,8 @@ import {
 } from "@/lib/services/reservations";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { canCollectReservationHandover } from "@/lib/reservations/handover";
-import { localDateTimeToIso } from "@/lib/reservations/timezone";
+import { localDateTimeToIso, parseTimeToMinutes } from "@/lib/reservations/timezone";
+import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { parseReservationFormData, reservationHandoverSchema } from "@/lib/validations/reservation.schema";
 
@@ -105,11 +106,29 @@ export async function createReservationAction(
       return { error: areaResult.error };
     }
 
-    startAt = localDateTimeToIso(
-      parsed.data.reservation_date,
-      areaResult.data.operating_hours.start,
-    );
-    endAt = localDateTimeToIso(parsed.data.reservation_date, areaResult.data.operating_hours.end);
+    if (isSlotBasedArea(areaResult.data)) {
+      if (!parsed.data.reservation_start_time || !parsed.data.reservation_duration_minutes) {
+        return { error: "Selecione o horário e a duração da reserva." };
+      }
+
+      const startMinutes = parseTimeToMinutes(parsed.data.reservation_start_time);
+      const endMinutes = startMinutes + parsed.data.reservation_duration_minutes;
+      const endHours = Math.floor(endMinutes / 60);
+      const endMins = endMinutes % 60;
+      const endTime = `${String(endHours).padStart(2, "0")}:${String(endMins).padStart(2, "0")}`;
+
+      startAt = localDateTimeToIso(
+        parsed.data.reservation_date,
+        parsed.data.reservation_start_time,
+      );
+      endAt = localDateTimeToIso(parsed.data.reservation_date, endTime);
+    } else {
+      startAt = localDateTimeToIso(
+        parsed.data.reservation_date,
+        areaResult.data.operating_hours.start,
+      );
+      endAt = localDateTimeToIso(parsed.data.reservation_date, areaResult.data.operating_hours.end);
+    }
   } else {
     unitId = parsed.data.unit_id;
     commonAreaId = parsed.data.common_area_id;

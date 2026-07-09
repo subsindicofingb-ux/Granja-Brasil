@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createReservationAction } from "@/lib/actions/reservations";
 import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import { ReservationDateCalendar } from "@/components/reservations/reservation-date-calendar";
+import { ReservationTimeSlotPicker } from "@/components/reservations/reservation-time-slot-picker";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,9 @@ export type ReservationAreaOption = {
     start: string;
     end: string;
   };
+  usesSlotBooking: boolean;
+  maxDurationMinutes: number | null;
+  slotIntervalMinutes: number | null;
   rules: string | null;
 };
 
@@ -55,6 +59,8 @@ export function ReservationForm({
   const [state, formAction, pending] = useActionState(createReservationAction, {});
   const [selectedAreaId, setSelectedAreaId] = useState("");
   const [reservationDate, setReservationDate] = useState(todayDateValue());
+  const [startTime, setStartTime] = useState("08:00");
+  const [durationMinutes, setDurationMinutes] = useState(60);
   const selectedArea = useMemo(
     () => areas.find((area) => area.id === selectedAreaId),
     [areas, selectedAreaId],
@@ -156,11 +162,27 @@ export function ReservationForm({
 
           <input type="hidden" name="reservation_date" value={reservationDate} />
 
-          {selectedArea && (
-            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-              Horário da reserva: {selectedArea.operatingHours.start} –{" "}
-              {selectedArea.operatingHours.end} (conforme regras do espaço).
-            </p>
+          {selectedArea?.usesSlotBooking ? (
+            <>
+              <ReservationTimeSlotPicker
+                condoSlug={condoSlug}
+                areaId={selectedAreaId}
+                dateKey={reservationDate}
+                startTime={startTime}
+                durationMinutes={durationMinutes}
+                onStartTimeChange={setStartTime}
+                onDurationChange={setDurationMinutes}
+              />
+              <input type="hidden" name="reservation_start_time" value={startTime} />
+              <input type="hidden" name="reservation_duration_minutes" value={durationMinutes} />
+            </>
+          ) : (
+            selectedArea && (
+              <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                Horário da reserva: {selectedArea.operatingHours.start} –{" "}
+                {selectedArea.operatingHours.end} (conforme regras do espaço).
+              </p>
+            )
           )}
         </>
       ) : (
@@ -226,7 +248,7 @@ export function ReservationForm({
       )}
 
       <p className="text-xs text-muted-foreground">
-        A reserva será validada conforme as regras do espaço (horário, antecedência, buffer e
+        A reserva será validada conforme as regras do espaço (horário, antecedência, turnos e
         limites). Espaços com aprovação obrigatória ficam pendentes até revisão.
       </p>
 
