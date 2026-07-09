@@ -27,7 +27,10 @@ export async function setPendingPasswordReset(): Promise<void> {
 export async function clearPendingPasswordReset(): Promise<void> {
   try {
     const cookieStore = await cookies();
-    cookieStore.delete(PENDING_PASSWORD_RESET_COOKIE);
+    cookieStore.set(PENDING_PASSWORD_RESET_COOKIE, "", {
+      ...cookieOptions,
+      maxAge: 0,
+    });
   } catch {
     // Ignora em contextos onde cookies não podem ser alterados.
   }

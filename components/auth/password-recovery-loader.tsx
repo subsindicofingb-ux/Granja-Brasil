@@ -1,14 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 
 function PasswordRecoveryLoaderContent() {
   const searchParams = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,8 +66,9 @@ function PasswordRecoveryLoaderContent() {
         return;
       }
 
+      // Sem token e sem sessão: não mostrar "link expirado" falso.
       if (!cancelled) {
-        setError("Link expirado ou inválido. Solicite um novo e-mail de redefinição.");
+        window.location.replace("/login");
       }
     }
 
@@ -80,19 +78,6 @@ function PasswordRecoveryLoaderContent() {
       cancelled = true;
     };
   }, [searchParams]);
-
-  if (error) {
-    return (
-      <div className="space-y-4 text-center">
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-        <Button asChild>
-          <Link href="/forgot-password">Solicitar novo link</Link>
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <p className="text-center text-sm text-muted-foreground">

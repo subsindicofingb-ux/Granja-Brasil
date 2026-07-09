@@ -348,8 +348,8 @@ export async function updatePasswordAction(
     }
 
     await clearPendingPasswordReset();
-    await supabase.auth.signOut();
-
+    // Não faz signOut aqui: a página remonta sem usuário e o loader
+    // mostra "link expirado" antes do redirect. O login encerra a sessão.
     return { redirectTo: PASSWORD_RESET_SUCCESS_PATH };
   } catch (err) {
     const formatted = formatAuthError(err);
