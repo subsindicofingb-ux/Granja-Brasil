@@ -40,7 +40,6 @@ export function buildPasswordRecoveryCallbackUrl(
   const params = new URLSearchParams({
     token_hash: tokenHash,
     type: "recovery",
-    next: "/reset-password",
   });
-  return `${siteUrl}/auth/callback?${params.toString()}`;
+  return `${siteUrl}/reset-password?${params.toString()}`;
 }

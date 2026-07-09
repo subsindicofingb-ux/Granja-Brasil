@@ -55,10 +55,10 @@ function PasswordRecoveryLoaderContent() {
         });
 
         if (!otpError && !cancelled) {
+          window.history.replaceState({}, "", "/reset-password");
           const confirmed = await confirmPasswordRecoverySessionAction();
           if (confirmed.ok) {
-            router.replace("/reset-password");
-            router.refresh();
+            window.location.assign("/reset-password");
             return;
           }
         }
