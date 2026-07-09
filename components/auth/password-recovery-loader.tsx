@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ function sleep(ms: number) {
 }
 
 function PasswordRecoveryLoaderContent({ hasRecoveryCookie = false }: PasswordRecoveryLoaderProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
@@ -61,14 +60,14 @@ function PasswordRecoveryLoaderContent({ hasRecoveryCookie = false }: PasswordRe
           });
 
           if (!sessionError && !cancelled) {
-            window.history.replaceState({}, "", window.location.pathname);
-            router.refresh();
+            window.location.assign("/reset-password");
             return;
           }
         }
       }
 
-      const maxAttempts = hasRecoveryCookie ? 5 : 2;
+      const maxAttempts = hasRecoveryCookie ? 10 : 4;
+      const delayMs = hasRecoveryCookie ? 600 : 400;
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         if (cancelled) {
@@ -80,13 +79,12 @@ function PasswordRecoveryLoaderContent({ hasRecoveryCookie = false }: PasswordRe
         } = await supabase.auth.getUser();
 
         if (user) {
-          router.refresh();
+          window.location.assign("/reset-password");
           return;
         }
 
         if (attempt < maxAttempts - 1) {
-          await sleep(400);
-          router.refresh();
+          await sleep(delayMs);
         }
       }
 
@@ -100,7 +98,7 @@ function PasswordRecoveryLoaderContent({ hasRecoveryCookie = false }: PasswordRe
     return () => {
       cancelled = true;
     };
-  }, [router, searchParams, hasRecoveryCookie]);
+  }, [searchParams, hasRecoveryCookie]);
 
   if (error) {
     return (
