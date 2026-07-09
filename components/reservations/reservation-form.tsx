@@ -69,6 +69,7 @@ export function ReservationForm({
   const isResident = mode === "resident";
   const requiresGuestCountForResident =
     isResident && selectedArea != null && !selectedArea.usesSlotBooking;
+  const isEventReservation = selectedArea != null && !selectedArea.usesSlotBooking;
 
   if (areas.length === 0) {
     return (
@@ -252,16 +253,18 @@ export function ReservationForm({
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor="notes">Breve relato da festa</Label>
-        <textarea
-          id="notes"
-          name="notes"
-          rows={3}
-          placeholder="Descreva brevemente a festa ou evento."
-          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
-        />
-      </div>
+      {isEventReservation && (
+        <div className="space-y-2">
+          <Label htmlFor="notes">Breve relato da festa</Label>
+          <textarea
+            id="notes"
+            name="notes"
+            rows={3}
+            placeholder="Descreva brevemente a festa ou evento."
+            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
+          />
+        </div>
+      )}
 
       {isResident && selectedArea?.rules && (
         <div className="space-y-2">
@@ -279,7 +282,7 @@ export function ReservationForm({
         </p>
       )}
 
-      {isResident && (
+      {isResident && isEventReservation && (
         <p className="text-xs text-muted-foreground">
           No dia do evento, um funcionário coletará sua assinatura confirmando que o espaço, móveis
           e utensílios estão em ordem antes do início da festa.

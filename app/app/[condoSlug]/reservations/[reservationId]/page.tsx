@@ -10,6 +10,7 @@ import {
   canShowReservationHandoverCollection,
   RESERVATION_HANDOVER_ACCEPTANCE_TEXT,
 } from "@/lib/reservations/handover";
+import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { canCancelReservation, canApproveReservation } from "@/lib/reservations/validate-booking";
 import { getReservationByIdForContext, listUnitIdsForProfile } from "@/lib/services/reservations";
 import { listResidentsByCondominium } from "@/lib/services/residents";
@@ -98,9 +99,12 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     (!isGranjaArea || isGeneralCondominium(condoSlug)) &&
     (!paymentReceiptRequired || Boolean(reservation.payment_receipt_url));
 
+  const isEventReservation = !isSlotBasedArea(reservation.common_area);
+
   const canCollectHandover = canShowReservationHandoverCollection(
     reservation.status,
     access,
+    reservation.common_area,
   );
 
   const residentsResult = await listResidentsByCondominium({
@@ -176,10 +180,12 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
               <span className="font-medium">{reservation.requester.full_name}</span>
             </div>
           )}
-          <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-            <span className="text-muted-foreground">Breve relato da festa</span>
-            <span className="font-medium sm:text-right">{reservation.notes ?? "—"}</span>
-          </div>
+          {isEventReservation && (
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Breve relato da festa</span>
+              <span className="font-medium sm:text-right">{reservation.notes ?? "—"}</span>
+            </div>
+          )}
           {reservation.common_area.description && (
             <div className="space-y-1">
               <span className="text-muted-foreground">Regras do espaço</span>
@@ -222,7 +228,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
         </CardContent>
       </Card>
 
-      {reservation.handover_signed_at && reservation.handover_signature_data && (
+      {isEventReservation && reservation.handover_signed_at && reservation.handover_signature_data && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Aceite do morador</CardTitle>

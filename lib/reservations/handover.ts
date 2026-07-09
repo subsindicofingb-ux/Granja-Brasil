@@ -21,6 +21,14 @@ export function canCollectReservationHandover(access: CondoAccess): boolean {
 export function canShowReservationHandoverCollection(
   status: string,
   access: CondoAccess,
+  area?: { max_duration_minutes?: number | null },
 ): boolean {
+  if (
+    area?.max_duration_minutes != null &&
+    area.max_duration_minutes > 0
+  ) {
+    return false;
+  }
+
   return status === "approved" && canCollectReservationHandover(access);
 }

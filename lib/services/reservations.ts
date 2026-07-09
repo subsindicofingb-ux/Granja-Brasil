@@ -41,6 +41,7 @@ type ReservationDetailRow = ReservationRow & {
     requires_approval: boolean;
     requires_payment: boolean;
     condominium_id: string;
+    max_duration_minutes: number | null;
     description: string | null;
     operating_hours: { start: string; end: string } | string;
   };
@@ -89,6 +90,7 @@ const RESERVATION_DETAIL_SELECT = `
     requires_payment,
     condominium_id,
     description,
+    max_duration_minutes,
     operating_hours
   ),
   units!inner (
@@ -150,6 +152,7 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       requires_payment: row.common_areas.requires_payment,
       condominium_id: row.common_areas.condominium_id,
       description: row.common_areas.description,
+      max_duration_minutes: row.common_areas.max_duration_minutes ?? null,
       operating_hours: parseAreaOperatingHours(row.common_areas.operating_hours),
     },
     unit: {

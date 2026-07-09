@@ -8,7 +8,7 @@ import {
   parseTimeToMinutes,
 } from "@/lib/reservations/timezone";
 
-export function isSlotBasedArea(area: CommonAreaRecord): boolean {
+export function isSlotBasedArea(area: { max_duration_minutes: number | null }): boolean {
   return area.max_duration_minutes != null && area.max_duration_minutes > 0;
 }
 
