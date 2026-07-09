@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import type { EmailOtpType } from "@supabase/supabase-js";
-import { confirmPasswordRecoverySessionAction } from "@/lib/auth/actions";
+import { confirmPasswordRecoverySessionAction, verifyPasswordRecoveryTokenAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -49,18 +48,11 @@ function PasswordRecoveryLoaderContent() {
       const type = searchParams.get("type");
 
       if (tokenHash && type) {
-        const { error: otpError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: type as EmailOtpType,
-        });
+        const verified = await verifyPasswordRecoveryTokenAction(tokenHash);
 
-        if (!otpError && !cancelled) {
-          window.history.replaceState({}, "", "/reset-password");
-          const confirmed = await confirmPasswordRecoverySessionAction();
-          if (confirmed.ok) {
-            window.location.assign("/reset-password");
-            return;
-          }
+        if (verified.ok && !cancelled) {
+          window.location.assign("/reset-password");
+          return;
         }
       }
 

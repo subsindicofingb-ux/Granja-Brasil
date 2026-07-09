@@ -30,7 +30,11 @@ import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
-import { buildAuthCallbackUrl, buildPasswordRecoveryCallbackUrl } from "@/lib/auth/site-url";
+import {
+  buildAuthCallbackUrl,
+  buildPasswordRecoveryCallbackUrl,
+  resolveSiteUrl,
+} from "@/lib/auth/site-url";
 import {
   formatPasswordPolicyError,
   getPasswordPolicyError,
@@ -91,7 +95,32 @@ function formatPasswordResetError(message: unknown): string {
 }
 
 function getPasswordResetRedirectUrl(preferredOrigin?: string | null): string {
-  return buildAuthCallbackUrl("/reset-password", preferredOrigin, "recovery");
+  return `${resolveSiteUrl(preferredOrigin)}/reset-password`;
+}
+
+export async function verifyPasswordRecoveryTokenAction(
+  tokenHash: string,
+): Promise<{ ok: true } | { ok: false }> {
+  if (!tokenHash || !isSupabaseConfigured()) {
+    return { ok: false };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: "recovery",
+    });
+
+    if (error) {
+      return { ok: false };
+    }
+
+    await setPendingPasswordReset();
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function confirmPasswordRecoverySessionAction(): Promise<
