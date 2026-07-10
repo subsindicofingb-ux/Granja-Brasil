@@ -417,10 +417,18 @@ export async function signUpAction(
   const unitId = String(formData.get("unit_id") ?? "").trim();
   const unitNumber = String(formData.get("unit_number") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
+  const acceptedTermsOfUse = formData.get("accepted_terms_of_use") === "1";
+  const acceptedPrivacyPolicy = formData.get("accepted_privacy_policy") === "1";
 
   function getSignupPhotoFile(): File | null {
     const value = formData.get("photo");
     return value instanceof File && value.size > 0 ? value : null;
+  }
+
+  if (!acceptedTermsOfUse || !acceptedPrivacyPolicy) {
+    return {
+      error: "Leia os termos de uso e de privacidade até o final e marque as duas opções.",
+    };
   }
 
   if (!fullName && !isGoogleSignUp) {

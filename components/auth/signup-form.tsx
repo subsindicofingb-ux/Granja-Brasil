@@ -16,11 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhotoField } from "@/components/shared/photo-field";
+import { LegalScrollAcceptance } from "@/components/auth/legal-scroll-acceptance";
 import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint";
 import {
   isPasswordPolicyCompliant,
   PASSWORD_MIN_LENGTH,
 } from "@/lib/auth/password-policy";
+import { PRIVACY_POLICY, TERMS_OF_USE } from "@/lib/legal/terms-content";
 
 interface SignUpFormProps {
   condominiums: PublicCondominiumOption[];
@@ -42,6 +44,8 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
   );
   const [units, setUnits] = useState<PublicUnitOption[]>([]);
   const [unitsLoading, startUnitsTransition] = useTransition();
+  const [acceptedTermsOfUse, setAcceptedTermsOfUse] = useState(false);
+  const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
 
   const selectedCondo = useMemo(
     () => condominiums.find((condo) => condo.id === selectedCondoId),
@@ -83,7 +87,9 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
     fullName.trim().length > 0 &&
     (isGoogleSignUp || (email.trim().length > 0 && isPasswordPolicyCompliant(password))) &&
     selectedCondoId &&
-    hasRequiredUnit;
+    hasRequiredUnit &&
+    acceptedTermsOfUse &&
+    acceptedPrivacyPolicy;
 
   return (
     <div className="space-y-4">
@@ -274,6 +280,31 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
             </select>
           </div>
         ) : null}
+      </div>
+
+      <div className="space-y-4 rounded-md border bg-muted/30 p-4">
+        <div>
+          <p className="text-sm font-medium">Termos e privacidade</p>
+          <p className="text-xs text-muted-foreground">
+            Leia cada documento até o final e marque as opções abaixo para continuar.
+          </p>
+        </div>
+
+        <LegalScrollAcceptance
+          document={TERMS_OF_USE}
+          checkboxLabel="Li o termo de uso"
+          name="accepted_terms_of_use"
+          checked={acceptedTermsOfUse}
+          onCheckedChange={setAcceptedTermsOfUse}
+        />
+
+        <LegalScrollAcceptance
+          document={PRIVACY_POLICY}
+          checkboxLabel="Li o termo de Privacidade"
+          name="accepted_privacy_policy"
+          checked={acceptedPrivacyPolicy}
+          onCheckedChange={setAcceptedPrivacyPolicy}
+        />
       </div>
 
       <Button className="w-full" type="submit" disabled={pending || !canSubmit}>
