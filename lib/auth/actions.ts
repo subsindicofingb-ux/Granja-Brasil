@@ -18,7 +18,9 @@ import type { AuthActionState } from "@/lib/auth/types";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, getSupabaseServiceRoleKey } from "@/lib/supabase/env";
+import { getSignupClientMetadata } from "@/lib/legal/client-metadata";
 import { notifyNewRegistrationRequest } from "@/lib/actions/registration-requests";
+import { recordSignupLegalAcceptances } from "@/lib/services/legal-acceptances";
 import {
   createRegistrationRequestAsAdmin,
   listPublicCondominiums,
@@ -618,6 +620,18 @@ export async function signUpAction(
           requestResult.error ??
           "Conta criada, mas não foi possível enviar a solicitação ao condomínio. Entre em contato com o síndico.",
       };
+    }
+
+    const clientMetadata = await getSignupClientMetadata();
+    const acceptanceResult = await recordSignupLegalAcceptances({
+      profileId: userId,
+      registrationRequestId: requestResult.ok ? requestResult.data?.id : null,
+      ipAddress: clientMetadata.ipAddress,
+      userAgent: clientMetadata.userAgent,
+    });
+
+    if (!acceptanceResult.ok) {
+      return { error: acceptanceResult.error };
     }
 
     if (selectedCondo && requestResult.ok && requestResult.data) {

@@ -1,3 +1,5 @@
+import { LEGAL_CONTACT_EMAIL, LEGAL_FORUM } from "@/lib/legal/constants";
+
 export interface LegalDocument {
   title: string;
   paragraphs: string[];
@@ -23,6 +25,9 @@ export const TERMS_OF_USE: LegalDocument = {
     "O mau uso do aplicativo pode resultar na suspensão temporária ou bloqueio definitivo da conta do usuário, por decisão da administração do condomínio.",
     "4. Alterações nos Termos",
     "Estes termos podem ser atualizados para melhorias técnicas ou jurídicas. Quando isso ocorrer, você receberá um aviso no aplicativo para ler e aceitar a nova versão.",
+    "5. Contato e Foro",
+    `Para dúvidas sobre estes termos, entre em contato pelo e-mail: ${LEGAL_CONTACT_EMAIL}.`,
+    `Fica eleito o foro da ${LEGAL_FORUM} para dirimir quaisquer controvérsias decorrentes destes termos.`,
   ],
 };
 
@@ -41,5 +46,8 @@ export const PRIVACY_POLICY: LegalDocument = {
     "Os dados e fotos coletados são armazenados em servidores criptografados e seguros. Eles permanecerão guardados apenas pelo período em que você possuir vínculo ativo com o condomínio ou até que solicite a exclusão.",
     "4. Seus Direitos (LGPD)",
     "Você tem o direito de, a qualquer momento, consultar quais dados temos armazenados, corrigir informações desatualizadas ou revogar este consentimento, ciente de que a exclusão de certos dados (como a foto) poderá limitar o seu acesso a áreas ou funções de segurança do aplicativo.",
+    "5. Contato",
+    `Para exercer seus direitos ou tirar dúvidas sobre privacidade, envie e-mail para: ${LEGAL_CONTACT_EMAIL}.`,
+    `Fica eleito o foro da ${LEGAL_FORUM} para dirimir quaisquer controvérsias relacionadas ao tratamento de dados pessoais.`,
   ],
 };

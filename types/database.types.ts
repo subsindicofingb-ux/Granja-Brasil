@@ -44,6 +44,8 @@ export type RegistrationProfileType =
   | "service_provider"
   | "other";
 
+export type LegalDocumentType = "terms_of_use" | "privacy_policy";
+
 export type VehicleStatus = "pending" | "approved" | "rejected";
 
 export interface Database {
@@ -126,6 +128,42 @@ export interface Database {
           is_commercial?: boolean;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      legal_acceptances: {
+        Row: {
+          id: string;
+          profile_id: string;
+          document_type: LegalDocumentType;
+          document_version: string;
+          accepted_at: string;
+          ip_address: string | null;
+          user_agent: string | null;
+          registration_request_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          document_type: LegalDocumentType;
+          document_version: string;
+          accepted_at?: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          registration_request_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          document_type?: LegalDocumentType;
+          document_version?: string;
+          accepted_at?: string;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          registration_request_id?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -1539,6 +1577,7 @@ export interface Database {
       access_grant_sync_status: "pending" | "synced" | "error";
       access_sync_action: "create" | "update" | "remove";
       access_sync_job_status: "pending" | "processing" | "completed" | "error";
+      legal_document_type: LegalDocumentType;
     };
   };
 }
@@ -1557,3 +1596,5 @@ export type VisitorAuthorization =
   Database["public"]["Tables"]["visitor_authorizations"]["Row"];
 export type RegistrationRequest =
   Database["public"]["Tables"]["registration_requests"]["Row"];
+export type LegalAcceptance =
+  Database["public"]["Tables"]["legal_acceptances"]["Row"];
