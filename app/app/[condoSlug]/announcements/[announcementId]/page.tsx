@@ -1,18 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { after } from "next/server";
-import { revalidatePath } from "next/cache";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { ROLES } from "@/lib/constants";
-import { notifyAnnouncementRead } from "@/lib/email/announcement-notifications";
 import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
   getAnnouncementById,
+  getAnnouncementReadStatus,
   listAnnouncementReadReceipts,
   listAnnouncementReplies,
-  markAnnouncementAsRead,
   type AnnouncementReadReceipt,
 } from "@/lib/services/announcements";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
@@ -130,7 +127,6 @@ export default async function AnnouncementDetailPage({
   });
 
   let readAt: string | null = null;
-  let readError: string | null = null;
   let readReceipts: AnnouncementReadReceipt[] = [];
   const hasReplyFromOthers = replies.some(
     (reply) => reply.created_by !== access.profile.id,
@@ -141,51 +137,15 @@ export default async function AnnouncementDetailPage({
     (access.permissions.canManageAnnouncements ||
       (isResidentConversation && announcement.staff_only));
 
-  if (!isAuthor) {
-    const readResult = await markAnnouncementAsRead({
+  if (shouldTrackRead) {
+    const readStatusResult = await getAnnouncementReadStatus({
       announcementId,
       profileId: access.profile.id,
     });
-    if (readResult.ok) {
-      readAt = readResult.data.read_at;
-      revalidatePath(`/app/${condoSlug}`);
-      revalidatePath(`/app/${condoSlug}/announcements`);
-      if (
-        readResult.data.is_new_read &&
-        announcement.created_by &&
-        announcement.created_by !== access.profile.id
-      ) {
-        after(async () => {
-          try {
-            await notifyAnnouncementRead({
-              announcement,
-              readerProfileId: access.profile.id,
-              readerName: access.profile.fullName,
-            });
-          } catch (error) {
-            console.error("[email:announcement-read]", error);
-          }
-        });
-      }
-    } else {
-      readError = readResult.error;
-    }
-  } else {
-    if (hasReplyFromOthers) {
-      const readResult = await markAnnouncementAsRead({
-        announcementId,
-        profileId: access.profile.id,
-      });
+    readAt = readStatusResult.ok ? readStatusResult.data.read_at : null;
+  }
 
-      if (readResult.ok) {
-        readAt = readResult.data.read_at;
-        revalidatePath(`/app/${condoSlug}`);
-        revalidatePath(`/app/${condoSlug}/announcements`);
-      } else {
-        readError = readResult.error;
-      }
-    }
-
+  if (isAuthor) {
     const receiptsResult = await listAnnouncementReadReceipts(announcementId);
     readReceipts = receiptsResult.ok ? receiptsResult.data : [];
   }
@@ -239,16 +199,6 @@ export default async function AnnouncementDetailPage({
             {isAuthor && readAt && (
               <p className="text-muted-foreground">
                 Resposta visualizada em {formatDateTime(readAt)}
-              </p>
-            )}
-            {isAuthor && readError && (
-              <p className="text-amber-700">
-                Não foi possível registrar a visualização da resposta. Tente abrir novamente.
-              </p>
-            )}
-            {!isAuthor && readError && (
-              <p className="text-amber-700">
-                Não foi possível registrar a confirmação de leitura. Tente abrir novamente.
               </p>
             )}
             <p className="whitespace-pre-wrap">{announcement.body}</p>
