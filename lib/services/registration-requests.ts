@@ -285,6 +285,7 @@ async function ensureRegistrationProfile(
 async function resolveProfileIdForRegistrationEmail(
   fullName: string,
   email: string,
+  password?: string,
 ): Promise<ServiceResult<string>> {
   try {
     const admin = createAdminClient();
@@ -303,6 +304,16 @@ async function resolveProfileIdForRegistrationEmail(
       data.users.find((user) => user.email?.toLowerCase() === normalizedEmail) ?? null;
 
     if (existingUser) {
+      if (password) {
+        const { error: passwordError } = await admin.auth.admin.updateUserById(existingUser.id, {
+          password,
+        });
+
+        if (passwordError) {
+          return serviceError(mapSupabaseError(passwordError));
+        }
+      }
+
       const profileResult = await ensureRegistrationProfile(existingUser.id, fullName);
       if (!profileResult.ok) {
         return serviceError(profileResult.error ?? "Não foi possível preparar o perfil.");
@@ -311,10 +322,10 @@ async function resolveProfileIdForRegistrationEmail(
       return serviceOk(existingUser.id);
     }
 
-    const tempPassword = crypto.randomUUID();
+    const initialPassword = password ?? crypto.randomUUID();
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email: normalizedEmail,
-      password: tempPassword,
+      password: initialPassword,
       email_confirm: true,
       user_metadata: { full_name: fullName.trim() },
     });
@@ -348,6 +359,7 @@ export async function createDoormanRegistrationRequest(input: {
   residentType: ResidentType;
   accessDeviceIds?: string[];
   doormanProfileId: string;
+  password: string;
 }): Promise<
   ServiceResult<{
     request: RegistrationRequestRecord;
@@ -355,7 +367,11 @@ export async function createDoormanRegistrationRequest(input: {
     queued: boolean;
   }>
 > {
-  const profileResult = await resolveProfileIdForRegistrationEmail(input.fullName, input.email);
+  const profileResult = await resolveProfileIdForRegistrationEmail(
+    input.fullName,
+    input.email,
+    input.password,
+  );
   if (!profileResult.ok) {
     return profileResult;
   }

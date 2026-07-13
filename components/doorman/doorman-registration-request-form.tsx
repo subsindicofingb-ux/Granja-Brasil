@@ -12,6 +12,7 @@ import { ResidentAccessDeviceFields } from "@/components/access-devices/resident
 import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
 import { suggestDefaultAccessDeviceIdsFromOptions } from "@/lib/access-devices/suggested-grants";
 import { FormAlert } from "@/components/shared/feedback";
+import { PasswordRequirementsHint } from "@/components/auth/password-requirements-hint";
 import { PhotoField } from "@/components/shared/photo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,6 +119,39 @@ export function DoormanRegistrationRequestForm({
           <Label htmlFor="phone">Telefone (opcional)</Label>
           <Input id="phone" name="phone" type="tel" autoComplete="tel" />
         </div>
+      </div>
+
+      <div className="space-y-4 rounded-md border bg-muted/30 p-4">
+        <div>
+          <p className="text-sm font-medium">Senha de acesso ao app</p>
+          <p className="text-xs text-muted-foreground">
+            O morador define agora a senha que usará para entrar no aplicativo quando receber o e-mail
+            de boas-vindas.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password_confirm">Confirmar senha</Label>
+            <Input
+              id="password_confirm"
+              name="password_confirm"
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </div>
+        </div>
+        <PasswordRequirementsHint />
       </div>
 
       <div className="space-y-2">

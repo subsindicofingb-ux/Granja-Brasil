@@ -11,7 +11,7 @@ import {
   enqueueResidentProfileSyncUpdates,
   runPendingAccessSync,
 } from "@/lib/services/access-sync";
-import { createResident, deleteResident, updateResident } from "@/lib/services/residents";
+import { createResident, deleteResident, getResidentById, updateResident, updateResidentPhoto } from "@/lib/services/residents";
 import { replaceResidentAccessGrants } from "@/lib/services/resident-access-grants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
 import {
@@ -21,8 +21,11 @@ import {
 } from "@/lib/storage/upload-image";
 import { residentFormSchema } from "@/lib/validations/structure.schema";
 
-function revalidateResidentPaths(condoSlug: string) {
+function revalidateResidentPaths(condoSlug: string, residentId?: string) {
   revalidatePath(`/app/${condoSlug}/residents`);
+  if (residentId) {
+    revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
+  }
 }
 
 function getPhotoFile(formData: FormData): File | null {
@@ -179,9 +182,70 @@ export async function updateResidentAction(
     limit: Math.max(5, parseAccessDeviceIdsFromFormData(formData).length + 2),
   });
 
-  revalidateResidentPaths(condoSlug);
-  revalidatePath(`/app/${condoSlug}/residents/${residentId}`);
+  revalidateResidentPaths(condoSlug, residentId);
   return { success: "Morador atualizado com sucesso." };
+}
+
+export async function updateResidentPhotoAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const residentId = String(formData.get("resident_id") ?? "");
+  const existingPhotoUrl = String(formData.get("existing_photo_url") ?? "") || null;
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageResidents || ctx.permissions.canConsultResidents,
+    { redirectTo: `/app/${condoSlug}/residents/${residentId}` },
+  );
+
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+
+  const residentResult = await getResidentById(residentId, { condominiumId: scopeCondominiumId });
+
+  if (!residentResult.ok) {
+    return { error: residentResult.error };
+  }
+
+  const unitCondominiumId = residentResult.data.unit.tower.condominium_id;
+
+  const uploadResult = await uploadCondoImage({
+    condominiumId: unitCondominiumId,
+    folder: "residents",
+    file: getPhotoFile(formData),
+  });
+
+  if (!uploadResult.ok) {
+    return { error: uploadResult.error };
+  }
+
+  const photoUrl = resolvePhotoUrl(
+    uploadResult.data,
+    existingPhotoUrl,
+    formDataHasRemovePhoto(formData),
+  );
+
+  if (!photoUrl && !formDataHasRemovePhoto(formData) && !getPhotoFile(formData)) {
+    return { error: "Selecione uma foto para enviar." };
+  }
+
+  const result = await updateResidentPhoto({
+    residentId,
+    condominiumId: scopeCondominiumId,
+    photoUrl,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  await enqueueResidentProfileSyncUpdates(residentId);
+  await runPendingAccessSync({ limit: 5 });
+
+  revalidateResidentPaths(condoSlug, residentId);
+  return { success: "Foto atualizada com sucesso." };
 }
 
 export async function deleteResidentAction(

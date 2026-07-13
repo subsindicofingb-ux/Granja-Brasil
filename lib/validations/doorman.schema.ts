@@ -1,4 +1,5 @@
 import { parseWaterMeterReadingValue } from "@/lib/water-meters/format";
+import { getPasswordPolicyError } from "@/lib/auth/password-policy";
 import { z } from "zod";
 
 export const CORRESPONDENCE_RECIPIENT_OTHER = "__other__";
@@ -103,14 +104,35 @@ export function parseWaterMeterReadingFormData(formData: FormData) {
   });
 }
 
-export const doormanRegistrationRequestSchema = z.object({
-  target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
-  unit_id: z.string().uuid("Selecione a unidade."),
-  full_name: z.string().trim().min(1, "Informe o nome completo.").max(200),
-  email: z.string().trim().email("Informe um e-mail válido."),
-  phone: z.string().trim().max(40).optional(),
-  resident_type: z.enum(["owner", "tenant", "dependent", "responsible"]),
-});
+export const doormanRegistrationRequestSchema = z
+  .object({
+    target_condominium_id: z.string().uuid("Selecione o condomínio.").optional(),
+    unit_id: z.string().uuid("Selecione a unidade."),
+    full_name: z.string().trim().min(1, "Informe o nome completo.").max(200),
+    email: z.string().trim().email("Informe um e-mail válido."),
+    phone: z.string().trim().max(40).optional(),
+    resident_type: z.enum(["owner", "tenant", "dependent", "responsible"]),
+    password: z.string().min(1, "Informe a senha de acesso do morador."),
+    password_confirm: z.string().min(1, "Confirme a senha."),
+  })
+  .superRefine((data, ctx) => {
+    const passwordError = getPasswordPolicyError(data.password);
+    if (passwordError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: passwordError,
+        path: ["password"],
+      });
+    }
+
+    if (data.password !== data.password_confirm) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "As senhas não conferem.",
+        path: ["password_confirm"],
+      });
+    }
+  });
 
 export function parseDoormanRegistrationRequestFormData(formData: FormData) {
   return doormanRegistrationRequestSchema.safeParse({
@@ -120,6 +142,8 @@ export function parseDoormanRegistrationRequestFormData(formData: FormData) {
     email: formData.get("email"),
     phone: formData.get("phone") || undefined,
     resident_type: formData.get("resident_type"),
+    password: formData.get("password"),
+    password_confirm: formData.get("password_confirm"),
   });
 }
 

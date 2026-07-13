@@ -273,6 +273,35 @@ export async function updateResident(input: {
   return serviceOk(mapResidentRow(resident));
 }
 
+export async function updateResidentPhoto(input: {
+  residentId: string;
+  condominiumId?: string;
+  photoUrl: string | null;
+}): Promise<ServiceResult<ResidentWithUnit>> {
+  const current = await getResidentById(input.residentId, {
+    condominiumId: input.condominiumId,
+  });
+
+  if (!current.ok) {
+    return serviceError(current.error);
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("residents")
+    .update({ photo_url: input.photoUrl })
+    .eq("id", input.residentId)
+    .select(RESIDENT_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapResidentRow(data as ResidentRow));
+}
+
 export async function deleteResident(input: {
   residentId: string;
   condominiumId?: string;

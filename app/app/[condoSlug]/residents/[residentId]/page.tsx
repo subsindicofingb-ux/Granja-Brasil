@@ -15,6 +15,7 @@ import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/lab
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ResidentForm } from "@/components/residents/resident-form";
+import { ResidentPhotoForm, ResidentPhotoPreview } from "@/components/residents/resident-photo-form";
 import { ResidentDeleteButton } from "@/components/residents/resident-delete-button";
 import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
 import { ResidentAccessSyncButton } from "@/components/access-devices/resident-access-sync-button";
@@ -88,6 +89,8 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     ? residentAccessDeviceIdsResult.data
     : [];
   const canEdit = access.permissions.canManageResidents;
+  const canUploadPhoto =
+    access.permissions.canManageResidents || access.permissions.canConsultResidents;
   const canDelete =
     canEdit && (access.role === ROLES.SYNDIC || access.role === ROLES.SUPER_ADMIN);
   const units = "units" in unitsResult.data ? unitsResult.data.units : [];
@@ -107,7 +110,28 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
             {canEdit ? "Editar morador" : "Informações"}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <ResidentPhotoPreview fullName={resident.full_name} photoUrl={resident.photo_url} />
+            {!canEdit && canUploadPhoto && (
+              <div className="flex-1">
+                <ResidentPhotoForm
+                  condoSlug={condoSlug}
+                  residentId={resident.id}
+                  currentPhotoUrl={resident.photo_url}
+                  enableCamera={access.permissions.canConsultResidents}
+                />
+              </div>
+            )}
+            {canEdit && (
+              <p className="text-sm text-muted-foreground sm:pt-2">
+                {resident.photo_url
+                  ? "Para alterar a foto, use o campo no formulário abaixo."
+                  : "Inclua a foto no formulário abaixo."}
+              </p>
+            )}
+          </div>
+
           {canEdit ? (
             <div className="space-y-6">
               <ResidentForm

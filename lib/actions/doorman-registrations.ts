@@ -107,6 +107,7 @@ export async function createDoormanRegistrationRequestAction(
     residentType: parsed.data.resident_type,
     accessDeviceIds,
     doormanProfileId: access.profile.id,
+    password: parsed.data.password,
   });
 
   if (!result.ok) {
