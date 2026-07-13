@@ -1,8 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import type { AnnouncementFormInput, AnnouncementResidentOption } from "@/lib/announcements/types";
+import {
+  GRANJA_AUDIENCE_OPTIONS,
+  resolveGranjaAudienceFromForm,
+  type GranjaAnnouncementAudience,
+} from "@/lib/announcements/granja-audience";
 import { formatAnnouncementResidentLabel } from "@/lib/announcements/resident-labels";
 import {
   createAnnouncementAction,
@@ -38,10 +43,26 @@ export function AnnouncementForm({
 }: AnnouncementFormProps) {
   const action = mode === "create" ? createAnnouncementAction : updateAnnouncementAction;
   const [state, formAction, pending] = useActionState(action, {});
+  const initialGranjaAudience = isGranjaSource
+    ? resolveGranjaAudienceFromForm(defaultValues)
+    : "all_blocks";
+  const [granjaAudience, setGranjaAudience] =
+    useState<GranjaAnnouncementAudience>(initialGranjaAudience);
+
+  const selectedGranjaAudience = GRANJA_AUDIENCE_OPTIONS.find(
+    (option) => option.value === granjaAudience,
+  );
+  const showGranjaBlockSelect =
+    granjaAudience === "block_residents" || granjaAudience === "block_syndic";
+  const showGranjaResidents = granjaAudience === "specific_residents";
 
   return (
     <form action={formAction} className="space-y-4" encType="multipart/form-data">
       <input type="hidden" name="condo_slug" value={condoSlug} />
+      <input type="hidden" name="is_granja_source" value={isGranjaSource ? "1" : "0"} />
+      {isGranjaSource && (
+        <input type="hidden" name="granja_audience" value={granjaAudience} />
+      )}
       {mode === "edit" && defaultValues.announcementId && (
         <input type="hidden" name="announcement_id" value={defaultValues.announcementId} />
       )}
@@ -93,84 +114,161 @@ export function AnnouncementForm({
         </div>
       </div>
 
-      <fieldset className="space-y-3 rounded-lg border p-4">
-        <legend className="px-1 text-sm font-medium">Condomínio</legend>
-        {isGranjaSource ? (
-          <div className="space-y-2">
-            <Label htmlFor="target_condominium_id">Destino do aviso</Label>
-            <select
-              id="target_condominium_id"
-              name="target_condominium_id"
-              defaultValue={defaultValues.target_condominium_id ?? ""}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            >
-              <option value="">Todo o condomínio (todos os blocos)</option>
-              {condominiums.map((condominium) => (
-                <option key={condominium.id} value={condominium.id}>
-                  {condominium.name}
-                </option>
+      {isGranjaSource ? (
+        <>
+          <fieldset className="space-y-3 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-medium">Quem deve receber este aviso?</legend>
+            <div className="space-y-3">
+              {GRANJA_AUDIENCE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className="flex cursor-pointer items-start gap-3 rounded-md border p-3"
+                >
+                  <input
+                    type="radio"
+                    name="granja_audience_choice"
+                    value={option.value}
+                    checked={granjaAudience === option.value}
+                    onChange={() => setGranjaAudience(option.value)}
+                    className="mt-1"
+                  />
+                  <span className="space-y-1">
+                    <span className="block text-sm font-medium">{option.label}</span>
+                    <span className="block text-xs text-muted-foreground">{option.description}</span>
+                  </span>
+                </label>
               ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              Avisos para um condomínio específico aparecem na caixa do síndico daquele bloco.
+            </div>
+          </fieldset>
+
+          {showGranjaBlockSelect && (
+            <fieldset className="space-y-3 rounded-lg border p-4">
+              <legend className="px-1 text-sm font-medium">Bloco</legend>
+              <div className="space-y-2">
+                <Label htmlFor="granja_block_condominium_id">Selecione o bloco</Label>
+                <select
+                  id="granja_block_condominium_id"
+                  name="granja_block_condominium_id"
+                  defaultValue={defaultValues.granja_block_condominium_id ?? ""}
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="" disabled>
+                    Escolha o bloco
+                  </option>
+                  {condominiums.map((condominium) => (
+                    <option key={condominium.id} value={condominium.id}>
+                      {condominium.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </fieldset>
+          )}
+
+          {showGranjaResidents && (
+            <fieldset className="space-y-3 rounded-lg border p-4">
+              <legend className="px-1 text-sm font-medium">Moradores</legend>
+              <div className="space-y-2">
+                <Label>Selecione um ou mais moradores</Label>
+                <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+                  {residents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum morador disponível.</p>
+                  ) : (
+                    residents.map((resident) => {
+                      const checked = defaultValues.target_profile_ids.includes(resident.profile_id);
+
+                      return (
+                        <label
+                          key={resident.profile_id}
+                          className="flex cursor-pointer items-start gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            name="target_profile_ids"
+                            value={resident.profile_id}
+                            defaultChecked={checked}
+                            className="mt-0.5 rounded border"
+                          />
+                          <span>{formatAnnouncementResidentLabel(resident)}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </fieldset>
+          )}
+
+          {selectedGranjaAudience && (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+              <strong>Resumo:</strong> {selectedGranjaAudience.description}
             </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="tower_id">Alcance dentro do condomínio</Label>
-            <select
-              id="tower_id"
-              name="tower_id"
-              defaultValue={defaultValues.tower_id ?? ""}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-            >
-              <option value="">Todo o condomínio</option>
-              {towers.map((tower) => (
-                <option key={tower.id} value={tower.id}>
-                  {tower.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </fieldset>
+          )}
+        </>
+      ) : (
+        <>
+          <fieldset className="space-y-3 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-medium">Alcance no condomínio</legend>
+            <div className="space-y-2">
+              <Label htmlFor="tower_id">Quem deve ver este aviso?</Label>
+              <select
+                id="tower_id"
+                name="tower_id"
+                defaultValue={defaultValues.tower_id ?? ""}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                <option value="">Todo o condomínio (todos os moradores e síndicos)</option>
+                {towers.map((tower) => (
+                  <option key={tower.id} value={tower.id}>
+                    Somente moradores da torre: {tower.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Aviso para todo o condomínio chega a todos os moradores e também fica visível para
+                a administração local.
+              </p>
+            </div>
+          </fieldset>
 
-      <fieldset className="space-y-3 rounded-lg border p-4">
-        <legend className="px-1 text-sm font-medium">Morador específico</legend>
-        <div className="space-y-2">
-          <Label>Enviar apenas para moradores selecionados (opcional)</Label>
-          <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
-            {residents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum morador disponível.</p>
-            ) : (
-              residents.map((resident) => {
-                const checked = defaultValues.target_profile_ids.includes(resident.profile_id);
+          <fieldset className="space-y-3 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-medium">Moradores específicos (opcional)</legend>
+            <div className="space-y-2">
+              <Label>Substituir o alcance acima por pessoas selecionadas</Label>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+                {residents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum morador disponível.</p>
+                ) : (
+                  residents.map((resident) => {
+                    const checked = defaultValues.target_profile_ids.includes(resident.profile_id);
 
-                return (
-                  <label
-                    key={resident.profile_id}
-                    className="flex cursor-pointer items-start gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      name="target_profile_ids"
-                      value={resident.profile_id}
-                      defaultChecked={checked}
-                      className="mt-0.5 rounded border"
-                    />
-                    <span>{formatAnnouncementResidentLabel(resident)}</span>
-                  </label>
-                );
-              })
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Selecione um ou mais moradores. Quando marcados, o aviso fica visível somente para eles
-            (com confirmação de leitura automática). Para uma coluna inteira, use o alcance por torre
-            acima.
-          </p>
-        </div>
-      </fieldset>
+                    return (
+                      <label
+                        key={resident.profile_id}
+                        className="flex cursor-pointer items-start gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          name="target_profile_ids"
+                          value={resident.profile_id}
+                          defaultChecked={checked}
+                          className="mt-0.5 rounded border"
+                        />
+                        <span>{formatAnnouncementResidentLabel(resident)}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se marcar moradores aqui, o aviso deixa de ir para todo o condomínio ou torre e passa
+                a ser exclusivo para as pessoas selecionadas.
+              </p>
+            </div>
+          </fieldset>
+        </>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

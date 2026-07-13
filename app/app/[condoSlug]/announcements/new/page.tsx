@@ -56,7 +56,7 @@ export default async function NewAnnouncementPage({ params }: NewAnnouncementPag
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Novo aviso"
-        description="Publique um comunicado para todo o condomínio, para um bloco específico ou para um morador."
+        description="Escolha com clareza quem receberá o aviso: todos os blocos, um bloco inteiro, somente o síndico ou moradores específicos."
       />
 
       <Card>

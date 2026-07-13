@@ -285,7 +285,7 @@ export default async function AnnouncementDetailPage({
               }))}
               residents={residents}
               defaultValues={{
-                ...toAnnouncementFormInput(announcement),
+                ...toAnnouncementFormInput(announcement, { isGranjaSource }),
                 announcementId: announcement.id,
               }}
             />

@@ -518,6 +518,7 @@ export interface Database {
           condominium_id: string;
           tower_id: string | null;
           target_condominium_id: string | null;
+          target_condominium_staff_only: boolean | null;
           target_profile_id: string | null;
           parent_id: string | null;
           attachment_url: string | null;
@@ -538,6 +539,7 @@ export interface Database {
           condominium_id: string;
           tower_id?: string | null;
           target_condominium_id?: string | null;
+          target_condominium_staff_only?: boolean | null;
           target_profile_id?: string | null;
           parent_id?: string | null;
           attachment_url?: string | null;
@@ -558,6 +560,7 @@ export interface Database {
           condominium_id?: string;
           tower_id?: string | null;
           target_condominium_id?: string | null;
+          target_condominium_staff_only?: boolean | null;
           target_profile_id?: string | null;
           parent_id?: string | null;
           attachment_url?: string | null;

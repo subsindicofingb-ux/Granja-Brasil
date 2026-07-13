@@ -218,6 +218,82 @@ async function sendAnnouncementEmailToProfiles(input: {
   }
 }
 
+async function getResidentProfileIdsForCondominium(condominiumId: string): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("memberships")
+      .select("profile_id")
+      .eq("condominium_id", condominiumId)
+      .eq("role", "resident");
+
+    return data?.map((row) => row.profile_id) ?? [];
+  } catch (error) {
+    logEmailFailure(
+      "residents",
+      error instanceof Error ? error.message : "Falha ao buscar moradores.",
+    );
+    return [];
+  }
+}
+
+async function getGranjaBroadcastResidentProfileIds(): Promise<string[]> {
+  const granjaCondominiumId = await getGranjaCondominiumId();
+
+  if (!granjaCondominiumId) {
+    return [];
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("memberships")
+      .select("profile_id")
+      .neq("condominium_id", granjaCondominiumId)
+      .eq("role", "resident");
+
+    return data?.map((row) => row.profile_id) ?? [];
+  } catch (error) {
+    logEmailFailure(
+      "granja-broadcast",
+      error instanceof Error ? error.message : "Falha ao buscar moradores da Granja.",
+    );
+    return [];
+  }
+}
+
+async function resolveAnnouncementCreatedRecipientProfileIds(
+  announcement: AnnouncementWithDetails,
+): Promise<string[]> {
+  const targetProfileIds = await getAnnouncementTargetProfileIds(announcement.id);
+
+  if (targetProfileIds.length > 0) {
+    return targetProfileIds;
+  }
+
+  if (announcement.target_profile_id) {
+    return [announcement.target_profile_id];
+  }
+
+  if (announcement.target_condominium_id) {
+    if (announcement.target_condominium_staff_only !== false) {
+      return getStaffProfileIdsForCondominium(announcement.target_condominium_id);
+    }
+
+    return getResidentProfileIdsForCondominium(announcement.target_condominium_id);
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const isGranjaBroadcast =
+    granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
+
+  if (isGranjaBroadcast) {
+    return getGranjaBroadcastResidentProfileIds();
+  }
+
+  return getResidentProfileIdsForCondominium(announcement.condominium_id);
+}
+
 export async function notifyAnnouncementCreated(input: {
   announcement: AnnouncementWithDetails;
   senderProfileId: string;
@@ -243,43 +319,7 @@ export async function notifyAnnouncementCreated(input: {
     return;
   }
 
-  const granjaCondominiumId = await getGranjaCondominiumId();
-  const targetProfileIds = await getAnnouncementTargetProfileIds(announcement.id);
-  const isGranjaBroadcast =
-    granjaCondominiumId !== null &&
-    announcement.condominium_id === granjaCondominiumId &&
-    !announcement.target_condominium_id &&
-    targetProfileIds.length === 0 &&
-    !announcement.target_profile_id;
-
-  if (isGranjaBroadcast) {
-    return;
-  }
-
-  const recipientProfileIds: string[] = [];
-
-  if (targetProfileIds.length > 0) {
-    recipientProfileIds.push(...targetProfileIds);
-  } else if (announcement.target_profile_id) {
-    recipientProfileIds.push(announcement.target_profile_id);
-  } else {
-    try {
-      const admin = createAdminClient();
-      const residentCondoId = announcement.target_condominium_id ?? announcement.condominium_id;
-      const { data } = await admin
-        .from("memberships")
-        .select("profile_id")
-        .eq("condominium_id", residentCondoId)
-        .eq("role", "resident");
-
-      recipientProfileIds.push(...(data?.map((row) => row.profile_id) ?? []));
-    } catch (error) {
-      logEmailFailure(
-        "residents",
-        error instanceof Error ? error.message : "Falha ao buscar moradores.",
-      );
-    }
-  }
+  const recipientProfileIds = await resolveAnnouncementCreatedRecipientProfileIds(announcement);
 
   await sendAnnouncementEmailToProfiles({
     profileIds: recipientProfileIds,

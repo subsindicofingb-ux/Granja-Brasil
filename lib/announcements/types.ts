@@ -8,6 +8,7 @@ export type AnnouncementRecord = {
   condominium_id: string;
   tower_id: string | null;
   target_condominium_id: string | null;
+  target_condominium_staff_only: boolean | null;
   target_profile_id: string | null;
   parent_id: string | null;
   attachment_url: string | null;
@@ -47,12 +48,17 @@ export type AnnouncementResidentOption = {
 
 export type ResidentAnnouncementDestination = "condominium" | "granja";
 
+import type { GranjaAnnouncementAudience } from "@/lib/announcements/granja-audience";
+
 export type AnnouncementFormInput = {
   title: string;
   body: string;
   priority: AnnouncementPriority;
   tower_id: string | null;
   target_condominium_id: string | null;
+  target_condominium_staff_only: boolean;
+  granja_audience: GranjaAnnouncementAudience | null;
+  granja_block_condominium_id: string | null;
   target_profile_ids: string[];
   publication_status: AnnouncementPublicationStatus;
   published_at: string;

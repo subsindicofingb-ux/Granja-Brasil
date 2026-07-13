@@ -31,6 +31,7 @@ const ANNOUNCEMENT_SELECT = `
   condominium_id,
   tower_id,
   target_condominium_id,
+  target_condominium_staff_only,
   target_profile_id,
   parent_id,
   attachment_url,
@@ -65,6 +66,7 @@ function mapAnnouncement(row: AnnouncementRow): AnnouncementRecord {
     condominium_id: row.condominium_id,
     tower_id: row.tower_id,
     target_condominium_id: row.target_condominium_id,
+    target_condominium_staff_only: row.target_condominium_staff_only,
     target_profile_id: row.target_profile_id,
     parent_id: row.parent_id,
     attachment_url: row.attachment_url,
@@ -342,6 +344,7 @@ type AnnouncementWriteInput = {
   priority: AnnouncementRecord["priority"];
   tower_id: string | null;
   target_condominium_id: string | null;
+  target_condominium_staff_only: boolean;
   target_profile_id: string | null;
   target_profile_ids: string[];
   publication_status: AnnouncementRecord["publication_status"];
@@ -553,6 +556,7 @@ function toDbPayload(input: AnnouncementWriteInput) {
     priority: input.priority,
     tower_id: input.tower_id,
     target_condominium_id: input.target_condominium_id,
+    target_condominium_staff_only: input.target_condominium_staff_only,
     target_profile_id: input.target_profile_id,
     publication_status: input.publication_status,
     published_at: input.published_at,

@@ -33,6 +33,7 @@ export function isAnnouncementVisibleInContext(
     AnnouncementRecord,
     | "condominium_id"
     | "target_condominium_id"
+    | "target_condominium_staff_only"
     | "target_profile_id"
     | "staff_only"
     | "created_by"
@@ -85,6 +86,24 @@ export function isAnnouncementVisibleInContext(
   }
 
   if (announcement.target_condominium_id) {
+    const syndicOnly = announcement.target_condominium_staff_only !== false;
+
+    if (!syndicOnly) {
+      if (context.condominiumId === announcement.target_condominium_id) {
+        return true;
+      }
+
+      if (context.isStaff && isGranjaSource && isGranjaContext) {
+        return true;
+      }
+
+      if (context.isStaff && announcement.target_condominium_id === context.condominiumId) {
+        return true;
+      }
+
+      return false;
+    }
+
     if (!context.isStaff) {
       return false;
     }
@@ -111,6 +130,7 @@ export function filterAnnouncementsForContext<T extends Pick<
   AnnouncementRecord,
   | "condominium_id"
   | "target_condominium_id"
+  | "target_condominium_staff_only"
   | "target_profile_id"
   | "staff_only"
   | "created_by"

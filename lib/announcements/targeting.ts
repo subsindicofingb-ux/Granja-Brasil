@@ -23,7 +23,7 @@ export function resolveAnnouncementAudienceScope(
 export function formatAnnouncementAudienceLabel(input: {
   announcement: Pick<
     AnnouncementWithDetails,
-    "target_condominium_id" | "target_profile_id" | "tower" | "staff_only"
+    "target_condominium_id" | "target_condominium_staff_only" | "target_profile_id" | "tower" | "staff_only"
   >;
   targetCondominiumName?: string | null;
   targetProfileName?: string | null;
@@ -53,9 +53,15 @@ export function formatAnnouncementAudienceLabel(input: {
   }
 
   if (input.announcement.target_condominium_id) {
+    if (input.announcement.target_condominium_staff_only === false) {
+      return input.targetCondominiumName
+        ? `Moradores do bloco: ${input.targetCondominiumName}`
+        : "Moradores de um bloco";
+    }
+
     return input.targetCondominiumName
-      ? `Condomínio: ${input.targetCondominiumName}`
-      : "Condomínio específico";
+      ? `Síndico do bloco: ${input.targetCondominiumName}`
+      : "Síndico de um bloco";
   }
 
   if (input.announcement.tower) {
