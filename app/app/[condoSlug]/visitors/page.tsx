@@ -183,7 +183,14 @@ async function VisitorsContent({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>Ver</Link>
+                      <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>
+                        {access.permissions.canManageVisitorAuthorizations &&
+                        (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
+                          authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED) &&
+                        !authorization.checked_out_at
+                          ? "Editar"
+                          : "Ver"}
+                      </Link>
                     </Button>
                   </td>
                 </tr>

@@ -16,13 +16,18 @@ import { VisitorAuthorizationForm } from "@/components/visitors/visitor-authoriz
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { isValidUuid } from "@/lib/utils";
 
 interface NewVisitorPageProps {
   params: Promise<{ condoSlug: string }>;
+  searchParams: Promise<{ unit?: string }>;
 }
 
-export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
+export default async function NewVisitorPage({ params, searchParams }: NewVisitorPageProps) {
   const { condoSlug } = await params;
+  const { unit: preselectedUnitId } = await searchParams;
+  const normalizedUnitId =
+    preselectedUnitId && isValidUuid(preselectedUnitId) ? preselectedUnitId : undefined;
   const access = await requireCondoAccess(condoSlug);
 
   if (!access.permissions.canRegisterVisitorAuthorizations) {
@@ -73,7 +78,10 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
               units={panelResult.data.units}
               condominiumNamesById={panelResult.data.condominiumNamesById}
               accessDevices={accessDevices}
-              defaultValues={DEFAULT_VISITOR_AUTHORIZATION_FORM}
+              defaultValues={{
+                ...DEFAULT_VISITOR_AUTHORIZATION_FORM,
+                unit_id: normalizedUnitId ?? "",
+              }}
             />
           </CardContent>
         </Card>
@@ -89,7 +97,12 @@ export default async function NewVisitorPage({ params }: NewVisitorPageProps) {
   ]);
 
   const units = unitsResult.ok ? unitsResult.data : [];
-  const defaultUnitId = isResidentRegistration && units.length === 1 ? units[0].id : "";
+  const defaultUnitId =
+    normalizedUnitId && units.some((unit) => unit.id === normalizedUnitId)
+      ? normalizedUnitId
+      : isResidentRegistration && units.length === 1
+        ? units[0].id
+        : "";
 
   return (
     <div className="mx-auto max-w-lg space-y-6">

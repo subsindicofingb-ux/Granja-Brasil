@@ -11,13 +11,22 @@ import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { VehicleForm } from "@/components/vehicles/vehicle-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { isValidUuid } from "@/lib/utils";
+
+function resolvePreselectedUnitId(units: { id: string }[], unitId?: string) {
+  return unitId && units.some((unit) => unit.id === unitId) ? unitId : undefined;
+}
 
 interface NewVehiclePageProps {
   params: Promise<{ condoSlug: string }>;
+  searchParams: Promise<{ unit?: string }>;
 }
 
-export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
+export default async function NewVehiclePage({ params, searchParams }: NewVehiclePageProps) {
   const { condoSlug } = await params;
+  const { unit: preselectedUnitId } = await searchParams;
+  const normalizedUnitId =
+    preselectedUnitId && isValidUuid(preselectedUnitId) ? preselectedUnitId : undefined;
   const isGeneralCondo = isGeneralCondominium(condoSlug);
 
   const access = await requireCondoPermission(
@@ -145,6 +154,9 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
                 condominiumNamesById={panel.condominiumNamesById}
                 mode="create"
                 isPendingApproval
+                defaultValues={{
+                  unitId: resolvePreselectedUnitId(panel.units, normalizedUnitId),
+                }}
               />
             </CardContent>
           </Card>
@@ -197,6 +209,9 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
               residents={residentsResult.data}
               mode="create"
               isPendingApproval
+              defaultValues={{
+                unitId: resolvePreselectedUnitId(unitsResult.data, normalizedUnitId),
+              }}
             />
           </CardContent>
         </Card>
@@ -250,6 +265,9 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
               residents={residentsResult.data}
               condominiumNamesById={panelResult.data.condominiumNamesById}
               mode="create"
+              defaultValues={{
+                unitId: resolvePreselectedUnitId(panelResult.data.units, normalizedUnitId),
+              }}
             />
           </CardContent>
         </Card>
@@ -301,6 +319,9 @@ export default async function NewVehiclePage({ params }: NewVehiclePageProps) {
             units={unitsResult.data}
             residents={residentsResult.data}
             mode="create"
+            defaultValues={{
+              unitId: resolvePreselectedUnitId(unitsResult.data, normalizedUnitId),
+            }}
           />
         </CardContent>
       </Card>

@@ -7,6 +7,7 @@ import { getUnitById, getUnitLinkedCounts } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { UnitForm } from "@/components/units/unit-form";
+import { UnitLinkedContents } from "@/components/units/unit-linked-contents";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -57,7 +58,7 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
   const linkedCounts = linkedCountsResult?.ok ? linkedCountsResult.data : undefined;
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
         title={`Unidade ${unit.number}`}
         description={`${unit.tower.name}${unit.block ? ` · Bloco ${unit.block}` : ""}`}
@@ -103,6 +104,12 @@ export default async function UnitDetailPage({ params }: UnitDetailPageProps) {
           )}
         </CardContent>
       </Card>
+
+      <UnitLinkedContents
+        condoSlug={condoSlug}
+        unit={unit}
+        permissions={access.permissions}
+      />
 
       <Button variant="outline" asChild>
         <Link href={`/app/${condoSlug}/units`}>Voltar</Link>

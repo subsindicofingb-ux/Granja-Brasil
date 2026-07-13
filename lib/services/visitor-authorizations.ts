@@ -326,6 +326,50 @@ export async function updateVisitorAuthorization(input: {
   return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
 }
 
+export async function updateVisitorAuthorizationAccess(input: {
+  authorizationId: string;
+  condominiumId: string;
+  accessStartsAt: string;
+  accessEndsAt: string;
+  syncControlId: boolean;
+}): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
+  const current = await getVisitorAuthorizationById(input.authorizationId, input.condominiumId);
+  if (!current.ok) {
+    return serviceError(current.error);
+  }
+
+  if (
+    current.data.status !== VISITOR_AUTHORIZATION_STATUS.PENDING &&
+    current.data.status !== VISITOR_AUTHORIZATION_STATUS.APPROVED
+  ) {
+    return serviceError("Somente autorizações pendentes ou aprovadas podem ser alteradas.");
+  }
+
+  if (current.data.checked_out_at) {
+    return serviceError("Não é possível alterar após o check-out do visitante.");
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("visitor_authorizations")
+    .update({
+      access_starts_at: input.accessStartsAt,
+      access_ends_at: input.accessEndsAt,
+      sync_controlid: input.syncControlId,
+    })
+    .eq("id", input.authorizationId)
+    .eq("condominium_id", input.condominiumId)
+    .select(VISITOR_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapVisitorDetail(data as VisitorAuthorizationDetailRow));
+}
+
 async function updateVisitorStatus(input: {
   authorizationId: string;
   condominiumId: string;

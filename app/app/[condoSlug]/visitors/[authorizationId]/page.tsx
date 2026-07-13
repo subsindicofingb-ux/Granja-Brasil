@@ -19,6 +19,7 @@ import { getGuestTypeLabel } from "@/lib/visitor-authorizations/labels";
 import { VISITOR_AUTHORIZATION_STATUS } from "@/lib/constants";
 import { VisitorAuthorizationActions } from "@/components/visitors/visitor-authorization-actions";
 import { VisitorAuthorizationForm } from "@/components/visitors/visitor-authorization-form";
+import { VisitorAccessEditForm } from "@/components/visitors/visitor-access-edit-form";
 import { VisitorAccessControl } from "@/components/visitors/visitor-access-control";
 import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
 import { VisitorDisplayStatusBadge } from "@/components/visitors/visitor-display-status-badge";
@@ -78,6 +79,12 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
 
   const canEdit =
     isStaff && authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING;
+
+  const canEditAccess =
+    isStaff &&
+    (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
+      authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED) &&
+    !authorization.checked_out_at;
 
   const isGeneralCondo = isGeneralCondominium(condoSlug);
 
@@ -240,6 +247,25 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
                 photoUrl: authorization.photo_url,
                 syncControlId: authorization.sync_controlid,
               }}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {canEditAccess && !canEdit && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Editar período e ControlIDs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VisitorAccessEditForm
+              condoSlug={condoSlug}
+              authorizationId={authorization.id}
+              accessStartsAt={toVisitorAuthorizationFormInput(authorization).access_starts_at}
+              accessEndsAt={toVisitorAuthorizationFormInput(authorization).access_ends_at}
+              syncControlId={authorization.sync_controlid}
+              accessDevices={accessDevicesResult.ok ? accessDevicesResult.data : []}
+              defaultAccessDeviceIds={deviceIdsResult.ok ? deviceIdsResult.data : []}
             />
           </CardContent>
         </Card>

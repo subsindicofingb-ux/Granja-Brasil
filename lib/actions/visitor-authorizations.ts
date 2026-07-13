@@ -23,6 +23,7 @@ import {
   createVisitorAuthorization,
   rejectVisitorAuthorization,
   updateVisitorAuthorization,
+  updateVisitorAuthorizationAccess,
   updateVisitorDoormanNotes,
 } from "@/lib/services/visitor-authorizations";
 import {
@@ -35,12 +36,16 @@ import {
   parseVisitorAuthorizationFormData,
   toVisitorAuthorizationPayload,
 } from "@/lib/validations/visitor-authorization.schema";
+import { parseVisitorAccessFormData } from "@/lib/validations/visitor-access.schema";
 
-function revalidateVisitorPaths(condoSlug: string, authorizationId?: string) {
+function revalidateVisitorPaths(condoSlug: string, authorizationId?: string, unitId?: string) {
   revalidatePath(`/app/${condoSlug}/visitors`);
   revalidatePath(`/app/${condoSlug}/visitors/consult`);
   if (authorizationId) {
     revalidatePath(`/app/${condoSlug}/visitors/${authorizationId}`);
+  }
+  if (unitId) {
+    revalidatePath(`/app/${condoSlug}/units/${unitId}`);
   }
 }
 
@@ -294,6 +299,57 @@ export async function updateVisitorAuthorizationAction(
 
   revalidateVisitorPaths(condoSlug, authorizationId);
   redirect(`/app/${condoSlug}/visitors/${authorizationId}`);
+}
+
+export async function updateVisitorAuthorizationAccessAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const authorizationId = String(formData.get("authorization_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => ctx.permissions.canManageVisitorAuthorizations,
+    { redirectTo: `/app/${condoSlug}/visitors/${authorizationId}` },
+  );
+
+  const parsed = parseVisitorAccessFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
+  const syncControlId = formData.get("sync_controlid") === "1";
+
+  const result = await updateVisitorAuthorizationAccess({
+    authorizationId,
+    condominiumId: access.condominium.id,
+    accessStartsAt: parsed.data.access_starts_at,
+    accessEndsAt: parsed.data.access_ends_at,
+    syncControlId: syncControlId && accessDeviceIds.length > 0,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  const devicesResult = await replaceVisitorAuthorizationAccessDevices({
+    visitorAuthorizationId: authorizationId,
+    condominiumId: result.data.condominium_id,
+    accessDeviceIds: syncControlId ? accessDeviceIds : [],
+  });
+
+  if (!devicesResult.ok) {
+    return { error: devicesResult.error ?? "Período salvo, mas locais de acesso não foram atualizados." };
+  }
+
+  if (result.data.status === "approved" && syncControlId && accessDeviceIds.length > 0) {
+    await activateVisitorAccessGrantsOnApproval(authorizationId, result.data.condominium_id);
+  }
+
+  revalidateVisitorPaths(condoSlug, authorizationId, result.data.unit_id);
+  return { success: "Período e ControlIDs atualizados." };
 }
 
 export async function approveVisitorAuthorizationAction(
