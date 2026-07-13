@@ -138,23 +138,36 @@ export function AnnouncementForm({
       <fieldset className="space-y-3 rounded-lg border p-4">
         <legend className="px-1 text-sm font-medium">Morador específico</legend>
         <div className="space-y-2">
-          <Label htmlFor="target_profile_id">Enviar apenas para um morador (opcional)</Label>
-          <select
-            id="target_profile_id"
-            name="target_profile_id"
-            defaultValue={defaultValues.target_profile_id ?? ""}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          >
-            <option value="">Nenhum — usar destino do condomínio acima</option>
-            {residents.map((resident) => (
-              <option key={resident.profile_id} value={resident.profile_id}>
-                {formatAnnouncementResidentLabel(resident)}
-              </option>
-            ))}
-          </select>
+          <Label>Enviar apenas para moradores selecionados (opcional)</Label>
+          <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+            {residents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum morador disponível.</p>
+            ) : (
+              residents.map((resident) => {
+                const checked = defaultValues.target_profile_ids.includes(resident.profile_id);
+
+                return (
+                  <label
+                    key={resident.profile_id}
+                    className="flex cursor-pointer items-start gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      name="target_profile_ids"
+                      value={resident.profile_id}
+                      defaultChecked={checked}
+                      className="mt-0.5 rounded border"
+                    />
+                    <span>{formatAnnouncementResidentLabel(resident)}</span>
+                  </label>
+                );
+              })
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Quando selecionado, o aviso fica visível somente para esse morador (com confirmação de
-            leitura automática).
+            Selecione um ou mais moradores. Quando marcados, o aviso fica visível somente para eles
+            (com confirmação de leitura automática). Para uma coluna inteira, use o alcance por torre
+            acima.
           </p>
         </div>
       </fieldset>

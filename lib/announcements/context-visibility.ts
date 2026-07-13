@@ -6,6 +6,25 @@ export type AnnouncementViewContext = {
   isStaff: boolean;
 };
 
+function announcementHasTargetProfiles(
+  announcement: Pick<AnnouncementRecord, "target_profile_id">,
+  targetProfileIds: string[],
+): boolean {
+  return Boolean(announcement.target_profile_id) || targetProfileIds.length > 0;
+}
+
+function announcementTargetsProfile(
+  announcement: Pick<AnnouncementRecord, "target_profile_id">,
+  targetProfileIds: string[],
+  profileId: string,
+): boolean {
+  if (announcement.target_profile_id === profileId) {
+    return true;
+  }
+
+  return targetProfileIds.includes(profileId);
+}
+
 /**
  * Defesa em profundidade: restringe avisos ao condomínio/contexto atual.
  */
@@ -20,6 +39,7 @@ export function isAnnouncementVisibleInContext(
   >,
   context: AnnouncementViewContext,
   granjaCondominiumId: string | null,
+  targetProfileIds: string[] = [],
 ): boolean {
   const isGranjaSource =
     granjaCondominiumId !== null && announcement.condominium_id === granjaCondominiumId;
@@ -48,8 +68,8 @@ export function isAnnouncementVisibleInContext(
     return false;
   }
 
-  if (announcement.target_profile_id) {
-    if (announcement.target_profile_id === context.profileId) {
+  if (announcementHasTargetProfiles(announcement, targetProfileIds)) {
+    if (announcementTargetsProfile(announcement, targetProfileIds, context.profileId)) {
       return true;
     }
 
@@ -95,7 +115,7 @@ export function filterAnnouncementsForContext<T extends Pick<
   | "staff_only"
   | "created_by"
   | "parent_id"
->>(
+> & { target_profile_ids?: string[] }>(
   announcements: T[],
   context: AnnouncementViewContext,
   granjaCondominiumId: string | null,
@@ -103,6 +123,11 @@ export function filterAnnouncementsForContext<T extends Pick<
   const roots = announcements.filter((announcement) => !announcement.parent_id);
 
   return roots.filter((announcement) =>
-    isAnnouncementVisibleInContext(announcement, context, granjaCondominiumId),
+    isAnnouncementVisibleInContext(
+      announcement,
+      context,
+      granjaCondominiumId,
+      announcement.target_profile_ids ?? [],
+    ),
   );
 }

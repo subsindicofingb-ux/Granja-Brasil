@@ -35,6 +35,7 @@ export type AnnouncementWithDetails = AnnouncementRecord & {
     id: string;
     full_name: string;
   } | null;
+  target_profile_ids?: string[];
 };
 
 export type AnnouncementResidentOption = {
@@ -52,7 +53,7 @@ export type AnnouncementFormInput = {
   priority: AnnouncementPriority;
   tower_id: string | null;
   target_condominium_id: string | null;
-  target_profile_id: string | null;
+  target_profile_ids: string[];
   publication_status: AnnouncementPublicationStatus;
   published_at: string;
   expires_at: string | null;

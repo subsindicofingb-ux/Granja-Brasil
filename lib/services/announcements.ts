@@ -222,6 +222,28 @@ async function validateTargetProfile(
   return serviceOk(null);
 }
 
+async function validateTargetProfiles(
+  targetProfileIds: string[],
+  condominiumId: string,
+  granjaCondominiumId: string | null,
+  isGranjaSource: boolean,
+): Promise<ServiceResult<null>> {
+  for (const targetProfileId of targetProfileIds) {
+    const profileCheck = await validateTargetProfile(
+      targetProfileId,
+      condominiumId,
+      granjaCondominiumId,
+      isGranjaSource,
+    );
+
+    if (!profileCheck.ok) {
+      return profileCheck;
+    }
+  }
+
+  return serviceOk(null);
+}
+
 export type { AnnouncementViewContext } from "@/lib/announcements/context-visibility";
 
 export async function listAnnouncementsByCondominium(
@@ -241,7 +263,9 @@ export async function listAnnouncementsByCondominium(
   }
 
   const inContext = filterAnnouncementsForContext(
-    ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+    await attachTargetProfileIdsToAnnouncements(
+      ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+    ),
     viewContext,
     granjaCondominiumId,
   );
@@ -273,8 +297,10 @@ export async function listRecentAnnouncementsByCondominium(
   }
 
   const announcements = filterAnnouncementsForContext(
-    filterAnnouncementsVisibleToMembers(
-      ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+    await attachTargetProfileIdsToAnnouncements(
+      filterAnnouncementsVisibleToMembers(
+        ((data as AnnouncementDetailRow[] | null) ?? []).map(mapAnnouncementDetail),
+      ),
     ),
     viewContext,
     granjaCondominiumId,
@@ -303,7 +329,11 @@ export async function getAnnouncementById(
     return serviceError("Aviso não encontrado neste condomínio.");
   }
 
-  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+  const [announcement] = await attachTargetProfileIdsToAnnouncements([
+    mapAnnouncementDetail(data as AnnouncementDetailRow),
+  ]);
+
+  return serviceOk(announcement);
 }
 
 type AnnouncementWriteInput = {
@@ -313,6 +343,7 @@ type AnnouncementWriteInput = {
   tower_id: string | null;
   target_condominium_id: string | null;
   target_profile_id: string | null;
+  target_profile_ids: string[];
   publication_status: AnnouncementRecord["publication_status"];
   published_at: string;
   expires_at: string | null;
@@ -327,6 +358,174 @@ async function getAnnouncementWriteClient() {
     return createAdminClient();
   }
   return await createClient();
+}
+
+async function loadTargetProfileIdsByAnnouncementIds(
+  announcementIds: string[],
+): Promise<Map<string, string[]>> {
+  const result = new Map<string, string[]>();
+
+  if (announcementIds.length === 0) {
+    return result;
+  }
+
+  const writeClient = await getAnnouncementWriteClient();
+  const { data, error } = await writeClient
+    .from("announcement_target_profiles")
+    .select("announcement_id, profile_id")
+    .in("announcement_id", announcementIds);
+
+  if (error) {
+    console.error("[announcements:target-profiles]", error);
+    return result;
+  }
+
+  for (const row of data ?? []) {
+    const announcementId = row.announcement_id as string;
+    const profileId = row.profile_id as string;
+    const current = result.get(announcementId) ?? [];
+    current.push(profileId);
+    result.set(announcementId, current);
+  }
+
+  return result;
+}
+
+async function attachTargetProfileIdsToAnnouncements(
+  announcements: AnnouncementWithDetails[],
+): Promise<AnnouncementWithDetails[]> {
+  const targetProfileIdsByAnnouncementId = await loadTargetProfileIdsByAnnouncementIds(
+    announcements.map((announcement) => announcement.id),
+  );
+
+  return announcements.map((announcement) => {
+    const fromJunction = targetProfileIdsByAnnouncementId.get(announcement.id) ?? [];
+    const target_profile_ids =
+      fromJunction.length > 0
+        ? fromJunction
+        : announcement.target_profile_id
+          ? [announcement.target_profile_id]
+          : [];
+
+    return {
+      ...announcement,
+      target_profile_ids,
+    };
+  });
+}
+
+export async function getAnnouncementTargetProfileIds(
+  announcementId: string,
+): Promise<string[]> {
+  const map = await loadTargetProfileIdsByAnnouncementIds([announcementId]);
+  const fromJunction = map.get(announcementId) ?? [];
+
+  if (fromJunction.length > 0) {
+    return fromJunction;
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("announcements")
+    .select("target_profile_id")
+    .eq("id", announcementId)
+    .maybeSingle();
+
+  return data?.target_profile_id ? [data.target_profile_id] : [];
+}
+
+async function replaceAnnouncementTargetProfiles(
+  announcementId: string,
+  profileIds: string[],
+): Promise<void> {
+  const writeClient = await getAnnouncementWriteClient();
+
+  await writeClient
+    .from("announcement_target_profiles")
+    .delete()
+    .eq("announcement_id", announcementId);
+
+  if (profileIds.length === 0) {
+    return;
+  }
+
+  await writeClient.from("announcement_target_profiles").insert(
+    profileIds.map((profileId) => ({
+      announcement_id: announcementId,
+      profile_id: profileId,
+    })),
+  );
+}
+
+const STAFF_NOTIFICATION_ROLES = ["super_admin", "admin", "syndic", "sub_syndic"] as const;
+
+export async function getAnnouncementThreadParticipantProfileIds(
+  rootAnnouncementId: string,
+): Promise<string[]> {
+  const admin = createAdminClient();
+
+  const [rootResult, repliesResult, targetsResult] = await Promise.all([
+    admin
+      .from("announcements")
+      .select("created_by, target_profile_id, staff_only, condominium_id, target_condominium_id")
+      .eq("id", rootAnnouncementId)
+      .maybeSingle(),
+    admin.from("announcements").select("created_by").eq("parent_id", rootAnnouncementId),
+    admin
+      .from("announcement_target_profiles")
+      .select("profile_id")
+      .eq("announcement_id", rootAnnouncementId),
+  ]);
+
+  const root = rootResult.data;
+
+  if (!root) {
+    return [];
+  }
+
+  const ids = new Set<string>();
+
+  if (root.created_by) {
+    ids.add(root.created_by);
+  }
+
+  if (root.target_profile_id) {
+    ids.add(root.target_profile_id);
+  }
+
+  for (const row of targetsResult.data ?? []) {
+    ids.add(row.profile_id);
+  }
+
+  for (const row of repliesResult.data ?? []) {
+    if (row.created_by) {
+      ids.add(row.created_by);
+    }
+  }
+
+  if (root.staff_only) {
+    const granjaCondominiumId = await getGranjaCondominiumId();
+    const isGranjaMessage =
+      granjaCondominiumId !== null && root.condominium_id === granjaCondominiumId;
+    const staffCondoId =
+      isGranjaMessage && root.target_condominium_id
+        ? granjaCondominiumId
+        : root.condominium_id;
+
+    if (staffCondoId) {
+      const { data: staffRows } = await admin
+        .from("memberships")
+        .select("profile_id")
+        .eq("condominium_id", staffCondoId)
+        .in("role", [...STAFF_NOTIFICATION_ROLES]);
+
+      for (const row of staffRows ?? []) {
+        ids.add(row.profile_id);
+      }
+    }
+  }
+
+  return [...ids];
 }
 
 async function insertAnnouncementRecord(
@@ -369,9 +568,10 @@ async function validateAnnouncementWriteInput(
 ): Promise<ServiceResult<null>> {
   const granjaCondominiumId = await getGranjaCondominiumId();
   const isGranjaSource = granjaCondominiumId === condominiumId;
+  const hasTargetProfiles = input.target_profile_ids.length > 0;
 
   const towerCheck = await validateTowerForCondominium(
-    input.target_profile_id ? null : input.tower_id,
+    hasTargetProfiles ? null : input.tower_id,
     condominiumId,
   );
 
@@ -380,7 +580,7 @@ async function validateAnnouncementWriteInput(
   }
 
   const condoTargetCheck = await validateTargetCondominium(
-    input.target_profile_id ? null : input.target_condominium_id,
+    hasTargetProfiles ? null : input.target_condominium_id,
     isGranjaSource ? granjaCondominiumId : null,
   );
 
@@ -388,8 +588,8 @@ async function validateAnnouncementWriteInput(
     return condoTargetCheck;
   }
 
-  const profileCheck = await validateTargetProfile(
-    input.target_profile_id,
+  const profileCheck = await validateTargetProfiles(
+    input.target_profile_ids,
     condominiumId,
     granjaCondominiumId,
     isGranjaSource,
@@ -413,10 +613,21 @@ export async function createAnnouncement(input: {
     return serviceError(validation.error);
   }
 
-  return insertAnnouncementRecord({
+  const result = await insertAnnouncementRecord({
     condominium_id: input.condominiumId,
     created_by: input.createdBy,
     ...toDbPayload(input.data),
+  });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  await replaceAnnouncementTargetProfiles(result.data.id, input.data.target_profile_ids);
+
+  return serviceOk({
+    ...result.data,
+    target_profile_ids: input.data.target_profile_ids,
   });
 }
 
@@ -451,7 +662,13 @@ export async function updateAnnouncement(input: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk(mapAnnouncementDetail(data as AnnouncementDetailRow));
+  await replaceAnnouncementTargetProfiles(input.announcementId, input.data.target_profile_ids);
+
+  const [announcement] = await attachTargetProfileIdsToAnnouncements([
+    mapAnnouncementDetail(data as AnnouncementDetailRow),
+  ]);
+
+  return serviceOk(announcement);
 }
 
 export async function markAnnouncementAsRead(input: {
@@ -910,7 +1127,7 @@ export async function createAnnouncementReply(input: {
   });
 
   if (result.ok) {
-    await clearAnnouncementReadsForOthers(parent.id, input.createdBy, parent.created_by);
+    await clearAnnouncementReadsForOthers(parent.id, input.createdBy);
 
     if (parent.created_by && parent.created_by !== input.createdBy) {
       await markAnnouncementReplyUnreadForAuthor({

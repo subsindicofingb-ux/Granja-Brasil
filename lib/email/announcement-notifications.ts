@@ -7,6 +7,10 @@ import {
 } from "@/lib/email/format";
 import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
+import {
+  getAnnouncementTargetProfileIds,
+  getAnnouncementThreadParticipantProfileIds,
+} from "@/lib/services/announcements";
 
 const STAFF_ROLES = ["super_admin", "admin", "syndic", "sub_syndic"] as const;
 
@@ -240,10 +244,12 @@ export async function notifyAnnouncementCreated(input: {
   }
 
   const granjaCondominiumId = await getGranjaCondominiumId();
+  const targetProfileIds = await getAnnouncementTargetProfileIds(announcement.id);
   const isGranjaBroadcast =
     granjaCondominiumId !== null &&
     announcement.condominium_id === granjaCondominiumId &&
     !announcement.target_condominium_id &&
+    targetProfileIds.length === 0 &&
     !announcement.target_profile_id;
 
   if (isGranjaBroadcast) {
@@ -252,7 +258,9 @@ export async function notifyAnnouncementCreated(input: {
 
   const recipientProfileIds: string[] = [];
 
-  if (announcement.target_profile_id) {
+  if (targetProfileIds.length > 0) {
+    recipientProfileIds.push(...targetProfileIds);
+  } else if (announcement.target_profile_id) {
     recipientProfileIds.push(announcement.target_profile_id);
   } else {
     try {
@@ -293,20 +301,13 @@ export async function notifyAnnouncementReply(input: {
   senderName: string;
 }): Promise<void> {
   const { rootAnnouncement, replyBody, senderProfileId, senderName } = input;
-  const recipientProfileIds: string[] = [];
-
-  if (rootAnnouncement.created_by && rootAnnouncement.created_by !== senderProfileId) {
-    recipientProfileIds.push(rootAnnouncement.created_by);
-  }
-
-  if (rootAnnouncement.staff_only) {
-    recipientProfileIds.push(...(await resolveStaffRecipients(rootAnnouncement)));
-  }
-
+  const recipientProfileIds = await getAnnouncementThreadParticipantProfileIds(
+    rootAnnouncement.id,
+  );
   const fallbackCondoSlug = await resolveFallbackSlug(rootAnnouncement);
 
   await sendAnnouncementEmailToProfiles({
-    profileIds: [...new Set(recipientProfileIds)],
+    profileIds: recipientProfileIds,
     excludeProfileId: senderProfileId,
     fallbackCondoSlug,
     announcementId: rootAnnouncement.id,

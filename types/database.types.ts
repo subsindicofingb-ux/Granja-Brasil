@@ -618,6 +618,39 @@ export interface Database {
           },
         ];
       };
+      announcement_target_profiles: {
+        Row: {
+          announcement_id: string;
+          profile_id: string;
+          created_at: string;
+        };
+        Insert: {
+          announcement_id: string;
+          profile_id: string;
+          created_at?: string;
+        };
+        Update: {
+          announcement_id?: string;
+          profile_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "announcement_target_profiles_announcement_id_fkey";
+            columns: ["announcement_id"];
+            isOneToOne: false;
+            referencedRelation: "announcements";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "announcement_target_profiles_profile_id_fkey";
+            columns: ["profile_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       announcement_reads: {
         Row: {
           announcement_id: string;

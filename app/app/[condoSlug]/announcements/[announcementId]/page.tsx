@@ -89,7 +89,14 @@ export default async function AnnouncementDetailPage({
     isStaff: access.permissions.canManageAnnouncements,
   };
 
-  if (!isAnnouncementVisibleInContext(announcement, viewContext, granjaCondominiumId)) {
+  if (
+    !isAnnouncementVisibleInContext(
+      announcement,
+      viewContext,
+      granjaCondominiumId,
+      announcement.target_profile_ids ?? [],
+    )
+  ) {
     notFound();
   }
 
@@ -113,16 +120,21 @@ export default async function AnnouncementDetailPage({
     ? condominiums.find((condominium) => condominium.id === announcement.target_condominium_id)
         ?.name
     : null;
-  const targetResident = announcement.target_profile_id
-    ? residents.find((resident) => resident.profile_id === announcement.target_profile_id)
-    : null;
-  const targetProfileName = targetResident
-    ? formatAnnouncementResidentLabel(targetResident)
-    : null;
+  const targetProfileIds =
+    announcement.target_profile_ids ??
+    (announcement.target_profile_id ? [announcement.target_profile_id] : []);
+  const targetProfileNames = targetProfileIds
+    .map((profileId) => {
+      const resident = residents.find((item) => item.profile_id === profileId);
+      return resident ? formatAnnouncementResidentLabel(resident) : null;
+    })
+    .filter((name): name is string => Boolean(name));
+  const targetProfileName = targetProfileNames.length === 1 ? targetProfileNames[0] : null;
   const audienceLabel = formatAnnouncementAudienceLabel({
     announcement,
     targetCondominiumName,
     targetProfileName,
+    targetProfileNames,
     isGranjaSource: isGranjaSource || announcement.condominium_id !== access.condominium.id,
   });
 

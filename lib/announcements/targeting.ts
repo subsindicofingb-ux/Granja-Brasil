@@ -5,9 +5,11 @@ import type { AnnouncementRecord, AnnouncementWithDetails } from "@/lib/announce
 export type AnnouncementAudienceScope = "all" | "condominium" | "resident";
 
 export function resolveAnnouncementAudienceScope(
-  announcement: Pick<AnnouncementRecord, "target_condominium_id" | "target_profile_id">,
+  announcement: Pick<AnnouncementRecord, "target_condominium_id" | "target_profile_id"> & {
+    target_profile_ids?: string[];
+  },
 ): AnnouncementAudienceScope {
-  if (announcement.target_profile_id) {
+  if (announcement.target_profile_id || (announcement.target_profile_ids?.length ?? 0) > 0) {
     return "resident";
   }
 
@@ -25,6 +27,7 @@ export function formatAnnouncementAudienceLabel(input: {
   >;
   targetCondominiumName?: string | null;
   targetProfileName?: string | null;
+  targetProfileNames?: string[];
   isGranjaSource?: boolean;
 }): string {
   if (input.announcement.staff_only) {
@@ -37,10 +40,16 @@ export function formatAnnouncementAudienceLabel(input: {
     return "Síndico / administração";
   }
 
-  if (input.announcement.target_profile_id) {
-    return input.targetProfileName
-      ? `Morador: ${input.targetProfileName}`
-      : "Morador específico";
+  if (input.targetProfileNames && input.targetProfileNames.length > 1) {
+    return `Moradores: ${input.targetProfileNames.join(", ")}`;
+  }
+
+  if (input.announcement.target_profile_id || input.targetProfileNames?.length === 1) {
+    const name =
+      input.targetProfileName ??
+      (input.targetProfileNames?.length === 1 ? input.targetProfileNames[0] : null);
+
+    return name ? `Morador: ${name}` : "Morador específico";
   }
 
   if (input.announcement.target_condominium_id) {

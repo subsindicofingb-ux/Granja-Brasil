@@ -18,7 +18,9 @@ const optionalUuid = (message: string) =>
 
 const optionalTowerId = optionalUuid("Torre inválida.");
 const optionalTargetCondominiumId = optionalUuid("Condomínio inválido.");
-const optionalTargetProfileId = optionalUuid("Morador inválido.");
+const optionalTargetProfileIds = z
+  .array(z.string().uuid("Morador inválido."))
+  .default([]);
 
 const optionalExpiresAt = z
   .union([z.string(), z.null(), z.undefined()])
@@ -42,7 +44,7 @@ export const announcementFormSchema = z
     ]),
     tower_id: optionalTowerId,
     target_condominium_id: optionalTargetCondominiumId,
-    target_profile_id: optionalTargetProfileId,
+    target_profile_ids: optionalTargetProfileIds,
     publication_status: z.enum([
       ANNOUNCEMENT_PUBLICATION_STATUS.DRAFT,
       ANNOUNCEMENT_PUBLICATION_STATUS.PUBLISHED,
@@ -65,14 +67,25 @@ export const announcementFormSchema = z
       });
     }
 
-    if (data.target_profile_id && data.target_condominium_id) {
+    if (data.target_profile_ids.length > 0 && data.target_condominium_id) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Escolha destino por condomínio ou por morador, não ambos.",
-        path: ["target_profile_id"],
+        message: "Escolha destino por condomínio ou por moradores, não ambos.",
+        path: ["target_profile_ids"],
       });
     }
   });
+
+function parseTargetProfileIds(formData: FormData): string[] {
+  return [
+    ...new Set(
+      formData
+        .getAll("target_profile_ids")
+        .map((value) => String(value).trim())
+        .filter((value) => value.length > 0),
+    ),
+  ];
+}
 
 export function parseAnnouncementFormData(formData: FormData) {
   return announcementFormSchema.safeParse({
@@ -81,7 +94,7 @@ export function parseAnnouncementFormData(formData: FormData) {
     priority: formData.get("priority"),
     tower_id: formData.get("tower_id"),
     target_condominium_id: formData.get("target_condominium_id"),
-    target_profile_id: formData.get("target_profile_id"),
+    target_profile_ids: parseTargetProfileIds(formData),
     publication_status: formData.get("publication_status"),
     published_at: formData.get("published_at"),
     expires_at: formData.get("expires_at") ?? "",
@@ -89,13 +102,16 @@ export function parseAnnouncementFormData(formData: FormData) {
 }
 
 export function toAnnouncementPayload(data: z.infer<typeof announcementFormSchema>) {
+  const hasTargetProfiles = data.target_profile_ids.length > 0;
+
   return {
     title: data.title,
     body: data.body,
     priority: data.priority,
-    tower_id: data.target_profile_id ? null : data.tower_id,
-    target_condominium_id: data.target_profile_id ? null : data.target_condominium_id,
-    target_profile_id: data.target_profile_id,
+    tower_id: hasTargetProfiles ? null : data.tower_id,
+    target_condominium_id: hasTargetProfiles ? null : data.target_condominium_id,
+    target_profile_ids: data.target_profile_ids,
+    target_profile_id: data.target_profile_ids.length === 1 ? data.target_profile_ids[0] : null,
     publication_status: data.publication_status,
     published_at: data.published_at,
     expires_at: data.expires_at,
