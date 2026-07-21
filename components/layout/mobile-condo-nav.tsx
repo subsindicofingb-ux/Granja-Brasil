@@ -22,6 +22,7 @@ import {
   Users,
   Package,
   Droplets,
+  DoorOpen,
 } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,7 @@ const iconMap = {
   Settings,
   Package,
   Droplets,
+  DoorOpen,
 } as const;
 
 interface MobileCondoNavProps {

@@ -1208,6 +1208,57 @@ export interface Database {
         };
         Relationships: [];
       };
+      access_remote_open_events: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          resident_id: string;
+          profile_id: string;
+          unit_id: string | null;
+          access_device_id: string;
+          controlid_user_id: number | null;
+          reason: Database["public"]["Enums"]["access_remote_open_reason"];
+          origin: Database["public"]["Enums"]["access_remote_open_origin"];
+          result: Database["public"]["Enums"]["access_remote_open_result"];
+          error_message: string | null;
+          notes: string | null;
+          visitor_authorization_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          resident_id: string;
+          profile_id: string;
+          unit_id?: string | null;
+          access_device_id: string;
+          controlid_user_id?: number | null;
+          reason: Database["public"]["Enums"]["access_remote_open_reason"];
+          origin: Database["public"]["Enums"]["access_remote_open_origin"];
+          result: Database["public"]["Enums"]["access_remote_open_result"];
+          error_message?: string | null;
+          notes?: string | null;
+          visitor_authorization_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          resident_id?: string;
+          profile_id?: string;
+          unit_id?: string | null;
+          access_device_id?: string;
+          controlid_user_id?: number | null;
+          reason?: Database["public"]["Enums"]["access_remote_open_reason"];
+          origin?: Database["public"]["Enums"]["access_remote_open_origin"];
+          result?: Database["public"]["Enums"]["access_remote_open_result"];
+          error_message?: string | null;
+          notes?: string | null;
+          visitor_authorization_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       resident_access_grants: {
         Row: {
           id: string;
@@ -1613,6 +1664,9 @@ export interface Database {
       access_grant_sync_status: "pending" | "synced" | "error";
       access_sync_action: "create" | "update" | "remove";
       access_sync_job_status: "pending" | "processing" | "completed" | "error";
+      access_remote_open_reason: "visitor" | "emergency";
+      access_remote_open_origin: "app_resident" | "app_doorman" | "app_staff";
+      access_remote_open_result: "ok" | "error";
       legal_document_type: LegalDocumentType;
     };
   };

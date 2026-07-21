@@ -15,6 +15,7 @@ import {
   Users,
   Package,
   Droplets,
+  DoorOpen,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -38,6 +39,7 @@ const iconMap = {
   Settings,
   Package,
   Droplets,
+  DoorOpen,
 } as const;
 
 interface AppSidebarProps {

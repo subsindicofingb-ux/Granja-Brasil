@@ -121,7 +121,8 @@ export type NavIcon =
   | "Inbox"
   | "Settings"
   | "Package"
-  | "Droplets";
+  | "Droplets"
+  | "DoorOpen";
 
 import type { NavVisibleContext } from "@/lib/nav-types";
 
@@ -215,6 +216,16 @@ export const NAV_ITEMS: NavItem[] = [
     href: "visitors",
     icon: "UserCheck",
     visible: ({ permissions }) => permissions.canViewVisitorAuthorizations,
+  },
+  {
+    label: "Abrir acesso",
+    href: "access-open",
+    icon: "DoorOpen",
+    visible: ({ role, permissions }) =>
+      role === ROLES.RESIDENT ||
+      permissions.canRegisterVisitorAuthorizations ||
+      permissions.canManageAccessDevices ||
+      permissions.canConsultVisitorAuthorizations,
   },
   { label: "Configurações", href: "settings", icon: "Settings" },
 ];

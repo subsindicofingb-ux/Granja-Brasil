@@ -159,7 +159,150 @@ export async function createControlIdUser(input: {
     throw new Error("ControlID não retornou o ID do usuário criado.");
   }
 
+  await ensureControlIdUserInDefaultDepartment({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    userId,
+  });
+
   return userId;
+}
+
+type ControlIdGroupsResponse = {
+  groups?: Array<{
+    id: number;
+    name?: string;
+  }>;
+};
+
+type ControlIdUserGroupsResponse = {
+  user_groups?: Array<{
+    id?: number;
+    user_id?: number;
+    group_id?: number;
+  }>;
+};
+
+const DEFAULT_DEPARTMENT_NAMES = ["PADRÃO", "PADRAO", "Padrão", "Padrao"];
+
+function normalizeDepartmentName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+export async function loadControlIdDefaultDepartmentId(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number | null> {
+  const data = await postControlIdJson<ControlIdGroupsResponse>(
+    input.baseUrl,
+    "/load_objects.fcgi",
+    input.session,
+    {
+      object: "groups",
+      fields: ["id", "name"],
+    },
+  );
+
+  const groups = data.groups ?? [];
+  const match = groups.find((group) => {
+    const name = normalizeDepartmentName(group.name ?? "");
+    return DEFAULT_DEPARTMENT_NAMES.map(normalizeDepartmentName).includes(name);
+  });
+
+  return match?.id ?? null;
+}
+
+async function isControlIdUserInGroup(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+  groupId: number;
+}): Promise<boolean> {
+  const data = await postControlIdJson<ControlIdUserGroupsResponse>(
+    input.baseUrl,
+    "/load_objects.fcgi",
+    input.session,
+    {
+      object: "user_groups",
+      fields: ["id", "user_id", "group_id"],
+      where: {
+        user_groups: {
+          user_id: input.userId,
+          group_id: input.groupId,
+        },
+      },
+      limit: 1,
+    },
+  );
+
+  return (data.user_groups?.length ?? 0) > 0;
+}
+
+export async function ensureControlIdUserInDefaultDepartment(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+}): Promise<void> {
+  const groupId = await loadControlIdDefaultDepartmentId({
+    baseUrl: input.baseUrl,
+    session: input.session,
+  });
+
+  if (!groupId) {
+    throw new Error(
+      'Departamento "PADRÃO" não encontrado no equipamento. Cadastre o departamento no ControlID para liberar o acesso.',
+    );
+  }
+
+  if (
+    await isControlIdUserInGroup({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId: input.userId,
+      groupId,
+    })
+  ) {
+    return;
+  }
+
+  const data = await postControlIdJson<ControlIdCreateObjectsResponse>(
+    input.baseUrl,
+    "/create_objects.fcgi",
+    input.session,
+    {
+      object: "user_groups",
+      values: [
+        {
+          user_id: input.userId,
+          group_id: groupId,
+        },
+      ],
+    },
+  );
+
+  if (!data.ids?.[0]) {
+    throw new Error('Não foi possível vincular o usuário ao departamento "PADRÃO".');
+  }
+}
+
+export async function executeControlIdDoorPulse(input: {
+  baseUrl: string;
+  session: string;
+  door?: number;
+}): Promise<void> {
+  const door = input.door ?? 1;
+  await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
+    actions: [
+      {
+        action: "door",
+        parameters: `door=${door}`,
+      },
+    ],
+  });
 }
 
 export async function loadControlIdUserById(input: {
@@ -214,6 +357,11 @@ async function resolveOrCreateControlIdUser(input: {
         userId: byId.id,
         name: input.residentName,
       });
+      await ensureControlIdUserInDefaultDepartment({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        userId: byId.id,
+      });
       return byId.id;
     }
   }
@@ -230,6 +378,11 @@ async function resolveOrCreateControlIdUser(input: {
       session: input.session,
       userId: byRegistration.id,
       name: input.residentName,
+    });
+    await ensureControlIdUserInDefaultDepartment({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId: byRegistration.id,
     });
     return byRegistration.id;
   }
