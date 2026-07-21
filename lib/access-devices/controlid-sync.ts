@@ -480,37 +480,164 @@ export async function executeControlIdDoorPulse(input: {
   });
 }
 
-/** ControlID access_logs.event codes (1-based, same as remote_user_authorization). */
+/** ControlID access_logs.event — 7 = Acesso autorizado (aparece em Relatórios). */
 const CONTROLID_EVENT_ACCESS_GRANTED = 7;
-const CONTROLID_EVENT_API_OPEN = 10; // Non-identified access (portal opened via API)
-const CONTROLID_EVENT_WEB_OPEN = 12; // Access through WEB interface
+
+const REMOTE_OPEN_AUDIT_USERS = {
+  visitor: {
+    registration: "99999901",
+    name: "App · Abertura visita",
+  },
+  emergency: {
+    registration: "99999902",
+    name: "App · Abertura emergência",
+  },
+} as const;
+
+type ControlIdSystemInformationResponse = {
+  time?: number | string;
+};
+
+function getSaoPauloDateParts(date = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+
+  const read = (type: Intl.DateTimeFormatPartTypes): number => {
+    const value = parts.find((part) => part.type === type)?.value;
+    return Number(value);
+  };
+
+  return {
+    year: read("year"),
+    month: read("month"),
+    day: read("day"),
+    hour: read("hour") === 24 ? 0 : read("hour"),
+    minute: read("minute"),
+    second: read("second"),
+  };
+}
+
+async function syncControlIdDeviceClock(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<void> {
+  const parts = getSaoPauloDateParts();
+  await postControlIdJson(input.baseUrl, "/set_system_time.fcgi", input.session, parts);
+}
+
+async function loadControlIdDeviceUnixTime(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number> {
+  try {
+    const data = await postControlIdJson<ControlIdSystemInformationResponse>(
+      input.baseUrl,
+      "/system_information.fcgi",
+      input.session,
+      {},
+    );
+    const deviceTime = toPositiveInt(data.time);
+    if (deviceTime) {
+      return deviceTime;
+    }
+  } catch {
+    // Fall through to server clock.
+  }
+
+  return Math.floor(Date.now() / 1000);
+}
+
+async function ensureControlIdRemoteOpenAuditUser(input: {
+  baseUrl: string;
+  session: string;
+  reason: "visitor" | "emergency";
+}): Promise<number> {
+  const audit = REMOTE_OPEN_AUDIT_USERS[input.reason];
+  const existing = await loadControlIdUserByRegistration({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    registration: audit.registration,
+  });
+
+  if (existing) {
+    if (existing.name !== audit.name) {
+      await updateControlIdUserName({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        userId: existing.id,
+        name: audit.name,
+      }).catch(() => undefined);
+    }
+    return existing.id;
+  }
+
+  return createControlIdUser({
+    baseUrl: input.baseUrl,
+    session: input.session,
+    registration: audit.registration,
+    name: audit.name,
+  });
+}
 
 /**
- * Best-effort audit row in the device Relatórios.
- * execute_actions alone often does not show up as a named access in ControlID UI.
+ * Audit row for Relatórios: Acesso autorizado + horário do equipamento.
+ * Evento 12 ("Acesso Web") só aparece no dashboard e fica de fora do relatório.
  */
 export async function createControlIdRemoteOpenAccessLog(input: {
   baseUrl: string;
   session: string;
   controlIdUserId?: number | null;
   portalId?: number;
+  reason?: "visitor" | "emergency";
   origin?: "app_resident" | "app_doorman" | "app_staff";
 }): Promise<void> {
   const portalId = input.portalId ?? 1;
-  const userId = toPositiveInt(input.controlIdUserId) ?? 0;
-  const event =
-    userId > 0
-      ? CONTROLID_EVENT_ACCESS_GRANTED
-      : input.origin === "app_staff" || input.origin === "app_doorman"
-        ? CONTROLID_EVENT_WEB_OPEN
-        : CONTROLID_EVENT_API_OPEN;
+  const reason = input.reason ?? "visitor";
+
+  try {
+    await syncControlIdDeviceClock({
+      baseUrl: input.baseUrl,
+      session: input.session,
+    });
+  } catch {
+    // Relógio do equipamento é best-effort; o log ainda usa o horário lido abaixo.
+  }
+
+  let userId = toPositiveInt(input.controlIdUserId) ?? 0;
+  if (!userId) {
+    userId = await ensureControlIdRemoteOpenAuditUser({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      reason,
+    });
+  }
+
+  const time = await loadControlIdDeviceUnixTime({
+    baseUrl: input.baseUrl,
+    session: input.session,
+  });
 
   await postControlIdJson(input.baseUrl, "/create_objects.fcgi", input.session, {
     object: "access_logs",
     values: [
       {
-        time: Math.floor(Date.now() / 1000),
-        event,
+        time,
+        event: CONTROLID_EVENT_ACCESS_GRANTED,
         user_id: userId,
         portal_id: portalId,
         identifier_id: 0,

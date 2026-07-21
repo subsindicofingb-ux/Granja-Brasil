@@ -251,6 +251,7 @@ async function pulseDeviceAndLog(input: {
           baseUrl,
           session,
           controlIdUserId: input.controlIdUserId,
+          reason: input.reason,
           origin,
         });
       } catch {
