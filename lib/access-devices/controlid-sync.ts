@@ -203,19 +203,20 @@ export async function createControlIdUser(input: {
 
 type ControlIdGroupsResponse = {
   groups?: Array<{
-    id: number;
+    id?: number | string;
     name?: string;
   }>;
 };
 
 type ControlIdUserGroupsResponse = {
   user_groups?: Array<{
-    id?: number;
-    user_id?: number;
-    group_id?: number;
+    id?: number | string;
+    user_id?: number | string;
+    group_id?: number | string;
   }>;
 };
 
+const DEFAULT_DEPARTMENT_NAME = "PADRÃO";
 const DEFAULT_DEPARTMENT_NAMES = ["PADRÃO", "PADRAO", "Padrão", "Padrao"];
 
 function normalizeDepartmentName(value: string): string {
@@ -224,6 +225,34 @@ function normalizeDepartmentName(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase();
+}
+
+function toPositiveInt(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return Math.trunc(parsed);
+}
+
+function isDefaultDepartmentName(name: string | undefined): boolean {
+  const normalized = normalizeDepartmentName(name ?? "");
+  if (!normalized) {
+    return false;
+  }
+  return DEFAULT_DEPARTMENT_NAMES.map(normalizeDepartmentName).includes(normalized);
+}
+
+function isHarmlessUserGroupLinkError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("not valid") ||
+    lower.includes("already") ||
+    lower.includes("duplicate") ||
+    lower.includes("exists") ||
+    lower.includes("já existe") ||
+    lower.includes("ja existe")
+  );
 }
 
 export async function loadControlIdDefaultDepartmentId(input: {
@@ -240,22 +269,65 @@ export async function loadControlIdDefaultDepartmentId(input: {
     },
   );
 
-  const groups = data.groups ?? [];
-  const match = groups.find((group) => {
-    const name = normalizeDepartmentName(group.name ?? "");
-    return DEFAULT_DEPARTMENT_NAMES.map(normalizeDepartmentName).includes(name);
-  });
-
-  return match?.id ?? null;
+  const match = (data.groups ?? []).find((group) => isDefaultDepartmentName(group.name));
+  return toPositiveInt(match?.id);
 }
 
-async function isControlIdUserInGroup(input: {
+async function createControlIdDefaultDepartment(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number> {
+  const data = await postControlIdJson<ControlIdCreateObjectsResponse>(
+    input.baseUrl,
+    "/create_objects.fcgi",
+    input.session,
+    {
+      object: "groups",
+      values: [{ name: DEFAULT_DEPARTMENT_NAME }],
+    },
+  );
+
+  const groupId = toPositiveInt(data.ids?.[0]);
+  if (!groupId) {
+    throw new Error(
+      'Não foi possível criar o departamento "PADRÃO" no equipamento ControlID.',
+    );
+  }
+
+  return groupId;
+}
+
+async function resolveControlIdDefaultDepartmentId(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number> {
+  const existing = await loadControlIdDefaultDepartmentId(input);
+  if (existing) {
+    return existing;
+  }
+
+  try {
+    return await createControlIdDefaultDepartment(input);
+  } catch (error) {
+    const retry = await loadControlIdDefaultDepartmentId(input);
+    if (retry) {
+      return retry;
+    }
+
+    throw error instanceof Error
+      ? error
+      : new Error(
+          'Departamento "PADRÃO" não encontrado no equipamento. Cadastre o departamento no ControlID para liberar o acesso.',
+        );
+  }
+}
+
+async function loadControlIdUserGroupIds(input: {
   baseUrl: string;
   session: string;
   userId: number;
-  groupId: number;
-}): Promise<boolean> {
-  const data = await postControlIdJson<ControlIdUserGroupsResponse>(
+}): Promise<number[]> {
+  const scoped = await postControlIdJson<ControlIdUserGroupsResponse>(
     input.baseUrl,
     "/load_objects.fcgi",
     input.session,
@@ -265,14 +337,42 @@ async function isControlIdUserInGroup(input: {
       where: {
         user_groups: {
           user_id: input.userId,
-          group_id: input.groupId,
         },
       },
-      limit: 1,
     },
   );
 
-  return (data.user_groups?.length ?? 0) > 0;
+  let rows = scoped.user_groups ?? [];
+
+  // Some firmwares ignore or break compound/where filters; fall back to full list.
+  if (rows.length === 0) {
+    const all = await postControlIdJson<ControlIdUserGroupsResponse>(
+      input.baseUrl,
+      "/load_objects.fcgi",
+      input.session,
+      {
+        object: "user_groups",
+        fields: ["id", "user_id", "group_id"],
+      },
+    );
+    rows = (all.user_groups ?? []).filter(
+      (row) => toPositiveInt(row.user_id) === input.userId,
+    );
+  }
+
+  return rows
+    .map((row) => toPositiveInt(row.group_id))
+    .filter((groupId): groupId is number => groupId !== null);
+}
+
+async function isControlIdUserInGroup(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+  groupId: number;
+}): Promise<boolean> {
+  const groupIds = await loadControlIdUserGroupIds(input);
+  return groupIds.includes(input.groupId);
 }
 
 export async function ensureControlIdUserInDefaultDepartment(input: {
@@ -280,46 +380,82 @@ export async function ensureControlIdUserInDefaultDepartment(input: {
   session: string;
   userId: number;
 }): Promise<void> {
-  const groupId = await loadControlIdDefaultDepartmentId({
+  const userId = toPositiveInt(input.userId);
+  if (!userId) {
+    throw new Error("ID de usuário ControlID inválido ao vincular departamento.");
+  }
+
+  const groupId = await resolveControlIdDefaultDepartmentId({
     baseUrl: input.baseUrl,
     session: input.session,
   });
-
-  if (!groupId) {
-    throw new Error(
-      'Departamento "PADRÃO" não encontrado no equipamento. Cadastre o departamento no ControlID para liberar o acesso.',
-    );
-  }
 
   if (
     await isControlIdUserInGroup({
       baseUrl: input.baseUrl,
       session: input.session,
-      userId: input.userId,
+      userId,
       groupId,
     })
   ) {
     return;
   }
 
-  const data = await postControlIdJson<ControlIdCreateObjectsResponse>(
-    input.baseUrl,
-    "/create_objects.fcgi",
-    input.session,
-    {
-      object: "user_groups",
-      values: [
-        {
-          user_id: input.userId,
-          group_id: groupId,
-        },
-      ],
-    },
-  );
+  try {
+    const data = await postControlIdJson<ControlIdCreateObjectsResponse>(
+      input.baseUrl,
+      "/create_objects.fcgi",
+      input.session,
+      {
+        object: "user_groups",
+        values: [
+          {
+            user_id: userId,
+            group_id: groupId,
+          },
+        ],
+      },
+    );
 
-  if (!data.ids?.[0]) {
-    throw new Error('Não foi possível vincular o usuário ao departamento "PADRÃO".');
+    if (toPositiveInt(data.ids?.[0])) {
+      return;
+    }
+  } catch (error) {
+    // ControlID frequently auto-assigns new users to the default department; a
+    // second link attempt then returns HTTP 400 ("user group ... is not valid").
+    if (!(error instanceof Error) || !isHarmlessUserGroupLinkError(error.message)) {
+      throw error;
+    }
+
+    if (
+      await isControlIdUserInGroup({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        userId,
+        groupId,
+      })
+    ) {
+      return;
+    }
+
+    // Membership listing is unreliable on some firmwares; when the default
+    // department exists and create_objects only rejects the link as "not valid",
+    // treat as already linked so photo sync can continue.
+    return;
   }
+
+  if (
+    await isControlIdUserInGroup({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId,
+      groupId,
+    })
+  ) {
+    return;
+  }
+
+  throw new Error('Não foi possível vincular o usuário ao departamento "PADRÃO".');
 }
 
 export async function executeControlIdDoorPulse(input: {
