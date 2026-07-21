@@ -464,20 +464,160 @@ export async function ensureControlIdUserInDefaultDepartment(input: {
   throw new Error('Não foi possível vincular o usuário ao departamento "PADRÃO".');
 }
 
+type ControlIdDoorStateResponse = {
+  sec_boxes?: Array<{
+    id?: number | string;
+    open?: boolean;
+  }>;
+  doors?: Array<{
+    id?: number | string;
+    open?: boolean;
+  }>;
+};
+
+type ControlIdSecBoxesResponse = {
+  sec_boxs?: Array<{
+    id?: number | string;
+    enabled?: boolean | number | string;
+  }>;
+};
+
+const DEFAULT_SEC_BOX_ID = 65793;
+
+async function loadControlIdSecBoxIds(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number[]> {
+  const ids = new Set<number>();
+
+  try {
+    const state = await postControlIdJson<ControlIdDoorStateResponse>(
+      input.baseUrl,
+      "/doors_state.fcgi",
+      input.session,
+      {},
+    );
+    for (const box of state.sec_boxes ?? []) {
+      const id = toPositiveInt(box.id);
+      if (id) {
+        ids.add(id);
+      }
+    }
+  } catch {
+    try {
+      const state = await postControlIdJson<ControlIdDoorStateResponse>(
+        input.baseUrl,
+        "/door_state.fcgi",
+        input.session,
+        {},
+      );
+      for (const box of state.sec_boxes ?? []) {
+        const id = toPositiveInt(box.id);
+        if (id) {
+          ids.add(id);
+        }
+      }
+    } catch {
+      // Fall through to load_objects / default.
+    }
+  }
+
+  if (ids.size === 0) {
+    try {
+      const data = await postControlIdJson<ControlIdSecBoxesResponse>(
+        input.baseUrl,
+        "/load_objects.fcgi",
+        input.session,
+        {
+          object: "sec_boxs",
+          fields: ["id", "enabled"],
+        },
+      );
+      for (const box of data.sec_boxs ?? []) {
+        const id = toPositiveInt(box.id);
+        if (!id) {
+          continue;
+        }
+        const enabled = box.enabled;
+        if (enabled === false || enabled === 0 || enabled === "0") {
+          continue;
+        }
+        ids.add(id);
+      }
+    } catch {
+      // Keep empty — caller may use default iDFace id.
+    }
+  }
+
+  return [...ids];
+}
+
+/**
+ * Pulses the door/lock relay.
+ * iDFace (and iDFlex/Pro/Nano) use SecBox/MAE (`sec_box`), not `door`.
+ * Using only `door=1` reaches the device (API OK) but does not drive the electroímã.
+ */
 export async function executeControlIdDoorPulse(input: {
   baseUrl: string;
   session: string;
   door?: number;
+  secBoxId?: number | null;
 }): Promise<void> {
   const door = input.door ?? 1;
-  await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
-    actions: [
-      {
-        action: "door",
-        parameters: `door=${door}`,
-      },
-    ],
-  });
+  let secBoxIds =
+    input.secBoxId && input.secBoxId > 0
+      ? [input.secBoxId]
+      : await loadControlIdSecBoxIds({
+          baseUrl: input.baseUrl,
+          session: input.session,
+        });
+
+  if (secBoxIds.length === 0) {
+    secBoxIds = [DEFAULT_SEC_BOX_ID];
+  }
+
+  const errors: string[] = [];
+
+  for (const secBoxId of secBoxIds) {
+    try {
+      await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
+        actions: [
+          {
+            action: "sec_box",
+            parameters: `id=${secBoxId}, reason=3`,
+          },
+        ],
+      });
+      return;
+    } catch (error) {
+      errors.push(
+        error instanceof Error
+          ? error.message
+          : `Falha ao acionar sec_box id=${secBoxId}.`,
+      );
+    }
+  }
+
+  try {
+    await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
+      actions: [
+        {
+          action: "door",
+          parameters: `door=${door}`,
+        },
+      ],
+    });
+    return;
+  } catch (error) {
+    errors.push(
+      error instanceof Error ? error.message : "Falha ao acionar relé door=1.",
+    );
+  }
+
+  throw new Error(
+    errors[0] ??
+      "ControlID não acionou o relé/eletroímã. Verifique o Módulo de Acionamento Externo (SecBox/MAE).",
+  );
 }
 
 /** ControlID access_logs.event — 7 = Acesso autorizado (aparece em Relatórios). */
