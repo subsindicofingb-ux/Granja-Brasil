@@ -26,6 +26,38 @@ type ControlIdChangesResponse = {
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
+export class ControlIdPhotoSyncError extends Error {
+  controlIdUserId: number;
+  controlIdRegistration: string;
+
+  constructor(message: string, controlIdUserId: number, controlIdRegistration: string) {
+    super(message);
+    this.name = "ControlIdPhotoSyncError";
+    this.controlIdUserId = controlIdUserId;
+    this.controlIdRegistration = controlIdRegistration;
+  }
+}
+
+function formatControlIdHttpError(status: number, path: string, bodyText: string): string {
+  const trimmed = bodyText.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes("flood_is_operating")) {
+    return (
+      "ControlID recusou a operação porque o modo flood/anti-inundação está ativo no equipamento " +
+      "(ou o módulo facial está ocupado). Desative o modo flood no painel do ControlID, aguarde alguns " +
+      "segundos e tente sincronizar novamente."
+    );
+  }
+
+  if (trimmed) {
+    const compact = trimmed.length > 180 ? `${trimmed.slice(0, 180)}…` : trimmed;
+    return `ControlID respondeu HTTP ${status} em ${path}: ${compact}`;
+  }
+
+  return `ControlID respondeu HTTP ${status} em ${path}.`;
+}
+
 async function postControlIdJson<T>(
   baseUrl: string,
   path: string,
@@ -44,11 +76,12 @@ async function postControlIdJson<T>(
     cache: "no-store",
   });
 
+  const text = await response.text();
+
   if (!response.ok) {
-    throw new Error(`ControlID respondeu HTTP ${response.status} em ${path}.`);
+    throw new Error(formatControlIdHttpError(response.status, path, text));
   }
 
-  const text = await response.text();
   if (!text.trim()) {
     return {} as T;
   }
@@ -548,7 +581,7 @@ export async function setControlIdUserImage(input: {
   }
 
   throw new Error(
-    `ControlID recusou o envio da foto (HTTP ${response.status})${responseText ? `: ${responseText.slice(0, 200)}` : ""}.`,
+    formatControlIdHttpError(response.status, "/user_set_image.fcgi", responseText),
   );
 }
 
@@ -680,16 +713,26 @@ export async function syncResidentToControlIdDevice(
 
     if (input.requiresPhoto) {
       if (!input.photoUrl) {
-        throw new Error("Foto obrigatória para sincronização facial.");
+        throw new ControlIdPhotoSyncError(
+          "Foto obrigatória para sincronização facial.",
+          userId,
+          registration,
+        );
       }
 
-      const photo = await fetchResidentPhotoBytes(input.photoUrl);
-      await uploadControlIdUserPhoto({
-        baseUrl,
-        session,
-        userId,
-        imageBytes: photo.bytes,
-      });
+      try {
+        const photo = await fetchResidentPhotoBytes(input.photoUrl);
+        await uploadControlIdUserPhoto({
+          baseUrl,
+          session,
+          userId,
+          imageBytes: photo.bytes,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Falha ao cadastrar a foto facial no ControlID.";
+        throw new ControlIdPhotoSyncError(message, userId, registration);
+      }
     }
 
     return {

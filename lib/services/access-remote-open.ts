@@ -7,6 +7,7 @@ import { decryptAccessDevicePassword } from "@/lib/access-devices/crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getLinkedResidentForProfile } from "@/lib/services/residents";
+import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 import { ROLES, type Role } from "@/lib/constants";
 
@@ -14,15 +15,29 @@ export type RemoteOpenReason = "visitor" | "emergency";
 export type RemoteOpenOrigin = "app_resident" | "app_doorman" | "app_staff";
 
 export type SyncedAccessDeviceForRemoteOpen = {
-  grant_id: string;
+  grant_id: string | null;
   access_device_id: string;
   display_name: string;
   access_type: string;
   entry_kind: string;
   direction: string;
   controlid_user_id: number | null;
-  unit_id: string;
+  unit_id: string | null;
+  requires_facial_sync: boolean;
 };
+
+export function canRemoteOpenWithoutFacial(input: {
+  role: Role;
+  canManageAccessDevices: boolean;
+}): boolean {
+  return (
+    input.canManageAccessDevices ||
+    input.role === ROLES.SUPER_ADMIN ||
+    input.role === ROLES.ADMIN ||
+    input.role === ROLES.SYNDIC ||
+    input.role === ROLES.SUB_SYNDIC
+  );
+}
 
 function resolveRemoteOpenOrigin(role: Role): RemoteOpenOrigin {
   if (role === ROLES.RESIDENT) {
@@ -39,7 +54,32 @@ function resolveRemoteOpenOrigin(role: Role): RemoteOpenOrigin {
 export async function listSyncedAccessDevicesForProfile(input: {
   profileId: string;
   condominiumId: string;
+  role: Role;
+  canManageAccessDevices: boolean;
 }): Promise<ServiceResult<SyncedAccessDeviceForRemoteOpen[]>> {
+  if (canRemoteOpenWithoutFacial(input)) {
+    const devicesResult = await listAccessDevicesForCondominium(input.condominiumId);
+    if (!devicesResult.ok) {
+      return serviceError(devicesResult.error);
+    }
+
+    return serviceOk(
+      devicesResult.data
+        .filter((device) => device.is_active)
+        .map((device) => ({
+          grant_id: null,
+          access_device_id: device.id,
+          display_name: device.display_name,
+          access_type: device.access_type,
+          entry_kind: device.entry_kind,
+          direction: device.direction,
+          controlid_user_id: null,
+          unit_id: null,
+          requires_facial_sync: false,
+        })),
+    );
+  }
+
   const linked = await getLinkedResidentForProfile({
     profileId: input.profileId,
     condominiumId: input.condominiumId,
@@ -103,6 +143,7 @@ export async function listSyncedAccessDevicesForProfile(input: {
         direction: device.direction,
         controlid_user_id: row.controlid_user_id,
         unit_id: linked.data.unit_id,
+        requires_facial_sync: true,
       });
     }
 
@@ -116,7 +157,7 @@ export async function listSyncedAccessDevicesForProfile(input: {
 
 async function insertRemoteOpenEvent(input: {
   condominiumId: string;
-  residentId: string;
+  residentId: string | null;
   profileId: string;
   unitId: string | null;
   accessDeviceId: string;
@@ -145,15 +186,160 @@ async function insertRemoteOpenEvent(input: {
   });
 }
 
+async function pulseDeviceAndLog(input: {
+  condominiumId: string;
+  profileId: string;
+  role: Role;
+  device: {
+    id: string;
+    display_name: string;
+    host_url: string;
+    api_username: string;
+    api_password_encrypted: string;
+  };
+  residentId: string | null;
+  unitId: string | null;
+  controlIdUserId: number | null;
+  reason: RemoteOpenReason;
+  notes?: string | null;
+  visitorAuthorizationId?: string | null;
+}): Promise<ServiceResult<{ deviceName: string }>> {
+  const origin = resolveRemoteOpenOrigin(input.role);
+  const admin = createAdminClient();
+
+  const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
+  const { data: recent } = await admin
+    .from("access_remote_open_events")
+    .select("id")
+    .eq("profile_id", input.profileId)
+    .eq("access_device_id", input.device.id)
+    .eq("result", "ok")
+    .gte("created_at", tenSecondsAgo)
+    .limit(1)
+    .maybeSingle();
+
+  if (recent) {
+    return serviceError("Aguarde alguns segundos antes de enviar outro pulso neste local.");
+  }
+
+  let password: string;
+  try {
+    password = decryptAccessDevicePassword(input.device.api_password_encrypted);
+  } catch (error) {
+    return serviceError(
+      error instanceof Error ? error.message : "Falha ao ler a senha do equipamento.",
+    );
+  }
+
+  try {
+    const { session, baseUrl } = await loginControlIdSession({
+      hostUrl: input.device.host_url,
+      username: input.device.api_username,
+      password,
+    });
+
+    try {
+      await executeControlIdDoorPulse({ baseUrl, session });
+    } finally {
+      await logoutControlIdSession(baseUrl, session);
+    }
+
+    await insertRemoteOpenEvent({
+      condominiumId: input.condominiumId,
+      residentId: input.residentId,
+      profileId: input.profileId,
+      unitId: input.unitId,
+      accessDeviceId: input.device.id,
+      controlIdUserId: input.controlIdUserId,
+      reason: input.reason,
+      origin,
+      result: "ok",
+      notes: input.notes,
+      visitorAuthorizationId: input.visitorAuthorizationId,
+    });
+
+    return serviceOk({ deviceName: input.device.display_name });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Falha ao enviar pulso de abertura.";
+
+    await insertRemoteOpenEvent({
+      condominiumId: input.condominiumId,
+      residentId: input.residentId,
+      profileId: input.profileId,
+      unitId: input.unitId,
+      accessDeviceId: input.device.id,
+      controlIdUserId: input.controlIdUserId,
+      reason: input.reason,
+      origin,
+      result: "error",
+      errorMessage: message,
+      notes: input.notes,
+      visitorAuthorizationId: input.visitorAuthorizationId,
+    });
+
+    return serviceError(message);
+  }
+}
+
 export async function remoteOpenAccessDevice(input: {
   condominiumId: string;
   profileId: string;
   role: Role;
+  canManageAccessDevices: boolean;
   accessDeviceId: string;
   reason: RemoteOpenReason;
   notes?: string | null;
   visitorAuthorizationId?: string | null;
 }): Promise<ServiceResult<{ deviceName: string }>> {
+  const admin = createAdminClient();
+  const staffBypass = canRemoteOpenWithoutFacial({
+    role: input.role,
+    canManageAccessDevices: input.canManageAccessDevices,
+  });
+
+  if (staffBypass) {
+    const devicesResult = await listAccessDevicesForCondominium(input.condominiumId);
+    if (!devicesResult.ok) {
+      return serviceError(devicesResult.error);
+    }
+
+    const deviceMeta = devicesResult.data.find(
+      (device) => device.id === input.accessDeviceId && device.is_active,
+    );
+
+    if (!deviceMeta) {
+      return serviceError("Este local de acesso não está disponível neste condomínio.");
+    }
+
+    const { data: device, error: deviceError } = await admin
+      .from("access_devices")
+      .select("id, display_name, host_url, api_username, api_password_encrypted, is_active")
+      .eq("id", deviceMeta.id)
+      .maybeSingle();
+
+    if (deviceError) {
+      return serviceError(mapSupabaseError(deviceError));
+    }
+
+    if (!device?.is_active) {
+      return serviceError("Este equipamento está inativo.");
+    }
+
+    return pulseDeviceAndLog({
+      condominiumId: input.condominiumId,
+      profileId: input.profileId,
+      role: input.role,
+      device,
+      residentId: null,
+      unitId: null,
+      controlIdUserId: null,
+      reason: input.reason,
+      notes: input.notes,
+      visitorAuthorizationId: input.visitorAuthorizationId,
+    });
+  }
+
   const linked = await getLinkedResidentForProfile({
     profileId: input.profileId,
     condominiumId: input.condominiumId,
@@ -170,7 +356,6 @@ export async function remoteOpenAccessDevice(input: {
   }
 
   const origin = resolveRemoteOpenOrigin(input.role);
-  const admin = createAdminClient();
 
   const { data: grant, error: grantError } = await admin
     .from("resident_access_grants")
@@ -225,80 +410,18 @@ export async function remoteOpenAccessDevice(input: {
     );
   }
 
-  // Evita rajadas de pulso no mesmo equipamento.
-  const tenSecondsAgo = new Date(Date.now() - 10_000).toISOString();
-  const { data: recent } = await admin
-    .from("access_remote_open_events")
-    .select("id")
-    .eq("profile_id", input.profileId)
-    .eq("access_device_id", device.id)
-    .eq("result", "ok")
-    .gte("created_at", tenSecondsAgo)
-    .limit(1)
-    .maybeSingle();
-
-  if (recent) {
-    return serviceError("Aguarde alguns segundos antes de enviar outro pulso neste local.");
-  }
-
-  let password: string;
-  try {
-    password = decryptAccessDevicePassword(device.api_password_encrypted);
-  } catch (error) {
-    return serviceError(
-      error instanceof Error ? error.message : "Falha ao ler a senha do equipamento.",
-    );
-  }
-
-  try {
-    const { session, baseUrl } = await loginControlIdSession({
-      hostUrl: device.host_url,
-      username: device.api_username,
-      password,
-    });
-
-    try {
-      await executeControlIdDoorPulse({ baseUrl, session });
-    } finally {
-      await logoutControlIdSession(baseUrl, session);
-    }
-
-    await insertRemoteOpenEvent({
-      condominiumId: input.condominiumId,
-      residentId: linked.data.id,
-      profileId: input.profileId,
-      unitId: linked.data.unit_id,
-      accessDeviceId: device.id,
-      controlIdUserId: grant.controlid_user_id,
-      reason: input.reason,
-      origin,
-      result: "ok",
-      notes: input.notes,
-      visitorAuthorizationId: input.visitorAuthorizationId,
-    });
-
-    return serviceOk({ deviceName: device.display_name });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Falha ao enviar pulso de abertura.";
-
-    await insertRemoteOpenEvent({
-      condominiumId: input.condominiumId,
-      residentId: linked.data.id,
-      profileId: input.profileId,
-      unitId: linked.data.unit_id,
-      accessDeviceId: device.id,
-      controlIdUserId: grant.controlid_user_id,
-      reason: input.reason,
-      origin,
-      result: "error",
-      errorMessage: message,
-      notes: input.notes,
-      visitorAuthorizationId: input.visitorAuthorizationId,
-    });
-
-    return serviceError(message);
-  }
+  return pulseDeviceAndLog({
+    condominiumId: input.condominiumId,
+    profileId: input.profileId,
+    role: input.role,
+    device,
+    residentId: linked.data.id,
+    unitId: linked.data.unit_id,
+    controlIdUserId: grant.controlid_user_id,
+    reason: input.reason,
+    notes: input.notes,
+    visitorAuthorizationId: input.visitorAuthorizationId,
+  });
 }
 
 export async function listRecentRemoteOpenEventsForCondo(input: {
@@ -333,7 +456,9 @@ export async function listRecentRemoteOpenEventsForCondo(input: {
 
     const rows = data ?? [];
     const deviceIds = [...new Set(rows.map((row) => row.access_device_id))];
-    const residentIds = [...new Set(rows.map((row) => row.resident_id))];
+    const residentIds = [
+      ...new Set(rows.map((row) => row.resident_id).filter((id): id is string => Boolean(id))),
+    ];
 
     const [{ data: devices }, { data: residents }] = await Promise.all([
       deviceIds.length > 0
@@ -358,7 +483,9 @@ export async function listRecentRemoteOpenEventsForCondo(input: {
         error_message: row.error_message,
         created_at: row.created_at,
         device_name: deviceNameById.get(row.access_device_id) ?? null,
-        resident_name: residentNameById.get(row.resident_id) ?? null,
+        resident_name: row.resident_id
+          ? (residentNameById.get(row.resident_id) ?? null)
+          : null,
       })),
     );
   } catch (error) {

@@ -1,5 +1,6 @@
 import { buildControlIdRegistration } from "@/lib/access-devices/registration";
 import {
+  ControlIdPhotoSyncError,
   removeResidentFromControlIdDevice,
   syncResidentToControlIdDevice,
 } from "@/lib/access-devices/controlid-sync";
@@ -107,16 +108,27 @@ async function markGrantSyncResult(input: {
   }
 
   const admin = createAdminClient();
-  await admin
-    .from("resident_access_grants")
-    .update({
-      sync_status: input.status,
-      sync_error: input.syncError ?? null,
-      controlid_user_id: input.controlIdUserId ?? null,
-      controlid_registration: input.controlIdRegistration ?? null,
-      synced_at: input.status === "synced" ? new Date().toISOString() : null,
-    })
-    .eq("id", input.grantId);
+  const payload: {
+    sync_status: "synced" | "error" | "pending";
+    sync_error: string | null;
+    synced_at: string | null;
+    controlid_user_id?: number | null;
+    controlid_registration?: string | null;
+  } = {
+    sync_status: input.status,
+    sync_error: input.syncError ?? null,
+    synced_at: input.status === "synced" ? new Date().toISOString() : null,
+  };
+
+  if (input.controlIdUserId !== undefined) {
+    payload.controlid_user_id = input.controlIdUserId;
+  }
+
+  if (input.controlIdRegistration !== undefined) {
+    payload.controlid_registration = input.controlIdRegistration;
+  }
+
+  await admin.from("resident_access_grants").update(payload).eq("id", input.grantId);
 }
 
 async function markJobResult(input: {
@@ -446,26 +458,42 @@ async function processAccessSyncJob(job: JobRow): Promise<{ ok: boolean; error?:
   }
 
   const requiresPhoto = requiresPhotoForAccessType(device.access_type);
-  const result = await syncResidentToControlIdDevice({
-    hostUrl: device.host_url,
-    username: device.api_username,
-    password,
-    residentId: resident.id,
-    residentName: resident.full_name,
-    photoUrl: resident.photo_url,
-    requiresPhoto,
-    existingControlIdUserId: controlIdUserId,
-  });
 
-  await markGrantSyncResult({
-    grantId: job.grant_id,
-    status: "synced",
-    controlIdUserId: result.controlIdUserId,
-    controlIdRegistration: result.controlIdRegistration,
-    syncError: null,
-  });
+  try {
+    const result = await syncResidentToControlIdDevice({
+      hostUrl: device.host_url,
+      username: device.api_username,
+      password,
+      residentId: resident.id,
+      residentName: resident.full_name,
+      photoUrl: resident.photo_url,
+      requiresPhoto,
+      existingControlIdUserId: controlIdUserId,
+    });
 
-  return { ok: true };
+    await markGrantSyncResult({
+      grantId: job.grant_id,
+      status: "synced",
+      controlIdUserId: result.controlIdUserId,
+      controlIdRegistration: result.controlIdRegistration,
+      syncError: null,
+    });
+
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ControlIdPhotoSyncError) {
+      await markGrantSyncResult({
+        grantId: job.grant_id,
+        status: "error",
+        controlIdUserId: error.controlIdUserId,
+        controlIdRegistration: error.controlIdRegistration,
+        syncError: error.message,
+      });
+      return { ok: false, error: error.message };
+    }
+
+    throw error;
+  }
 }
 
 export async function processPendingAccessSyncJobs(input?: {

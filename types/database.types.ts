@@ -1212,7 +1212,7 @@ export interface Database {
         Row: {
           id: string;
           condominium_id: string;
-          resident_id: string;
+          resident_id: string | null;
           profile_id: string;
           unit_id: string | null;
           access_device_id: string;
@@ -1228,7 +1228,7 @@ export interface Database {
         Insert: {
           id?: string;
           condominium_id: string;
-          resident_id: string;
+          resident_id?: string | null;
           profile_id: string;
           unit_id?: string | null;
           access_device_id: string;
@@ -1244,7 +1244,7 @@ export interface Database {
         Update: {
           id?: string;
           condominium_id?: string;
-          resident_id?: string;
+          resident_id?: string | null;
           profile_id?: string;
           unit_id?: string | null;
           access_device_id?: string;

@@ -2,10 +2,13 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { AccessRemoteOpenForm } from "@/components/access/access-remote-open-form";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { listSyncedAccessDevicesForProfile } from "@/lib/services/access-remote-open";
+import {
+  canRemoteOpenWithoutFacial,
+  listSyncedAccessDevicesForProfile,
+  listRecentRemoteOpenEventsForCondo,
+} from "@/lib/services/access-remote-open";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { formatDateTime } from "@/lib/utils";
-import { listRecentRemoteOpenEventsForCondo } from "@/lib/services/access-remote-open";
 import { ROLES } from "@/lib/constants";
 
 interface AccessOpenPageProps {
@@ -15,10 +18,16 @@ interface AccessOpenPageProps {
 export default async function AccessOpenPage({ params }: AccessOpenPageProps) {
   const { condoSlug } = await params;
   const access = await requireCondoAccess(condoSlug);
+  const staffBypass = canRemoteOpenWithoutFacial({
+    role: access.role,
+    canManageAccessDevices: access.permissions.canManageAccessDevices,
+  });
 
   const devicesResult = await listSyncedAccessDevicesForProfile({
     profileId: access.profile.id,
     condominiumId: access.condominium.id,
+    role: access.role,
+    canManageAccessDevices: access.permissions.canManageAccessDevices,
   });
 
   const historyResult = await listRecentRemoteOpenEventsForCondo({
@@ -30,7 +39,11 @@ export default async function AccessOpenPage({ params }: AccessOpenPageProps) {
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Abrir acesso"
-        description="Envie um pulso remoto para a sua visita ou em emergência. Só funciona nos locais sincronizados da sua unidade e cada abertura fica registrada."
+        description={
+          staffBypass
+            ? "Envie um pulso remoto para visita ou emergência. Síndicos e administração podem abrir os locais ativos do condomínio sem cadastro facial. Cada abertura fica registrada."
+            : "Envie um pulso remoto para a sua visita ou em emergência. Só funciona nos locais sincronizados da sua unidade e cada abertura fica registrada."
+        }
       />
 
       <Card>
@@ -41,7 +54,11 @@ export default async function AccessOpenPage({ params }: AccessOpenPageProps) {
           {!devicesResult.ok ? (
             <ErrorAlert message={devicesResult.error ?? "Não foi possível carregar os locais."} />
           ) : (
-            <AccessRemoteOpenForm condoSlug={condoSlug} devices={devicesResult.data} />
+            <AccessRemoteOpenForm
+              condoSlug={condoSlug}
+              devices={devicesResult.data}
+              staffMode={staffBypass}
+            />
           )}
         </CardContent>
       </Card>

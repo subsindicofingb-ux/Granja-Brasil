@@ -16,9 +16,14 @@ import {
 type AccessRemoteOpenFormProps = {
   condoSlug: string;
   devices: SyncedAccessDeviceForRemoteOpen[];
+  staffMode?: boolean;
 };
 
-export function AccessRemoteOpenForm({ condoSlug, devices }: AccessRemoteOpenFormProps) {
+export function AccessRemoteOpenForm({
+  condoSlug,
+  devices,
+  staffMode = false,
+}: AccessRemoteOpenFormProps) {
   const [state, formAction, pending] = useActionState(remoteOpenAccessDeviceAction, {});
   const [reason, setReason] = useState<"visitor" | "emergency">("visitor");
   const [deviceId, setDeviceId] = useState(devices[0]?.access_device_id ?? "");
@@ -26,8 +31,9 @@ export function AccessRemoteOpenForm({ condoSlug, devices }: AccessRemoteOpenFor
   if (devices.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nenhum local sincronizado para a sua unidade. A abertura remota só funciona nos
-        equipamentos em que o seu cadastro ControlID estiver sincronizado.
+        {staffMode
+          ? "Nenhum local de acesso ativo cadastrado neste condomínio."
+          : "Nenhum local sincronizado para a sua unidade. A abertura remota só funciona nos equipamentos em que o seu cadastro ControlID estiver sincronizado."}
       </p>
     );
   }
@@ -62,7 +68,9 @@ export function AccessRemoteOpenForm({ condoSlug, devices }: AccessRemoteOpenFor
           ))}
         </select>
         <p className="text-xs text-muted-foreground">
-          Só aparecem locais em que a sua unidade está sincronizada no ControlID.
+          {staffMode
+            ? "Síndico e administração podem abrir qualquer local ativo, sem precisar de cadastro facial."
+            : "Só aparecem locais em que a sua unidade está sincronizada no ControlID."}
         </p>
       </div>
 

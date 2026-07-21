@@ -39,6 +39,7 @@ export async function remoteOpenAccessDeviceAction(
     condominiumId: access.condominium.id,
     profileId: access.profile.id,
     role: access.role,
+    canManageAccessDevices: access.permissions.canManageAccessDevices,
     accessDeviceId,
     reason,
     notes,
