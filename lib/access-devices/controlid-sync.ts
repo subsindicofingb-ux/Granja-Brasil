@@ -50,6 +50,12 @@ function formatControlIdHttpError(status: number, path: string, bodyText: string
     );
   }
 
+  if (lower.includes("is not a column of table user_groups")) {
+    return (
+      "ControlID recusou a consulta de departamentos (user_groups). Verifique a integração e tente sincronizar novamente."
+    );
+  }
+
   if (trimmed) {
     const compact = trimmed.length > 180 ? `${trimmed.slice(0, 180)}…` : trimmed;
     return `ControlID respondeu HTTP ${status} em ${path}: ${compact}`;
@@ -210,7 +216,6 @@ type ControlIdGroupsResponse = {
 
 type ControlIdUserGroupsResponse = {
   user_groups?: Array<{
-    id?: number | string;
     user_id?: number | string;
     group_id?: number | string;
   }>;
@@ -333,7 +338,8 @@ async function loadControlIdUserGroupIds(input: {
     input.session,
     {
       object: "user_groups",
-      fields: ["id", "user_id", "group_id"],
+      // ControlID user_groups has no `id` column — requesting it returns HTTP 400.
+      fields: ["user_id", "group_id"],
       where: {
         user_groups: {
           user_id: input.userId,
@@ -352,7 +358,7 @@ async function loadControlIdUserGroupIds(input: {
       input.session,
       {
         object: "user_groups",
-        fields: ["id", "user_id", "group_id"],
+        fields: ["user_id", "group_id"],
       },
     );
     rows = (all.user_groups ?? []).filter(
