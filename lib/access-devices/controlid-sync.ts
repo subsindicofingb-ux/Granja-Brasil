@@ -480,6 +480,47 @@ export async function executeControlIdDoorPulse(input: {
   });
 }
 
+/** ControlID access_logs.event codes (1-based, same as remote_user_authorization). */
+const CONTROLID_EVENT_ACCESS_GRANTED = 7;
+const CONTROLID_EVENT_API_OPEN = 10; // Non-identified access (portal opened via API)
+const CONTROLID_EVENT_WEB_OPEN = 12; // Access through WEB interface
+
+/**
+ * Best-effort audit row in the device Relatórios.
+ * execute_actions alone often does not show up as a named access in ControlID UI.
+ */
+export async function createControlIdRemoteOpenAccessLog(input: {
+  baseUrl: string;
+  session: string;
+  controlIdUserId?: number | null;
+  portalId?: number;
+  origin?: "app_resident" | "app_doorman" | "app_staff";
+}): Promise<void> {
+  const portalId = input.portalId ?? 1;
+  const userId = toPositiveInt(input.controlIdUserId) ?? 0;
+  const event =
+    userId > 0
+      ? CONTROLID_EVENT_ACCESS_GRANTED
+      : input.origin === "app_staff" || input.origin === "app_doorman"
+        ? CONTROLID_EVENT_WEB_OPEN
+        : CONTROLID_EVENT_API_OPEN;
+
+  await postControlIdJson(input.baseUrl, "/create_objects.fcgi", input.session, {
+    object: "access_logs",
+    values: [
+      {
+        time: Math.floor(Date.now() / 1000),
+        event,
+        user_id: userId,
+        portal_id: portalId,
+        identifier_id: 0,
+        identification_rule_id: 0,
+        card_value: 0,
+      },
+    ],
+  });
+}
+
 export async function loadControlIdUserById(input: {
   baseUrl: string;
   session: string;

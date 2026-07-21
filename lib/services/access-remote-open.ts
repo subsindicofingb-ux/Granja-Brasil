@@ -1,4 +1,5 @@
 import {
+  createControlIdRemoteOpenAccessLog,
   executeControlIdDoorPulse,
   loginControlIdSession,
   logoutControlIdSession,
@@ -94,7 +95,11 @@ export async function listSyncedAccessDevicesForProfile(input: {
   }
 
   try {
+    // Grants: user client (RLS allows the linked resident). Devices: admin client —
+    // residents cannot SELECT access_devices under current RLS policies.
     const supabase = await createClient();
+    const admin = createAdminClient();
+
     const { data: grantRows, error } = await supabase
       .from("resident_access_grants")
       .select("id, access_device_id, controlid_user_id")
@@ -112,7 +117,7 @@ export async function listSyncedAccessDevicesForProfile(input: {
       return serviceOk([]);
     }
 
-    const { data: deviceRows, error: devicesError } = await supabase
+    const { data: deviceRows, error: devicesError } = await admin
       .from("access_devices")
       .select("id, display_name, access_type, entry_kind, direction, is_active")
       .in(
@@ -240,6 +245,17 @@ async function pulseDeviceAndLog(input: {
 
     try {
       await executeControlIdDoorPulse({ baseUrl, session });
+
+      try {
+        await createControlIdRemoteOpenAccessLog({
+          baseUrl,
+          session,
+          controlIdUserId: input.controlIdUserId,
+          origin,
+        });
+      } catch {
+        // Door already opened — device Relatórios audit is best-effort.
+      }
     } finally {
       await logoutControlIdSession(baseUrl, session);
     }
@@ -443,6 +459,7 @@ export async function listRecentRemoteOpenEventsForCondo(input: {
 > {
   try {
     const supabase = await createClient();
+    const admin = createAdminClient();
     const { data, error } = await supabase
       .from("access_remote_open_events")
       .select("id, reason, origin, result, error_message, created_at, access_device_id, resident_id")
@@ -460,12 +477,13 @@ export async function listRecentRemoteOpenEventsForCondo(input: {
       ...new Set(rows.map((row) => row.resident_id).filter((id): id is string => Boolean(id))),
     ];
 
+    // Device names via admin: residents cannot SELECT access_devices (staff-only RLS).
     const [{ data: devices }, { data: residents }] = await Promise.all([
       deviceIds.length > 0
-        ? supabase.from("access_devices").select("id, display_name").in("id", deviceIds)
+        ? admin.from("access_devices").select("id, display_name").in("id", deviceIds)
         : Promise.resolve({ data: [] as Array<{ id: string; display_name: string }> }),
       residentIds.length > 0
-        ? supabase.from("residents").select("id, full_name").in("id", residentIds)
+        ? admin.from("residents").select("id, full_name").in("id", residentIds)
         : Promise.resolve({ data: [] as Array<{ id: string; full_name: string }> }),
     ]);
 
