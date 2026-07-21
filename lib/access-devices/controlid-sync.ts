@@ -482,43 +482,51 @@ type ControlIdSecBoxesResponse = {
   }>;
 };
 
+type ControlIdExecuteActionsResponse = {
+  actions?: Array<{
+    action?: string;
+    status?: string;
+  }>;
+};
+
 const DEFAULT_SEC_BOX_ID = 65793;
+
+async function loadControlIdDoorState(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<ControlIdDoorStateResponse> {
+  try {
+    return await postControlIdJson<ControlIdDoorStateResponse>(
+      input.baseUrl,
+      "/doors_state.fcgi",
+      input.session,
+      {},
+    );
+  } catch {
+    try {
+      return await postControlIdJson<ControlIdDoorStateResponse>(
+        input.baseUrl,
+        "/door_state.fcgi",
+        input.session,
+        {},
+      );
+    } catch {
+      return {};
+    }
+  }
+}
 
 async function loadControlIdSecBoxIds(input: {
   baseUrl: string;
   session: string;
 }): Promise<number[]> {
   const ids = new Set<number>();
+  const state = await loadControlIdDoorState(input);
 
-  try {
-    const state = await postControlIdJson<ControlIdDoorStateResponse>(
-      input.baseUrl,
-      "/doors_state.fcgi",
-      input.session,
-      {},
-    );
-    for (const box of state.sec_boxes ?? []) {
-      const id = toPositiveInt(box.id);
-      if (id) {
-        ids.add(id);
-      }
-    }
-  } catch {
-    try {
-      const state = await postControlIdJson<ControlIdDoorStateResponse>(
-        input.baseUrl,
-        "/door_state.fcgi",
-        input.session,
-        {},
-      );
-      for (const box of state.sec_boxes ?? []) {
-        const id = toPositiveInt(box.id);
-        if (id) {
-          ids.add(id);
-        }
-      }
-    } catch {
-      // Fall through to load_objects / default.
+  for (const box of state.sec_boxes ?? []) {
+    const id = toPositiveInt(box.id);
+    if (id) {
+      ids.add(id);
     }
   }
 
@@ -552,10 +560,43 @@ async function loadControlIdSecBoxIds(input: {
   return [...ids];
 }
 
+async function loadControlIdDoorRelayIds(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<number[]> {
+  const state = await loadControlIdDoorState(input);
+  const ids = (state.doors ?? [])
+    .map((door) => toPositiveInt(door.id))
+    .filter((id): id is number => id !== null);
+
+  return ids.length > 0 ? ids : [1];
+}
+
 /**
- * Pulses the door/lock relay.
- * iDFace (and iDFlex/Pro/Nano) use SecBox/MAE (`sec_box`), not `door`.
- * Using only `door=1` reaches the device (API OK) but does not drive the electroímã.
+ * iDFace Max can wire the electroímã on SecBox (MAE) or on the internal relay.
+ * Bell/alarm output modes play voice/sound without unlocking — force Normal mode.
+ */
+async function ensureControlIdLockOutputModes(input: {
+  baseUrl: string;
+  session: string;
+}): Promise<void> {
+  try {
+    await postControlIdJson(input.baseUrl, "/set_configuration.fcgi", input.session, {
+      general: {
+        sec_box_out_mode: "0",
+        relay_out_mode: "0",
+        relay1_enabled: "1",
+      },
+    });
+  } catch {
+    // Older firmwares may ignore unknown keys — pulse still proceeds.
+  }
+}
+
+/**
+ * Pulses lock relays on iDFace / MAE.
+ * Always fires SecBox + internal door relay: voice-only feedback usually means
+ * only one path was hit (or SecBox was in campainha mode).
  */
 export async function executeControlIdDoorPulse(input: {
   baseUrl: string;
@@ -563,7 +604,11 @@ export async function executeControlIdDoorPulse(input: {
   door?: number;
   secBoxId?: number | null;
 }): Promise<void> {
-  const door = input.door ?? 1;
+  await ensureControlIdLockOutputModes({
+    baseUrl: input.baseUrl,
+    session: input.session,
+  });
+
   let secBoxIds =
     input.secBoxId && input.secBoxId > 0
       ? [input.secBoxId]
@@ -576,47 +621,88 @@ export async function executeControlIdDoorPulse(input: {
     secBoxIds = [DEFAULT_SEC_BOX_ID];
   }
 
-  const errors: string[] = [];
+  const doorIds =
+    input.door && input.door > 0
+      ? [input.door]
+      : await loadControlIdDoorRelayIds({
+          baseUrl: input.baseUrl,
+          session: input.session,
+        });
 
-  for (const secBoxId of secBoxIds) {
+  const actions: Array<{ action: string; parameters: string }> = [
+    ...secBoxIds.flatMap((secBoxId) => [
+      // reason=3: remote API open (docs). reason=1: authorization-style open.
+      { action: "sec_box", parameters: `id=${secBoxId}, reason=3` },
+      { action: "sec_box", parameters: `id=${secBoxId}, reason=1` },
+    ]),
+    ...doorIds.map((doorId) => ({
+      action: "door",
+      parameters: `door=${doorId}`,
+    })),
+  ];
+
+  // Prefer one combined request; fall back to individual pulses.
+  try {
+    const response = await postControlIdJson<ControlIdExecuteActionsResponse>(
+      input.baseUrl,
+      "/execute_actions.fcgi",
+      input.session,
+      { actions },
+    );
+
+    const statuses = response.actions ?? [];
+    if (
+      statuses.length > 0 &&
+      statuses.every((entry) => (entry.status ?? "").toLowerCase() === "denied")
+    ) {
+      throw new Error(
+        "ControlID negou a abertura por intertravamento de rede. Feche as outras portas ou habilite ignorar intertravamento via API no equipamento.",
+      );
+    }
+
+    return;
+  } catch (combinedError) {
+    if (
+      combinedError instanceof Error &&
+      combinedError.message.includes("intertravamento")
+    ) {
+      throw combinedError;
+    }
+  }
+
+  const errors: string[] = [];
+  let opened = false;
+
+  for (const action of actions) {
     try {
-      await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
-        actions: [
-          {
-            action: "sec_box",
-            parameters: `id=${secBoxId}, reason=3`,
-          },
-        ],
-      });
-      return;
+      const response = await postControlIdJson<ControlIdExecuteActionsResponse>(
+        input.baseUrl,
+        "/execute_actions.fcgi",
+        input.session,
+        { actions: [action] },
+      );
+      const status = response.actions?.[0]?.status?.toLowerCase();
+      if (status === "denied") {
+        errors.push(`Ação ${action.action} negada pelo intertravamento.`);
+        continue;
+      }
+      opened = true;
     } catch (error) {
       errors.push(
         error instanceof Error
           ? error.message
-          : `Falha ao acionar sec_box id=${secBoxId}.`,
+          : `Falha ao executar ${action.action} (${action.parameters}).`,
       );
     }
   }
 
-  try {
-    await postControlIdJson(input.baseUrl, "/execute_actions.fcgi", input.session, {
-      actions: [
-        {
-          action: "door",
-          parameters: `door=${door}`,
-        },
-      ],
-    });
+  if (opened) {
     return;
-  } catch (error) {
-    errors.push(
-      error instanceof Error ? error.message : "Falha ao acionar relé door=1.",
-    );
   }
 
   throw new Error(
     errors[0] ??
-      "ControlID não acionou o relé/eletroímã. Verifique o Módulo de Acionamento Externo (SecBox/MAE).",
+      "ControlID não acionou o relé/eletroímã. Verifique SecBox/MAE, relé interno e o modo de saída (Normal/Autorizados).",
   );
 }
 
