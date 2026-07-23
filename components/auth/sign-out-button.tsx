@@ -30,11 +30,11 @@ export function SignOutButton({ variant = "sidebar", label = "Sair do app" }: Si
           variant === "sidebar"
             ? "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
             : variant === "menu"
-              ? "text-foreground hover:bg-muted"
+              ? "min-h-14 text-lg text-foreground hover:bg-muted"
               : undefined,
         )}
       >
-        <LogOut className="h-4 w-4" />
+        <LogOut className={variant === "menu" ? "h-6 w-6" : "h-4 w-4"} />
         {label}
       </Button>
     </form>

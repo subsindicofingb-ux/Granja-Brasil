@@ -12,6 +12,7 @@ import {
   createReservation,
   getReservationByIdForContext,
   listUnitIdsForProfile,
+  profileOwnsReservationForReceipt,
   rejectReservation,
   submitReservationReceipt,
 } from "@/lib/services/reservations";
@@ -21,12 +22,23 @@ import { localDateTimeToIso, parseTimeToMinutes } from "@/lib/reservations/timez
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { parseReservationFormData, reservationHandoverSchema } from "@/lib/validations/reservation.schema";
+import { getGranjaCondoSlug, ROLES } from "@/lib/constants";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
+import { requiresPaymentReceipt } from "@/lib/reservations/area-rules";
 
 function toBookingContext(input: { id: string; slug: string }): CondominiumContext {
   return {
     condominiumId: input.id,
     condominiumSlug: input.slug,
   };
+}
+
+function canAuthorizeGranjaArea(condoSlug: string, role: string): boolean {
+  if (isGeneralCondominium(condoSlug) || condoSlug === getGranjaCondoSlug()) {
+    return true;
+  }
+  return role === ROLES.SUPER_ADMIN || role === ROLES.ADMIN;
 }
 
 function revalidateReservationPaths(condoSlug: string, reservationId?: string) {
@@ -185,6 +197,36 @@ export async function approveReservationAction(
   );
 
   const bookingContext = toBookingContext(access.condominium);
+  const current = await getReservationByIdForContext(reservationId, bookingContext);
+  if (!current.ok) {
+    return { error: current.error };
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const isGranjaArea =
+    Boolean(granjaCondominiumId) &&
+    current.data.common_area.condominium_id === granjaCondominiumId;
+
+  if (isGranjaArea && !canAuthorizeGranjaArea(condoSlug, access.role)) {
+    return {
+      error:
+        "Áreas da Granja só podem ser autorizadas no condomínio geral (Granja Brasil) ou por administrador.",
+    };
+  }
+
+  const paymentReceiptRequired = requiresPaymentReceipt({
+    requires_payment: current.data.common_area.requires_payment,
+    name: current.data.common_area.name,
+    areaCondominiumId: current.data.common_area.condominium_id,
+    granjaCondominiumId,
+  });
+
+  if (paymentReceiptRequired && !current.data.payment_receipt_url) {
+    return {
+      error: "Aguarde o envio do comprovante de pagamento antes de autorizar.",
+    };
+  }
+
   const result = await approveReservation(
     reservationId,
     access.condominium.id,
@@ -196,7 +238,7 @@ export async function approveReservationAction(
   }
 
   revalidateReservationPaths(condoSlug, reservationId);
-  return { success: "Reserva aprovada com sucesso." };
+  return { success: "Reserva autorizada com sucesso." };
 }
 
 export async function rejectReservationAction(
@@ -213,6 +255,23 @@ export async function rejectReservationAction(
   );
 
   const bookingContext = toBookingContext(access.condominium);
+  const current = await getReservationByIdForContext(reservationId, bookingContext);
+  if (!current.ok) {
+    return { error: current.error };
+  }
+
+  const granjaCondominiumId = await getGranjaCondominiumId();
+  const isGranjaArea =
+    Boolean(granjaCondominiumId) &&
+    current.data.common_area.condominium_id === granjaCondominiumId;
+
+  if (isGranjaArea && !canAuthorizeGranjaArea(condoSlug, access.role)) {
+    return {
+      error:
+        "Áreas da Granja só podem ser rejeitadas no condomínio geral (Granja Brasil) ou por administrador.",
+    };
+  }
+
   const result = await rejectReservation(
     reservationId,
     access.condominium.id,
@@ -243,26 +302,24 @@ export async function cancelReservationAction(
     redirect(`/app/${condoSlug}/reservations/${reservationId}`);
   }
 
+  const bookingContext = toBookingContext(access.condominium);
+  const current = await getReservationByIdForContext(reservationId, bookingContext);
+  if (!current.ok) {
+    return { error: current.error };
+  }
+
   if (!isStaff) {
-    const current = await getReservationByIdForContext(
-      reservationId,
-      toBookingContext(access.condominium),
-    );
+    const ownership = await profileOwnsReservationForReceipt({
+      profileId: access.profile.id,
+      unitId: current.data.unit_id,
+      requestedBy: current.data.requested_by,
+    });
 
-    if (!current.ok) {
-      return { error: current.error };
+    if (!ownership.ok) {
+      return { error: ownership.error };
     }
 
-    const unitsResult = await listUnitIdsForProfile(
-      access.profile.id,
-      access.condominium.id,
-    );
-
-    if (!unitsResult.ok) {
-      return { error: unitsResult.error };
-    }
-
-    if (!unitsResult.data.includes(current.data.unit_id)) {
+    if (!ownership.data) {
       return { error: "Você só pode cancelar reservas das suas unidades." };
     }
   }
@@ -270,7 +327,7 @@ export async function cancelReservationAction(
   const result = await cancelReservation(
     reservationId,
     access.condominium.id,
-    toBookingContext(access.condominium),
+    bookingContext,
   );
 
   if (!result.ok) {
@@ -313,16 +370,17 @@ export async function submitReservationReceiptAction(
     access.permissions.canBookReservationsForCondo;
 
   if (!isStaff) {
-    const unitsResult = await listUnitIdsForProfile(
-      access.profile.id,
-      access.condominium.id,
-    );
+    const ownership = await profileOwnsReservationForReceipt({
+      profileId: access.profile.id,
+      unitId: current.data.unit_id,
+      requestedBy: current.data.requested_by,
+    });
 
-    if (!unitsResult.ok) {
-      return { error: unitsResult.error };
+    if (!ownership.ok) {
+      return { error: ownership.error };
     }
 
-    if (!unitsResult.data.includes(current.data.unit_id)) {
+    if (!ownership.data) {
       return { error: "Você só pode enviar recibo das suas reservas." };
     }
   }

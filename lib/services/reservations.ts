@@ -483,11 +483,11 @@ export async function getReservationByIdForContext(
 
 export async function listUnitIdsForProfile(
   profileId: string,
-  condominiumId: string,
+  condominiumId?: string,
 ): Promise<ServiceResult<string[]>> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("residents")
     .select(
       `
@@ -499,8 +499,13 @@ export async function listUnitIdsForProfile(
       )
     `,
     )
-    .eq("profile_id", profileId)
-    .eq("units.towers.condominium_id", condominiumId);
+    .eq("profile_id", profileId);
+
+  if (condominiumId) {
+    query = query.eq("units.towers.condominium_id", condominiumId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return serviceError(mapSupabaseError(error));
@@ -508,6 +513,24 @@ export async function listUnitIdsForProfile(
 
   const unitIds = [...new Set((data ?? []).map((row) => row.unit_id as string))];
   return serviceOk(unitIds);
+}
+
+/** Resident can manage receipt when they requested it or own the unit (any condo). */
+export async function profileOwnsReservationForReceipt(input: {
+  profileId: string;
+  unitId: string;
+  requestedBy: string | null;
+}): Promise<ServiceResult<boolean>> {
+  if (input.requestedBy && input.requestedBy === input.profileId) {
+    return serviceOk(true);
+  }
+
+  const unitsResult = await listUnitIdsForProfile(input.profileId);
+  if (!unitsResult.ok) {
+    return serviceError(unitsResult.error);
+  }
+
+  return serviceOk(unitsResult.data.includes(input.unitId));
 }
 
 export async function createReservation(input: {

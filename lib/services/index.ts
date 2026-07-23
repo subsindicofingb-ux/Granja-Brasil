@@ -31,6 +31,7 @@ export {
   rejectReservation,
   cancelReservation,
   listUnitIdsForProfile,
+  profileOwnsReservationForReceipt,
   listReservationsForArea,
   listUpcomingReservationsByCondominium,
   listRecentReservationsByCondominium,

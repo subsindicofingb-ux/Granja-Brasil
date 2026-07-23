@@ -20,6 +20,7 @@ interface ReservationActionsProps {
   condoSlug: string;
   reservation: ReservationWithDetails;
   canApprove: boolean;
+  canReject: boolean;
   canCancel: boolean;
 }
 
@@ -27,6 +28,7 @@ export function ReservationActions({
   condoSlug,
   reservation,
   canApprove,
+  canReject,
   canCancel,
 }: ReservationActionsProps) {
   const [approveState, approveAction, approving] = useActionState(approveReservationAction, {});
@@ -34,11 +36,17 @@ export function ReservationActions({
   const [cancelState, cancelAction, cancelling] = useActionState(cancelReservationAction, {});
 
   const showApprove = canApprove && canApproveReservation(reservation.status);
-  const showReject = canApprove && canRejectReservation(reservation.status);
+  const showReject = canReject && canRejectReservation(reservation.status);
   const showCancel = canCancel && canCancelReservation(reservation.status);
 
   if (!showApprove && !showReject && !showCancel) {
-    return null;
+    return (
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="lg" asChild>
+          <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -48,24 +56,31 @@ export function ReservationActions({
         success={approveState.success ?? rejectState.success ?? cancelState.success}
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         {showApprove && (
-          <form action={approveAction}>
+          <form action={approveAction} className="w-full sm:w-auto">
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="reservation_id" value={reservation.id} />
-            <Button type="submit" disabled={approving || rejecting || cancelling}>
-              {approving ? "Aprovando..." : "Aprovar"}
+            <Button
+              type="submit"
+              size="lg"
+              className="min-h-12 w-full text-base sm:w-auto"
+              disabled={approving || rejecting || cancelling}
+            >
+              {approving ? "Autorizando..." : "Autorizar"}
             </Button>
           </form>
         )}
 
         {showReject && (
-          <form action={rejectAction}>
+          <form action={rejectAction} className="w-full sm:w-auto">
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="reservation_id" value={reservation.id} />
             <Button
               type="submit"
+              size="lg"
               variant="outline"
+              className="min-h-12 w-full text-base sm:w-auto"
               disabled={approving || rejecting || cancelling}
             >
               {rejecting ? "Rejeitando..." : "Rejeitar"}
@@ -74,12 +89,14 @@ export function ReservationActions({
         )}
 
         {showCancel && (
-          <form action={cancelAction}>
+          <form action={cancelAction} className="w-full sm:w-auto">
             <input type="hidden" name="condo_slug" value={condoSlug} />
             <input type="hidden" name="reservation_id" value={reservation.id} />
             <Button
               type="submit"
+              size="lg"
               variant="destructive"
+              className="min-h-12 w-full text-base sm:w-auto"
               disabled={approving || rejecting || cancelling}
             >
               {cancelling ? "Cancelando..." : "Cancelar reserva"}
@@ -87,7 +104,7 @@ export function ReservationActions({
           </form>
         )}
 
-        <Button variant="ghost" asChild>
+        <Button variant="outline" size="lg" className="min-h-12 text-base" asChild>
           <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
         </Button>
       </div>

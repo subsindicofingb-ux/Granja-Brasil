@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarDays,
   Car,
+  DoorOpen,
   Megaphone,
   MessageSquarePlus,
   Bell,
@@ -114,6 +115,14 @@ export function ResidentDashboard({
       accent: "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
     });
   }
+
+  quickActions.push({
+    title: "Abrir acesso",
+    description: "Liberar porta para visita ou emergência",
+    href: `${base}/access-open`,
+    icon: DoorOpen,
+    accent: "border-teal-200 bg-teal-50 text-teal-950 hover:border-teal-300 hover:bg-teal-100/80",
+  });
 
   quickActions.push({
     title: "Avisos",
@@ -251,11 +260,11 @@ export function ResidentDashboard({
   return (
     <div className="space-y-6">
       <section className="rounded-2xl border bg-gradient-to-br from-sky-50 via-white to-indigo-50 p-6 shadow-sm">
-        <p className="text-sm font-medium text-sky-800">Bem-vindo(a)</p>
-        <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+        <p className="text-base font-medium text-sky-800">Bem-vindo(a)</p>
+        <h2 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
           Olá, {firstName}
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-slate-600">
+        <p className="mt-2 max-w-2xl text-base text-slate-600">
           Aqui você acompanha avisos, reservas e visitas do{" "}
           <span className="font-medium text-slate-800">{condominiumName}</span>.
         </p>
@@ -278,14 +287,14 @@ export function ResidentDashboard({
 
       {attentionItems.length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900">Precisa da sua atenção</h3>
+          <h3 className="text-base font-semibold text-slate-900">Precisa da sua atenção</h3>
           {attentionItems.map((item) => (
             <div
               key={item.message}
-              className={`flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${item.tone}`}
+              className={`flex flex-col gap-3 rounded-xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${item.tone}`}
             >
-              <p className="text-sm font-medium">{item.message}</p>
-              <Button size="sm" variant="outline" className="shrink-0 bg-white/80" asChild>
+              <p className="text-base font-medium">{item.message}</p>
+              <Button size="lg" variant="outline" className="min-h-12 shrink-0 bg-white/80 text-base" asChild>
                 <Link href={item.href}>{item.cta}</Link>
               </Button>
             </div>
@@ -295,10 +304,10 @@ export function ResidentDashboard({
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">O que você precisa?</h3>
+          <h3 className="text-base font-semibold text-slate-900">O que você precisa?</h3>
           <Link
             href={`${base}/reservations`}
-            className="text-xs font-medium text-primary hover:underline"
+            className="text-sm font-medium text-primary hover:underline"
           >
             Ver minhas reservas
           </Link>
@@ -311,17 +320,17 @@ export function ResidentDashboard({
               <Link
                 key={action.href}
                 href={action.href}
-                className={`group flex items-start gap-3 rounded-xl border p-4 transition-colors ${action.accent}`}
+                className={`group flex min-h-[5.5rem] items-start gap-4 rounded-2xl border p-5 transition-colors ${action.accent}`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
-                  <Icon className="h-5 w-5" />
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/80 shadow-sm">
+                  <Icon className="h-6 w-6" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 font-semibold">
+                  <span className="flex items-center gap-2 text-lg font-semibold">
                     {action.title}
-                    <ArrowRight className="h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <ArrowRight className="h-5 w-5 opacity-0 transition-opacity group-hover:opacity-100" />
                   </span>
-                  <span className="mt-1 block text-sm opacity-80">{action.description}</span>
+                  <span className="mt-1 block text-base opacity-80">{action.description}</span>
                 </span>
               </Link>
             );

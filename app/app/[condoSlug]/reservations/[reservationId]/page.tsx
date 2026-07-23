@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
+import { getGranjaCondoSlug, ROLES } from "@/lib/constants";
 import {
   requiresPaymentReceipt,
 } from "@/lib/reservations/area-rules";
@@ -11,8 +12,15 @@ import {
   RESERVATION_HANDOVER_ACCEPTANCE_TEXT,
 } from "@/lib/reservations/handover";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
-import { canCancelReservation, canApproveReservation } from "@/lib/reservations/validate-booking";
-import { getReservationByIdForContext, listUnitIdsForProfile } from "@/lib/services/reservations";
+import {
+  canCancelReservation,
+  canApproveReservation,
+  canRejectReservation,
+} from "@/lib/reservations/validate-booking";
+import {
+  getReservationByIdForContext,
+  profileOwnsReservationForReceipt,
+} from "@/lib/services/reservations";
 import { listResidentsByCondominium } from "@/lib/services/residents";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -38,6 +46,17 @@ async function getProfileName(profileId: string | null): Promise<string | null> 
   return data?.full_name ?? null;
 }
 
+function canAuthorizeGranjaArea(input: {
+  condoSlug: string;
+  role: string;
+}): boolean {
+  if (isGeneralCondominium(input.condoSlug) || input.condoSlug === getGranjaCondoSlug()) {
+    return true;
+  }
+
+  return input.role === ROLES.SUPER_ADMIN || input.role === ROLES.ADMIN;
+}
+
 export default async function ReservationDetailPage({ params }: ReservationDetailPageProps) {
   const { condoSlug, reservationId } = await params;
   const access = await requireCondoAccess(condoSlug);
@@ -53,7 +72,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <ErrorAlert message={result.error} />
-        <Button variant="outline" asChild>
+        <Button variant="outline" size="lg" asChild>
           <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
         </Button>
       </div>
@@ -62,6 +81,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
 
   const reservation = result.data;
   const isStaff = access.permissions.canApproveReservations;
+  const canBookForCondo = access.permissions.canBookReservationsForCondo;
   const granjaCondominiumId = await getGranjaCondominiumId();
   const paymentReceiptRequired = requiresPaymentReceipt({
     requires_payment: reservation.common_area.requires_payment,
@@ -73,20 +93,21 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     Boolean(granjaCondominiumId) &&
     reservation.common_area.condominium_id === granjaCondominiumId;
 
-  let canCancel = isStaff;
+  let canCancel = isStaff || canBookForCondo;
   let canUploadReceipt = false;
 
-  if (!isStaff && access.permissions.canManageReservations) {
-    const unitsResult = await listUnitIdsForProfile(
-      access.profile.id,
-      access.condominium.id,
-    );
-    const ownsReservation =
-      unitsResult.ok && unitsResult.data.includes(reservation.unit_id);
+  if (isStaff || canBookForCondo) {
+    canUploadReceipt =
+      reservation.status === "awaiting_receipt" && paymentReceiptRequired;
+  } else if (access.permissions.canManageReservations) {
+    const ownership = await profileOwnsReservationForReceipt({
+      profileId: access.profile.id,
+      unitId: reservation.unit_id,
+      requestedBy: reservation.requested_by,
+    });
+    const ownsReservation = ownership.ok && ownership.data;
 
-    canCancel =
-      ownsReservation && canCancelReservation(reservation.status);
-
+    canCancel = ownsReservation && canCancelReservation(reservation.status);
     canUploadReceipt =
       ownsReservation &&
       reservation.status === "awaiting_receipt" &&
@@ -96,8 +117,13 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   const canApproveAsStaff =
     isStaff &&
     canApproveReservation(reservation.status) &&
-    (!isGranjaArea || isGeneralCondominium(condoSlug)) &&
+    (!isGranjaArea || canAuthorizeGranjaArea({ condoSlug, role: access.role })) &&
     (!paymentReceiptRequired || Boolean(reservation.payment_receipt_url));
+
+  const canRejectAsStaff =
+    isStaff &&
+    canRejectReservation(reservation.status) &&
+    (!isGranjaArea || canAuthorizeGranjaArea({ condoSlug, role: access.role }));
 
   const isEventReservation = !isSlotBasedArea(reservation.common_area);
 
@@ -208,20 +234,20 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             </div>
           )}
           {reservation.status === "awaiting_receipt" && paymentReceiptRequired && (
-            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-blue-900">
+            <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-base text-blue-900">
               Pré-cadastro realizado. Envie o recibo de pagamento para que o administrador da
               Granja possa autorizar o uso da churrasqueira.
             </p>
           )}
           {reservation.status === "pending" && paymentReceiptRequired && (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-base text-amber-800">
               Recibo recebido. Aguardando autorização do administrador da Granja.
             </p>
           )}
           {reservation.common_area.requires_approval &&
             reservation.status === "pending" &&
             !paymentReceiptRequired && (
-            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-base text-amber-800">
               Esta reserva aguarda aprovação do síndico ou administrador.
             </p>
           )}
@@ -288,7 +314,10 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
       {canUploadReceipt && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Enviar recibo de pagamento</CardTitle>
+            <CardTitle className="text-lg">Enviar comprovante de pagamento</CardTitle>
+            <CardDescription>
+              Anexe a foto ou o PDF do PIX. Depois disso a Granja poderá autorizar a reserva.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ReservationReceiptUpload condoSlug={condoSlug} reservationId={reservation.id} />
@@ -300,6 +329,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
         condoSlug={condoSlug}
         reservation={reservation}
         canApprove={canApproveAsStaff}
+        canReject={canRejectAsStaff}
         canCancel={canCancel}
       />
     </div>

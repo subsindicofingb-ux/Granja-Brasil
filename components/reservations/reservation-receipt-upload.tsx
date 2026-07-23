@@ -25,22 +25,25 @@ export function ReservationReceiptUpload({
       <FormAlert error={state.error} success={state.success} />
 
       <div className="space-y-2">
-        <Label htmlFor="receipt">Recibo de pagamento</Label>
+        <Label htmlFor="receipt" className="text-base">
+          Comprovante de pagamento
+        </Label>
         <Input
           id="receipt"
           name="receipt"
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           required
+          className="min-h-12 text-base file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Envie foto ou PDF do comprovante (máx. 5 MB). Após o envio, a reserva ficará pendente de
           autorização do administrador da Granja.
         </p>
       </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Enviando..." : "Enviar recibo"}
+      <Button type="submit" size="lg" className="min-h-12 w-full text-base sm:w-auto" disabled={pending}>
+        {pending ? "Enviando..." : "Enviar comprovante"}
       </Button>
     </form>
   );
