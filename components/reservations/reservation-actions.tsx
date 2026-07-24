@@ -22,6 +22,7 @@ interface ReservationActionsProps {
   canApprove: boolean;
   canReject: boolean;
   canCancel: boolean;
+  canReschedule: boolean;
 }
 
 export function ReservationActions({
@@ -30,6 +31,7 @@ export function ReservationActions({
   canApprove,
   canReject,
   canCancel,
+  canReschedule,
 }: ReservationActionsProps) {
   const [approveState, approveAction, approving] = useActionState(approveReservationAction, {});
   const [rejectState, rejectAction, rejecting] = useActionState(rejectReservationAction, {});
@@ -38,8 +40,9 @@ export function ReservationActions({
   const showApprove = canApprove && canApproveReservation(reservation.status);
   const showReject = canReject && canRejectReservation(reservation.status);
   const showCancel = canCancel && canCancelReservation(reservation.status);
+  const showReschedule = canReschedule && canCancelReservation(reservation.status);
 
-  if (!showApprove && !showReject && !showCancel) {
+  if (!showApprove && !showReject && !showCancel && !showReschedule) {
     return (
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="lg" asChild>
@@ -86,6 +89,21 @@ export function ReservationActions({
               {rejecting ? "Rejeitando..." : "Rejeitar"}
             </Button>
           </form>
+        )}
+
+        {showReschedule && (
+          <Button
+            variant="secondary"
+            size="lg"
+            className="min-h-12 w-full text-base sm:w-auto"
+            asChild
+          >
+            <Link
+              href={`/app/${condoSlug}/reservations/new?reagendar=${reservation.id}`}
+            >
+              Reagendar
+            </Link>
+          </Button>
         )}
 
         {showCancel && (

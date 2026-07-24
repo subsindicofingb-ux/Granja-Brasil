@@ -15,6 +15,7 @@ interface ReservationDateCalendarProps {
   areaId: string;
   value: string;
   onChange: (dateKey: string) => void;
+  excludeReservationId?: string;
 }
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -38,6 +39,7 @@ export function ReservationDateCalendar({
   areaId,
   value,
   onChange,
+  excludeReservationId,
 }: ReservationDateCalendarProps) {
   const [month, setMonth] = useState(getCurrentMonthKey());
   const [days, setDays] = useState<ReservationCalendarDay[]>([]);
@@ -56,7 +58,12 @@ export function ReservationDateCalendar({
       setLoading(true);
       setError(null);
 
-      const result = await getReservationCalendarAction(condoSlug, areaId, month);
+      const result = await getReservationCalendarAction(
+        condoSlug,
+        areaId,
+        month,
+        excludeReservationId,
+      );
 
       if (cancelled) return;
 
@@ -75,7 +82,7 @@ export function ReservationDateCalendar({
     return () => {
       cancelled = true;
     };
-  }, [areaId, condoSlug, month]);
+  }, [areaId, condoSlug, month, excludeReservationId]);
 
   const leadingCells = getLeadingEmptyCells(month);
 
@@ -154,8 +161,8 @@ export function ReservationDateCalendar({
 
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span>Disponível</span>
-        <span className="text-amber-800">Confirmado — reserva já existente no dia</span>
-        <span className="text-blue-800">Pré-reserva — aguardando aprovação ou recibo</span>
+        <span className="text-amber-800">Em uso — reserva já existente no dia</span>
+        <span className="text-blue-800">Pré-reserva — aguardando aprovação ou comprovante</span>
         <span className="text-red-700">Manutenção — bloqueio da administração</span>
       </div>
     </div>

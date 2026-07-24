@@ -80,7 +80,8 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   }
 
   const reservation = result.data;
-  const isStaff = access.permissions.canApproveReservations;
+  const isResidentRole = access.role === ROLES.RESIDENT;
+  const isStaff = !isResidentRole && access.permissions.canApproveReservations;
   const canBookForCondo = access.permissions.canBookReservationsForCondo;
   const granjaCondominiumId = await getGranjaCondominiumId();
   const paymentReceiptRequired = requiresPaymentReceipt({
@@ -95,6 +96,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
 
   let canCancel = isStaff || canBookForCondo;
   let canUploadReceipt = false;
+  let ownsReservation = false;
 
   if (isStaff || canBookForCondo) {
     canUploadReceipt =
@@ -105,7 +107,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
       unitId: reservation.unit_id,
       requestedBy: reservation.requested_by,
     });
-    const ownsReservation = ownership.ok && ownership.data;
+    ownsReservation = ownership.ok && ownership.data;
 
     canCancel = ownsReservation && canCancelReservation(reservation.status);
     canUploadReceipt =
@@ -124,6 +126,10 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     isStaff &&
     canRejectReservation(reservation.status) &&
     (!isGranjaArea || canAuthorizeGranjaArea({ condoSlug, role: access.role }));
+
+  const canReschedule =
+    canCancelReservation(reservation.status) &&
+    (isStaff || canBookForCondo || ownsReservation);
 
   const isEventReservation = !isSlotBasedArea(reservation.common_area);
 
@@ -222,7 +228,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
           )}
           {reservation.payment_receipt_url && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-              <span className="text-muted-foreground">Recibo</span>
+              <span className="text-muted-foreground">Comprovante</span>
               <a
                 href={reservation.payment_receipt_url}
                 target="_blank"
@@ -235,13 +241,13 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
           )}
           {reservation.status === "awaiting_receipt" && paymentReceiptRequired && (
             <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-base text-blue-900">
-              Pré-cadastro realizado. Envie o recibo de pagamento para que o administrador da
+              Pré-cadastro realizado. Envie o comprovante de pagamento para que o administrador da
               Granja possa autorizar o uso da churrasqueira.
             </p>
           )}
           {reservation.status === "pending" && paymentReceiptRequired && (
             <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-base text-amber-800">
-              Recibo recebido. Aguardando autorização do administrador da Granja.
+              Comprovante recebido. Aguardando autorização do administrador da Granja.
             </p>
           )}
           {reservation.common_area.requires_approval &&
@@ -331,6 +337,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
         canApprove={canApproveAsStaff}
         canReject={canRejectAsStaff}
         canCancel={canCancel}
+        canReschedule={canReschedule}
       />
     </div>
   );

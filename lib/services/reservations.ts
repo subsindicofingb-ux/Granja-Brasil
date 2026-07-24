@@ -544,6 +544,7 @@ export async function createReservation(input: {
   enforceGuestCount?: boolean;
   requestedBy: string | null;
   bookingContext?: CondominiumContext;
+  excludeReservationId?: string;
 }): Promise<ServiceResult<ReservationWithDetails>> {
   const areaResult = input.bookingContext
     ? await getBookableCommonAreaById(input.commonAreaId, input.bookingContext)
@@ -597,6 +598,7 @@ export async function createReservation(input: {
     startAt,
     endAt,
     existingReservations: blockingResult.data,
+    excludeReservationId: input.excludeReservationId,
   });
 
   if (!validation.valid) {

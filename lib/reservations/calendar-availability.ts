@@ -120,14 +120,8 @@ export function buildReservationCalendarDays(input: {
       return { date: dateKey, status: "unavailable", selectable: false };
     }
 
-    if (!isAllowedBookingDay(input.area, dateKey, allowedDay)) {
-      return { date: dateKey, status: "unavailable", selectable: false };
-    }
-
-    if (!isWithinAdvanceWindow(input.area, dateKey, todayKey)) {
-      return { date: dateKey, status: "unavailable", selectable: false };
-    }
-
+    // Occupancy and maintenance first so today/in-use days always show a legend,
+    // even when min_advance_days or allowed_days would block new bookings.
     if (maintenanceTouchesDay(input.area, dateKey)) {
       return {
         date: dateKey,
@@ -145,7 +139,7 @@ export function buildReservationCalendarDays(input: {
       return {
         date: dateKey,
         status: "confirmed",
-        label: "Confirmado",
+        label: "Em uso",
         selectable: true,
       };
     }
@@ -161,6 +155,14 @@ export function buildReservationCalendarDays(input: {
         label: "Pré-reserva",
         selectable: false,
       };
+    }
+
+    if (!isAllowedBookingDay(input.area, dateKey, allowedDay)) {
+      return { date: dateKey, status: "unavailable", selectable: false };
+    }
+
+    if (!isWithinAdvanceWindow(input.area, dateKey, todayKey)) {
+      return { date: dateKey, status: "unavailable", selectable: false };
     }
 
     return {

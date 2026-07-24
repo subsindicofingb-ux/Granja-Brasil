@@ -20,6 +20,7 @@ import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { canCollectReservationHandover } from "@/lib/reservations/handover";
 import { localDateTimeToIso, parseTimeToMinutes } from "@/lib/reservations/timezone";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
+import { canCancelReservation } from "@/lib/reservations/validate-booking";
 import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { parseReservationFormData, reservationHandoverSchema } from "@/lib/validations/reservation.schema";
 import { getGranjaCondoSlug, ROLES } from "@/lib/constants";
@@ -162,6 +163,32 @@ export async function createReservationAction(
     return unitCheck;
   }
 
+  const rescheduleFromId = String(formData.get("reschedule_from") ?? "").trim();
+
+  if (rescheduleFromId) {
+    const current = await getReservationByIdForContext(rescheduleFromId, bookingContext);
+
+    if (!current.ok) {
+      return { error: current.error };
+    }
+
+    if (!canCancelReservation(current.data.status)) {
+      return { error: "Esta reserva não pode ser reagendada." };
+    }
+
+    if (!(isStaff && !isResidentForm)) {
+      const ownership = await profileOwnsReservationForReceipt({
+        profileId: access.profile.id,
+        unitId: current.data.unit_id,
+        requestedBy: current.data.requested_by,
+      });
+
+      if (!ownership.ok || !ownership.data) {
+        return { error: "Você só pode reagendar as suas reservas." };
+      }
+    }
+  }
+
   const result = await createReservation({
     condominiumId: access.condominium.id,
     commonAreaId,
@@ -173,10 +200,28 @@ export async function createReservationAction(
     enforceGuestCount: isResidentForm,
     requestedBy: access.profile.id,
     bookingContext,
+    excludeReservationId: rescheduleFromId || undefined,
   });
 
   if (!result.ok) {
     return { error: result.error };
+  }
+
+  if (rescheduleFromId) {
+    const cancelResult = await cancelReservation(
+      rescheduleFromId,
+      access.condominium.id,
+      bookingContext,
+    );
+
+    if (!cancelResult.ok) {
+      revalidateReservationPaths(condoSlug, result.data.id);
+      return {
+        error: `Nova reserva criada, mas não foi possível cancelar a anterior: ${cancelResult.error}`,
+      };
+    }
+
+    revalidateReservationPaths(condoSlug, rescheduleFromId);
   }
 
   revalidateReservationPaths(condoSlug, result.data.id);
@@ -192,7 +237,7 @@ export async function approveReservationAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canApproveReservations,
+    (ctx) => ctx.role !== ROLES.RESIDENT && ctx.permissions.canApproveReservations,
     { redirectTo: `/app/${condoSlug}/reservations/${reservationId}` },
   );
 
@@ -250,7 +295,7 @@ export async function rejectReservationAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canApproveReservations,
+    (ctx) => ctx.role !== ROLES.RESIDENT && ctx.permissions.canApproveReservations,
     { redirectTo: `/app/${condoSlug}/reservations/${reservationId}` },
   );
 
@@ -412,7 +457,7 @@ export async function submitReservationReceiptAction(
   revalidateReservationPaths(condoSlug, reservationId);
   return {
     success:
-      "Recibo enviado com sucesso. Aguarde a autorização do administrador da Granja.",
+      "Comprovante enviado com sucesso. Aguarde a autorização do administrador da Granja.",
   };
 }
 

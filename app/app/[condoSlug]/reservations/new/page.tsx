@@ -5,8 +5,14 @@ import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data
 import { listCommonAreasByCondominium, listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { ROLES } from "@/lib/constants";
 import { listUnitsByCondominium } from "@/lib/services/units";
-import { listUnitIdsForProfile } from "@/lib/services/reservations";
+import {
+  getReservationByIdForContext,
+  listUnitIdsForProfile,
+  profileOwnsReservationForReceipt,
+} from "@/lib/services/reservations";
 import { buildReservationAreaOptions } from "@/lib/reservations/form-areas";
+import { canCancelReservation } from "@/lib/reservations/validate-booking";
+import { getLocalDateKey, toDatetimeLocalValue } from "@/lib/reservations/timezone";
 import { serviceOk } from "@/lib/services/types";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
@@ -17,10 +23,12 @@ import Link from "next/link";
 
 interface NewReservationPageProps {
   params: Promise<{ condoSlug: string }>;
+  searchParams: Promise<{ reagendar?: string }>;
 }
 
-export default async function NewReservationPage({ params }: NewReservationPageProps) {
+export default async function NewReservationPage({ params, searchParams }: NewReservationPageProps) {
   const { condoSlug } = await params;
+  const { reagendar: rescheduleFromId } = await searchParams;
   const access = await requireCondoAccess(condoSlug);
 
   if (!access.permissions.canManageReservations) {
@@ -39,6 +47,75 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     condominiumId: access.condominium.id,
     condominiumSlug: access.condominium.slug,
   };
+
+  let rescheduleDefaults:
+    | {
+        reservationId: string;
+        commonAreaId: string;
+        unitId: string;
+        reservationDate: string;
+        startAtLocal: string;
+        endAtLocal: string;
+        guestCount: number | null;
+        notes: string | null;
+      }
+    | undefined;
+
+  if (rescheduleFromId) {
+    const current = await getReservationByIdForContext(rescheduleFromId, bookingContext);
+
+    if (!current.ok) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message={current.error} />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (!canCancelReservation(current.data.status)) {
+      return (
+        <div className="mx-auto max-w-lg space-y-4">
+          <ErrorAlert message="Esta reserva não pode ser reagendada." />
+          <Button variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/reservations/${rescheduleFromId}`}>Voltar</Link>
+          </Button>
+        </div>
+      );
+    }
+
+    if (isResidentRole) {
+      const ownership = await profileOwnsReservationForReceipt({
+        profileId: access.profile.id,
+        unitId: current.data.unit_id,
+        requestedBy: current.data.requested_by,
+      });
+
+      if (!ownership.ok || !ownership.data) {
+        return (
+          <div className="mx-auto max-w-lg space-y-4">
+            <ErrorAlert message="Você só pode reagendar as suas reservas." />
+            <Button variant="outline" asChild>
+              <Link href={`/app/${condoSlug}/reservations`}>Voltar</Link>
+            </Button>
+          </div>
+        );
+      }
+    }
+
+    rescheduleDefaults = {
+      reservationId: current.data.id,
+      commonAreaId: current.data.common_area_id,
+      unitId: current.data.unit_id,
+      reservationDate: getLocalDateKey(new Date(current.data.start_at)),
+      startAtLocal: toDatetimeLocalValue(current.data.start_at),
+      endAtLocal: toDatetimeLocalValue(current.data.end_at),
+      guestCount: current.data.guest_count,
+      notes: current.data.notes,
+    };
+  }
 
   if (isGeneralCondo && isStaff) {
     const [areasResult, panelResult] = await Promise.all([
@@ -63,8 +140,12 @@ export default async function NewReservationPage({ params }: NewReservationPageP
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <PageHeader
-          title="Nova reserva"
-          description="Agende um espaço comum respeitando as regras configuradas."
+          title={rescheduleDefaults ? "Reagendar reserva" : "Nova reserva"}
+          description={
+            rescheduleDefaults
+              ? "Escolha a nova data. A reserva anterior será cancelada ao confirmar."
+              : "Agende um espaço comum respeitando as regras configuradas."
+          }
         />
 
         <Card>
@@ -78,6 +159,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
               areas={areaOptions}
               units={panelResult.data.units}
               condominiumNamesById={panelResult.data.condominiumNamesById}
+              reschedule={rescheduleDefaults}
             />
           </CardContent>
         </Card>
@@ -129,8 +211,12 @@ export default async function NewReservationPage({ params }: NewReservationPageP
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
-        title="Nova reserva"
-        description="Agende um espaço comum respeitando as regras configuradas."
+        title={rescheduleDefaults ? "Reagendar reserva" : "Nova reserva"}
+        description={
+          rescheduleDefaults
+            ? "Escolha a nova data. A reserva anterior será cancelada ao confirmar."
+            : "Agende um espaço comum respeitando as regras configuradas."
+        }
       />
 
       <Card>
@@ -143,6 +229,7 @@ export default async function NewReservationPage({ params }: NewReservationPageP
             mode={isStaff ? "staff" : "resident"}
             areas={areaOptions}
             units={units}
+            reschedule={rescheduleDefaults}
           />
         </CardContent>
       </Card>

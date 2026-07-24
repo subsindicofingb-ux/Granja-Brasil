@@ -1,7 +1,7 @@
 import { RESERVATION_STATUS, type ReservationStatus } from "@/lib/constants";
 
 export const RESERVATION_STATUS_LABELS: Record<ReservationStatus, string> = {
-  [RESERVATION_STATUS.AWAITING_RECEIPT]: "Aguardando recibo",
+  [RESERVATION_STATUS.AWAITING_RECEIPT]: "Aguardando comprovante",
   [RESERVATION_STATUS.PENDING]: "Pendente",
   [RESERVATION_STATUS.APPROVED]: "Aprovada",
   [RESERVATION_STATUS.REJECTED]: "Rejeitada",

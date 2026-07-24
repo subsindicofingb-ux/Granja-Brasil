@@ -16,6 +16,7 @@ export async function getReservationCalendarAction(
   condoSlug: string,
   areaId: string,
   month: string,
+  excludeReservationId?: string,
 ): Promise<ReservationCalendarResult> {
   if (!/^\d{4}-\d{2}$/.test(month)) {
     return { ok: false, error: "Mês inválido." };
@@ -43,11 +44,15 @@ export async function getReservationCalendarAction(
       return { ok: false, error: reservationsResult.error };
     }
 
+    const reservations = excludeReservationId
+      ? reservationsResult.data.filter((reservation) => reservation.id !== excludeReservationId)
+      : reservationsResult.data;
+
     return {
       ok: true,
       days: buildReservationCalendarDays({
         area: areaResult.data,
-        reservations: reservationsResult.data,
+        reservations,
         month,
       }),
     };

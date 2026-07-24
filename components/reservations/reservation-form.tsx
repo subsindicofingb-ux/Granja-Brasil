@@ -28,6 +28,17 @@ export type ReservationAreaOption = {
   rules: string | null;
 };
 
+export type ReservationRescheduleDefaults = {
+  reservationId: string;
+  commonAreaId: string;
+  unitId: string;
+  reservationDate: string;
+  startAtLocal: string;
+  endAtLocal: string;
+  guestCount: number | null;
+  notes: string | null;
+};
+
 interface ReservationFormProps {
   condoSlug: string;
   mode: "resident" | "staff";
@@ -39,6 +50,7 @@ interface ReservationFormProps {
     tower: { id: string; name: string; condominium_id: string };
   }>;
   condominiumNamesById?: Record<string, string>;
+  reschedule?: ReservationRescheduleDefaults;
 }
 
 function todayDateValue() {
@@ -55,10 +67,15 @@ export function ReservationForm({
   areas,
   units,
   condominiumNamesById,
+  reschedule,
 }: ReservationFormProps) {
   const [state, formAction, pending] = useActionState(createReservationAction, {});
-  const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [reservationDate, setReservationDate] = useState(todayDateValue());
+  const [selectedAreaId, setSelectedAreaId] = useState(
+    reschedule?.commonAreaId ?? "",
+  );
+  const [reservationDate, setReservationDate] = useState(
+    reschedule?.reservationDate ?? todayDateValue(),
+  );
   const [startTime, setStartTime] = useState("08:00");
   const [durationMinutes, setDurationMinutes] = useState(60);
   const selectedArea = useMemo(
@@ -70,6 +87,7 @@ export function ReservationForm({
   const requiresGuestCountForResident =
     isResident && selectedArea != null && !selectedArea.usesSlotBooking;
   const isEventReservation = selectedArea != null && !selectedArea.usesSlotBooking;
+  const isReschedule = Boolean(reschedule);
 
   if (areas.length === 0) {
     return (
@@ -94,7 +112,17 @@ export function ReservationForm({
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       <input type="hidden" name="form_mode" value={mode} />
+      {reschedule && (
+        <input type="hidden" name="reschedule_from" value={reschedule.reservationId} />
+      )}
       <FormAlert error={state.error} success={state.success} />
+
+      {isReschedule && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Ao confirmar, a reserva anterior será cancelada e uma nova solicitação será criada com a
+          data escolhida.
+        </p>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="common_area_id">Espaço comum</Label>
@@ -112,7 +140,7 @@ export function ReservationForm({
           {areas.map((area) => (
             <option key={area.id} value={area.id}>
               {area.name}
-              {area.requiresPaymentReceipt ? " (recibo obrigatório)" : ""}
+              {area.requiresPaymentReceipt ? " (comprovante obrigatório)" : ""}
               {area.requiresApproval && !area.requiresPaymentReceipt
                 ? " (exige aprovação)"
                 : ""}
@@ -139,7 +167,7 @@ export function ReservationForm({
               id="unit_id"
               name="unit_id"
               required
-              defaultValue=""
+              defaultValue={reschedule?.unitId ?? ""}
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               <option value="" disabled>
@@ -160,10 +188,10 @@ export function ReservationForm({
             id="unit_id"
             name="unit_id"
             required
-            defaultValue={singleUnit?.id ?? ""}
+            defaultValue={reschedule?.unitId ?? singleUnit?.id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
           >
-            {!singleUnit && (
+            {!singleUnit && !reschedule?.unitId && (
               <option value="" disabled>
                 Selecione a unidade
               </option>
@@ -177,21 +205,22 @@ export function ReservationForm({
         </div>
       )}
 
+      {selectedAreaId ? (
+        <ReservationDateCalendar
+          condoSlug={condoSlug}
+          areaId={selectedAreaId}
+          value={reservationDate}
+          onChange={setReservationDate}
+          excludeReservationId={reschedule?.reservationId}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Selecione um espaço comum para ver o calendário de disponibilidade.
+        </p>
+      )}
+
       {isResident ? (
         <>
-          {selectedAreaId ? (
-            <ReservationDateCalendar
-              condoSlug={condoSlug}
-              areaId={selectedAreaId}
-              value={reservationDate}
-              onChange={setReservationDate}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Selecione um espaço comum para ver o calendário de disponibilidade.
-            </p>
-          )}
-
           <input type="hidden" name="reservation_date" value={reservationDate} />
 
           {selectedArea?.usesSlotBooking ? (
@@ -226,11 +255,23 @@ export function ReservationForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="start_at">Início</Label>
-            <Input id="start_at" name="start_at" type="datetime-local" required />
+            <Input
+              id="start_at"
+              name="start_at"
+              type="datetime-local"
+              required
+              defaultValue={reschedule?.startAtLocal}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="end_at">Fim</Label>
-            <Input id="end_at" name="end_at" type="datetime-local" required />
+            <Input
+              id="end_at"
+              name="end_at"
+              type="datetime-local"
+              required
+              defaultValue={reschedule?.endAtLocal}
+            />
           </div>
         </div>
       )}
@@ -245,6 +286,7 @@ export function ReservationForm({
             min={1}
             max={selectedArea.capacity}
             required
+            defaultValue={reschedule?.guestCount ?? undefined}
             placeholder={`Máximo ${selectedArea.capacity} pessoas`}
           />
           <p className="text-xs text-muted-foreground">
@@ -260,6 +302,7 @@ export function ReservationForm({
             id="notes"
             name="notes"
             rows={3}
+            defaultValue={reschedule?.notes ?? undefined}
             placeholder="Descreva brevemente a festa ou evento."
             className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm"
           />
@@ -277,8 +320,8 @@ export function ReservationForm({
 
       {selectedArea?.requiresPaymentReceipt && (
         <p className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-          Após o pré-cadastro, envie o recibo de pagamento nesta reserva. A autorização final
-          depende do recibo e da aprovação do administrador da Granja.
+          Após o pré-cadastro, envie o comprovante de pagamento nesta reserva. A autorização final
+          depende do comprovante e da aprovação do administrador da Granja.
         </p>
       )}
 
@@ -296,10 +339,22 @@ export function ReservationForm({
 
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={pending}>
-          {pending ? "Salvando..." : "Solicitar reserva"}
+          {pending
+            ? "Salvando..."
+            : isReschedule
+              ? "Confirmar reagendamento"
+              : "Solicitar reserva"}
         </Button>
         <Button variant="outline" asChild>
-          <Link href={`/app/${condoSlug}/reservations`}>Cancelar</Link>
+          <Link
+            href={
+              reschedule
+                ? `/app/${condoSlug}/reservations/${reschedule.reservationId}`
+                : `/app/${condoSlug}/reservations`
+            }
+          >
+            Cancelar
+          </Link>
         </Button>
       </div>
     </form>
