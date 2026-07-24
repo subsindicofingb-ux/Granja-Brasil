@@ -6,44 +6,20 @@ type SuggestableAccessDevice = Pick<
   "id" | "display_name" | "access_type" | "is_active"
 >;
 
-const DEFAULT_NAME_PATTERNS =
-  /portaria|servi[cç]o|garagem|facilidad|brinquedoteca|academia|piscina|sal[aã]o|quadra|playground/i;
-
-const RESIDENT_ACCESS_TYPES = new Set([
-  "facial_pedestrian",
-  "facial_vehicle",
-  "tag_vehicle",
-]);
-
-export function suggestDefaultAccessDeviceIds(devices: SuggestableAccessDevice[]): string[] {
-  const eligible = devices.filter(
-    (device) => device.is_active && RESIDENT_ACCESS_TYPES.has(device.access_type),
-  );
-
-  if (eligible.length === 0) {
-    return [];
-  }
-
-  const matchedByName = eligible.filter((device) =>
-    DEFAULT_NAME_PATTERNS.test(device.display_name),
-  );
-
-  if (matchedByName.length > 0) {
-    return matchedByName.map((device) => device.id);
-  }
-
-  return eligible
-    .filter((device) => device.access_type === "facial_pedestrian")
-    .map((device) => device.id);
+/**
+ * Locais de acesso iniciam desmarcados no cadastro.
+ * O operador marca apenas onde o morador deve ter acesso.
+ */
+export function suggestDefaultAccessDeviceIds(
+  _devices: SuggestableAccessDevice[],
+): string[] {
+  return [];
 }
 
-export function suggestDefaultAccessDeviceIdsFromOptions(devices: AccessDeviceOption[]): string[] {
-  return suggestDefaultAccessDeviceIds(
-    devices.map((device) => ({
-      ...device,
-      is_active: true,
-    })),
-  );
+export function suggestDefaultAccessDeviceIdsFromOptions(
+  _devices: AccessDeviceOption[],
+): string[] {
+  return [];
 }
 
 export function mapDevicesToOptions(devices: AccessDeviceListItem[]) {
