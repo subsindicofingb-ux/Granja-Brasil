@@ -3,7 +3,7 @@ export const SIGNUP_SUCCESS_PATH = "/signup/concluido";
 export const SIGNUP_WELCOME_TITLE = "Bem-vindo(a) ao Granja Brasil";
 
 export const SIGNUP_WELCOME_MESSAGE =
-  "Sua solicitação de cadastro foi recebida. O responsável do condomínio analisará seus dados e liberará o acesso em breve.";
+  "Sua solicitação de cadastro foi recebida. Confirme o e-mail (se pedirmos) e aguarde a análise do responsável do condomínio.";
 
 export const SIGNUP_WELCOME_FOOTNOTE =
-  "Você receberá acesso ao painel após a aprovação. Enquanto isso, use o login apenas quando quiser acompanhar o status.";
+  "Use um e-mail real: enviamos um link de confirmação. Depois da confirmação e da aprovação do condomínio, você acessa o painel.";

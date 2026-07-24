@@ -11,6 +11,7 @@ import { resolveSafeAppRedirect } from "@/lib/auth/condo-access-guard";
 import { buildTabSessionRedirect } from "@/lib/auth/session-tab";
 import { cleanupOrphanResidentMemberships } from "@/lib/auth/membership-cleanup";
 import { SIGNUP_SUCCESS_PATH } from "@/lib/auth/signup-success";
+import { getSignupEmailValidationError } from "@/lib/auth/email-validation";
 import { canAssignMemberRole, isGranjaOnlyMemberRole } from "@/lib/auth/member-roles";
 import { canCreateInCategory, canDeleteInCategory } from "@/lib/auth/permission-matrix";
 import { ensureProfile, getAuthUser } from "@/lib/auth/session";
@@ -27,6 +28,7 @@ import {
 } from "@/lib/services/registration-requests";
 import { isEmailConfigured } from "@/lib/email/send-email";
 import { sendPasswordResetEmail } from "@/lib/email/password-reset";
+import { sendSignupConfirmationEmail } from "@/lib/email/signup-confirmation";
 import { registrationPreQualificationSchema } from "@/lib/validations/registration.schema";
 import type { RegistrationProfileType } from "@/lib/constants";
 import { formatRegistrationUnitLabel, requiresRegistrationUnit } from "@/lib/registrations/profile-type";
@@ -34,6 +36,7 @@ import { uploadCondoImage } from "@/lib/storage/upload-image";
 import { assertUniqueRegistrationContactInUnit } from "@/lib/residents/contact-uniqueness";
 import {
   buildAuthCallbackUrl,
+  buildEmailConfirmCallbackUrl,
   buildPasswordRecoveryCallbackUrl,
   resolveSiteUrl,
 } from "@/lib/auth/site-url";
@@ -41,6 +44,7 @@ import {
   formatPasswordPolicyError,
   getPasswordPolicyError,
 } from "@/lib/auth/password-policy";
+import { headers } from "next/headers";
 
 function formatAuthError(message: unknown): string {
   const policyError = formatPasswordPolicyError(message);
@@ -438,12 +442,9 @@ export async function signUpAction(
   }
 
   if (!isGoogleSignUp) {
-    if (!email) {
-      return { error: "Informe o e-mail." };
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return { error: "Informe um e-mail válido." };
+    const emailError = getSignupEmailValidationError(email);
+    if (emailError) {
+      return { error: emailError };
     }
 
     if (!password) {
@@ -547,7 +548,7 @@ export async function signUpAction(
         const { data: created, error: createError } = await admin.auth.admin.createUser({
           email,
           password,
-          email_confirm: true,
+          email_confirm: false,
           user_metadata: { full_name: fullName },
         });
 
@@ -560,6 +561,32 @@ export async function signUpAction(
         }
 
         userId = created.user.id;
+
+        const requestHeaders = await headers();
+        const preferredOrigin = requestHeaders.get("origin");
+        const redirectTo = buildAuthCallbackUrl("/login", preferredOrigin, "signup");
+
+        const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+          type: "signup",
+          email,
+          password,
+          options: { redirectTo },
+        });
+
+        if (!linkError) {
+          const hashedToken = linkData.properties?.hashed_token;
+          const confirmLink = hashedToken
+            ? buildEmailConfirmCallbackUrl(hashedToken, preferredOrigin)
+            : linkData.properties?.action_link;
+
+          if (confirmLink && isEmailConfigured()) {
+            await sendSignupConfirmationEmail({
+              to: email,
+              fullName,
+              confirmLink,
+            });
+          }
+        }
       }
     }
 

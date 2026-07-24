@@ -19,7 +19,11 @@ export async function GET(request: NextRequest) {
   const type = (requestUrl.searchParams.get("type") ?? "recovery") as EmailOtpType;
 
   if (!tokenHash) {
-    return NextResponse.redirect(new URL("/forgot-password?error=recovery", requestUrl.origin));
+    const fallback =
+      type === "signup" || type === "email"
+        ? "/login?error=confirm"
+        : "/forgot-password?error=recovery";
+    return NextResponse.redirect(new URL(fallback, requestUrl.origin));
   }
 
   const env = getSupabasePublicEnv();
@@ -27,9 +31,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login?error=config", requestUrl.origin));
   }
 
-  const response = applyPendingPasswordResetCookie(
-    NextResponse.redirect(new URL("/reset-password", requestUrl.origin)),
-  );
+  const isSignupConfirm = type === "signup" || type === "email";
+  const successPath = isSignupConfirm ? "/login?confirmed=1" : "/reset-password";
+  const errorPath = isSignupConfirm ? "/login?error=confirm" : "/forgot-password?error=recovery";
+
+  let response = NextResponse.redirect(new URL(successPath, requestUrl.origin));
+  if (!isSignupConfirm) {
+    response = applyPendingPasswordResetCookie(response);
+  }
 
   const supabase = createServerClient<Database>(env.url, env.anonKey, {
     cookies: {
@@ -50,7 +59,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    return NextResponse.redirect(new URL("/forgot-password?error=recovery", requestUrl.origin));
+    return NextResponse.redirect(new URL(errorPath, requestUrl.origin));
   }
 
   return response;

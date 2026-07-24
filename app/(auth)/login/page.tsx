@@ -7,19 +7,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 export const dynamic = "force-dynamic";
 
 interface LoginPageProps {
-  searchParams: Promise<{ redirect?: string; error?: string; reset?: string }>;
+  searchParams: Promise<{
+    redirect?: string;
+    error?: string;
+    reset?: string;
+    confirmed?: string;
+  }>;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { redirect: redirectTo, error, reset } = await searchParams;
+  const { redirect: redirectTo, error, reset, confirmed } = await searchParams;
 
   const errorMessage =
     error === "config"
       ? "Supabase não configurado. Na Vercel, adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY em Settings → Environment Variables e faça redeploy."
       : error === "callback"
         ? "Não foi possível concluir a autenticação. Tente novamente."
+        : error === "confirm"
+          ? "Não foi possível confirmar o e-mail. Solicite um novo cadastro ou tente o link novamente."
+          : null;
+  const successMessage =
+    reset === "success"
+      ? "Senha atualizada com sucesso. Entre com a nova senha."
+      : confirmed === "1"
+        ? "E-mail confirmado. Agora você pode entrar e aguardar a aprovação do condomínio."
         : null;
-  const successMessage = reset === "success" ? "Senha atualizada com sucesso. Entre com a nova senha." : null;
 
   return (
     <LoginSessionGuard>

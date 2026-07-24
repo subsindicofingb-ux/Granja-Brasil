@@ -23,6 +23,11 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "@/lib/auth/password-policy";
 import { PRIVACY_POLICY, TERMS_OF_USE } from "@/lib/legal/terms-content";
+import {
+  buildInternationalPhone,
+  DEFAULT_PHONE_COUNTRY_DIAL,
+  PHONE_COUNTRY_OPTIONS,
+} from "@/lib/auth/phone-countries";
 
 interface SignUpFormProps {
   condominiums: PublicCondominiumOption[];
@@ -36,7 +41,8 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
   const [email, setEmail] = useState(oauthUser?.email ?? "");
   const [password, setPassword] = useState("");
   const [unitNumber, setUnitNumber] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneCountryDial, setPhoneCountryDial] = useState(DEFAULT_PHONE_COUNTRY_DIAL);
+  const [phoneNational, setPhoneNational] = useState("");
   const [selectedCondoId, setSelectedCondoId] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("");
   const [selectedProfileType, setSelectedProfileType] = useState<RegistrationProfileType>(
@@ -46,6 +52,11 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
   const [unitsLoading, startUnitsTransition] = useTransition();
   const [acceptedTermsOfUse, setAcceptedTermsOfUse] = useState(false);
   const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
+
+  const phone = useMemo(
+    () => buildInternationalPhone(phoneCountryDial, phoneNational),
+    [phoneCountryDial, phoneNational],
+  );
 
   const selectedCondo = useMemo(
     () => condominiums.find((condo) => condo.id === selectedCondoId),
@@ -136,7 +147,6 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
           id="full_name"
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
-          placeholder="Maria Silva"
           autoComplete="name"
           required
         />
@@ -154,6 +164,10 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
               autoComplete="email"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Use um e-mail real e permanente. Enviaremos um link de confirmação. Prefira também
+              “Cadastrar com Google”.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -173,15 +187,33 @@ export function SignUpForm({ condominiums, oauthUser = null }: SignUpFormProps) 
       ) : null}
 
       <div className="space-y-2">
-        <Label htmlFor="phone">Celular</Label>
-        <Input
-          id="phone"
-          type="tel"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-          placeholder="(11) 99999-0000"
-          autoComplete="tel"
-        />
+        <Label htmlFor="phone_national">Celular</Label>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(10rem,12rem)_1fr]">
+          <select
+            id="phone_country"
+            aria-label="Código do país"
+            value={phoneCountryDial}
+            onChange={(event) => setPhoneCountryDial(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          >
+            {PHONE_COUNTRY_OPTIONS.map((option) => (
+              <option key={option.code} value={option.dial}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <Input
+            id="phone_national"
+            type="tel"
+            value={phoneNational}
+            onChange={(event) => setPhoneNational(event.target.value)}
+            placeholder="Número sem o DDI"
+            autoComplete="tel-national"
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Inclua o código do país. Moradores fora do Brasil também podem se cadastrar.
+        </p>
       </div>
 
       <PhotoField label="Foto (opcional)" enableCamera />

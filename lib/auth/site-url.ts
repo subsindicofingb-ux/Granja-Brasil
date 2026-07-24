@@ -43,3 +43,15 @@ export function buildPasswordRecoveryCallbackUrl(
   });
   return `${siteUrl}/auth/confirm?${params.toString()}`;
 }
+
+export function buildEmailConfirmCallbackUrl(
+  tokenHash: string,
+  preferredOrigin?: string | null,
+): string {
+  const siteUrl = resolveSiteUrl(preferredOrigin);
+  const params = new URLSearchParams({
+    token_hash: tokenHash,
+    type: "signup",
+  });
+  return `${siteUrl}/auth/confirm?${params.toString()}`;
+}
