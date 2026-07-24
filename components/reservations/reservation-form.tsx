@@ -37,6 +37,7 @@ export type ReservationRescheduleDefaults = {
   endAtLocal: string;
   guestCount: number | null;
   notes: string | null;
+  previousStatus: string;
 };
 
 interface ReservationFormProps {
@@ -119,44 +120,62 @@ export function ReservationForm({
 
       {isReschedule && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Ao confirmar, a reserva anterior será cancelada e uma nova solicitação será criada com a
-          data escolhida.
+          {reschedule?.previousStatus === "approved"
+            ? "Ao confirmar, apenas a data/horário serão alterados. A autorização e o comprovante já enviados permanecem válidos."
+            : "Ao confirmar, a data/horário serão atualizados mantendo o andamento atual da reserva."}
         </p>
       )}
 
       <div className="space-y-2">
         <Label htmlFor="common_area_id">Espaço comum</Label>
-        <select
-          id="common_area_id"
-          name="common_area_id"
-          required
-          value={selectedAreaId}
-          onChange={(event) => setSelectedAreaId(event.target.value)}
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-        >
-          <option value="" disabled>
-            Selecione o espaço
-          </option>
-          {areas.map((area) => (
-            <option key={area.id} value={area.id}>
-              {area.name}
-              {area.requiresPaymentReceipt ? " (comprovante obrigatório)" : ""}
-              {area.requiresApproval && !area.requiresPaymentReceipt
-                ? " (exige aprovação)"
-                : ""}
+        {isReschedule ? (
+          <>
+            <input type="hidden" name="common_area_id" value={selectedAreaId} />
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
+              {selectedArea?.name ?? "Espaço"}
+            </p>
+          </>
+        ) : (
+          <select
+            id="common_area_id"
+            name="common_area_id"
+            required
+            value={selectedAreaId}
+            onChange={(event) => setSelectedAreaId(event.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          >
+            <option value="" disabled>
+              Selecione o espaço
             </option>
-          ))}
-        </select>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.name}
+                {area.requiresPaymentReceipt ? " (comprovante obrigatório)" : ""}
+                {area.requiresApproval && !area.requiresPaymentReceipt
+                  ? " (exige aprovação)"
+                  : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {isResident ? (
-        units.length === 1 ? (
+        units.length === 1 || isReschedule ? (
           <>
-            <input type="hidden" name="unit_id" value={units[0].id} />
+            <input
+              type="hidden"
+              name="unit_id"
+              value={reschedule?.unitId ?? units[0]?.id ?? ""}
+            />
             <div className="space-y-2">
               <Label>Unidade</Label>
               <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
-                {formatUnitOptionLabel(units[0], condominiumNamesById)}
+                {formatUnitOptionLabel(
+                  units.find((unit) => unit.id === (reschedule?.unitId ?? units[0]?.id)) ??
+                    units[0],
+                  condominiumNamesById,
+                )}
               </p>
             </div>
           </>
@@ -167,7 +186,7 @@ export function ReservationForm({
               id="unit_id"
               name="unit_id"
               required
-              defaultValue={reschedule?.unitId ?? ""}
+              defaultValue=""
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
             >
               <option value="" disabled>
@@ -181,6 +200,24 @@ export function ReservationForm({
             </select>
           </div>
         )
+      ) : isReschedule && reschedule ? (
+        <>
+          <input type="hidden" name="unit_id" value={reschedule.unitId} />
+          <div className="space-y-2">
+            <Label>Unidade</Label>
+            <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm font-medium">
+              {formatUnitOptionLabel(
+                units.find((unit) => unit.id === reschedule.unitId) ?? {
+                  id: reschedule.unitId,
+                  number: "—",
+                  block: null,
+                  tower: { id: "", name: "Unidade", condominium_id: "" },
+                },
+                condominiumNamesById,
+              )}
+            </p>
+          </div>
+        </>
       ) : (
         <div className="space-y-2">
           <Label htmlFor="unit_id">Unidade</Label>
@@ -188,10 +225,10 @@ export function ReservationForm({
             id="unit_id"
             name="unit_id"
             required
-            defaultValue={reschedule?.unitId ?? singleUnit?.id ?? ""}
+            defaultValue={singleUnit?.id ?? ""}
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
           >
-            {!singleUnit && !reschedule?.unitId && (
+            {!singleUnit && (
               <option value="" disabled>
                 Selecione a unidade
               </option>

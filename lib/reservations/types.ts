@@ -71,6 +71,8 @@ export type BookingValidationResult =
 
 export type ReservationNotificationEvent =
   | { type: "reservation_created"; reservationId: string; condominiumId: string }
+  | { type: "reservation_receipt_submitted"; reservationId: string; condominiumId: string }
   | { type: "reservation_approved"; reservationId: string; condominiumId: string }
   | { type: "reservation_rejected"; reservationId: string; condominiumId: string }
-  | { type: "reservation_cancelled"; reservationId: string; condominiumId: string };
+  | { type: "reservation_cancelled"; reservationId: string; condominiumId: string }
+  | { type: "reservation_rescheduled"; reservationId: string; condominiumId: string };

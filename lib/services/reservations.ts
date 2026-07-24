@@ -640,6 +640,113 @@ export async function createReservation(input: {
   return serviceOk(reservation);
 }
 
+export async function rescheduleReservation(input: {
+  reservationId: string;
+  bookingContext: CondominiumContext;
+  startAt: string;
+  endAt: string;
+  notes: string | null;
+  guestCount?: number | null;
+  enforceGuestCount?: boolean;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const current = await getReservationByIdForContext(input.reservationId, input.bookingContext);
+
+  if (!current.ok) {
+    return serviceError(current.error);
+  }
+
+  if (!canCancelReservation(current.data.status)) {
+    return serviceError("Esta reserva não pode ser reagendada.");
+  }
+
+  const areaResult = await getBookableCommonAreaById(
+    current.data.common_area_id,
+    input.bookingContext,
+  );
+
+  if (!areaResult.ok) {
+    return serviceError(areaResult.error);
+  }
+
+  const area = areaResult.data;
+  const guestCountRequired =
+    requiresGuestCount(area.name) ||
+    (input.enforceGuestCount === true && !isSlotBasedArea(area));
+
+  let guestCount = current.data.guest_count;
+
+  if (guestCountRequired) {
+    if (!input.guestCount || input.guestCount < 1) {
+      return serviceError("Informe o número de convidados.");
+    }
+
+    if (input.guestCount > area.capacity) {
+      return serviceError(
+        `O número de convidados não pode exceder ${area.capacity} (capacidade do espaço).`,
+      );
+    }
+
+    guestCount = input.guestCount;
+  } else if (input.guestCount != null) {
+    if (input.guestCount > area.capacity) {
+      return serviceError(
+        `O número de convidados não pode exceder ${area.capacity} (capacidade do espaço).`,
+      );
+    }
+    guestCount = input.guestCount;
+  }
+
+  const startAt = new Date(input.startAt);
+  const endAt = new Date(input.endAt);
+
+  const blockingResult = await listBlockingReservationsForArea(current.data.common_area_id);
+
+  if (!blockingResult.ok) {
+    return serviceError(blockingResult.error);
+  }
+
+  const validation = validateBooking({
+    area,
+    unitId: current.data.unit_id,
+    startAt,
+    endAt,
+    existingReservations: blockingResult.data,
+    excludeReservationId: input.reservationId,
+  });
+
+  if (!validation.valid) {
+    return serviceError(validation.error);
+  }
+
+  // Mantém status, comprovante e autorização existentes (ex.: aprovada permanece aprovada).
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({
+      start_at: input.startAt,
+      end_at: input.endAt,
+      notes: input.notes,
+      guest_count: guestCount,
+    })
+    .eq("id", input.reservationId)
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  const reservation = mapReservationDetail(data as ReservationDetailRow);
+
+  await notifyReservationEvent({
+    type: "reservation_rescheduled",
+    reservationId: reservation.id,
+    condominiumId: area.condominium_id,
+  });
+
+  return serviceOk(reservation);
+}
+
 export async function submitReservationReceipt(input: {
   reservationId: string;
   bookingContext: CondominiumContext;
@@ -691,7 +798,7 @@ export async function submitReservationReceipt(input: {
   const reservation = mapReservationDetail(data as ReservationDetailRow);
 
   await notifyReservationEvent({
-    type: "reservation_created",
+    type: "reservation_receipt_submitted",
     reservationId: reservation.id,
     condominiumId: current.data.common_area.condominium_id,
   });

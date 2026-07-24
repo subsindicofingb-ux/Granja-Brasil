@@ -14,6 +14,7 @@ import {
   listUnitIdsForProfile,
   profileOwnsReservationForReceipt,
   rejectReservation,
+  rescheduleReservation,
   submitReservationReceipt,
 } from "@/lib/services/reservations";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
@@ -187,6 +188,29 @@ export async function createReservationAction(
         return { error: "Você só pode reagendar as suas reservas." };
       }
     }
+
+    if (commonAreaId !== current.data.common_area_id || unitId !== current.data.unit_id) {
+      return {
+        error: "No reagendamento, mantenha o mesmo espaço e a mesma unidade.",
+      };
+    }
+
+    const result = await rescheduleReservation({
+      reservationId: rescheduleFromId,
+      bookingContext,
+      startAt,
+      endAt,
+      notes,
+      guestCount,
+      enforceGuestCount: isResidentForm,
+    });
+
+    if (!result.ok) {
+      return { error: result.error };
+    }
+
+    revalidateReservationPaths(condoSlug, result.data.id);
+    redirect(`/app/${condoSlug}/reservations/${result.data.id}`);
   }
 
   const result = await createReservation({
@@ -200,28 +224,10 @@ export async function createReservationAction(
     enforceGuestCount: isResidentForm,
     requestedBy: access.profile.id,
     bookingContext,
-    excludeReservationId: rescheduleFromId || undefined,
   });
 
   if (!result.ok) {
     return { error: result.error };
-  }
-
-  if (rescheduleFromId) {
-    const cancelResult = await cancelReservation(
-      rescheduleFromId,
-      access.condominium.id,
-      bookingContext,
-    );
-
-    if (!cancelResult.ok) {
-      revalidateReservationPaths(condoSlug, result.data.id);
-      return {
-        error: `Nova reserva criada, mas não foi possível cancelar a anterior: ${cancelResult.error}`,
-      };
-    }
-
-    revalidateReservationPaths(condoSlug, rescheduleFromId);
   }
 
   revalidateReservationPaths(condoSlug, result.data.id);

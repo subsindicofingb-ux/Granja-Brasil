@@ -58,6 +58,7 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
         endAtLocal: string;
         guestCount: number | null;
         notes: string | null;
+        previousStatus: string;
       }
     | undefined;
 
@@ -114,6 +115,7 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
       endAtLocal: toDatetimeLocalValue(current.data.end_at),
       guestCount: current.data.guest_count,
       notes: current.data.notes,
+      previousStatus: current.data.status,
     };
   }
 
@@ -143,7 +145,9 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
           title={rescheduleDefaults ? "Reagendar reserva" : "Nova reserva"}
           description={
             rescheduleDefaults
-              ? "Escolha a nova data. A reserva anterior será cancelada ao confirmar."
+              ? rescheduleDefaults.previousStatus === "approved"
+                ? "Altere a data sem precisar enviar comprovante ou pedir nova autorização."
+                : "Escolha a nova data. O andamento atual da reserva será mantido."
               : "Agende um espaço comum respeitando as regras configuradas."
           }
         />
@@ -214,7 +218,9 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
         title={rescheduleDefaults ? "Reagendar reserva" : "Nova reserva"}
         description={
           rescheduleDefaults
-            ? "Escolha a nova data. A reserva anterior será cancelada ao confirmar."
+            ? rescheduleDefaults.previousStatus === "approved"
+              ? "Altere a data sem precisar enviar comprovante ou pedir nova autorização."
+              : "Escolha a nova data. O andamento atual da reserva será mantido."
             : "Agende um espaço comum respeitando as regras configuradas."
         }
       />

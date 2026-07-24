@@ -27,6 +27,7 @@ export {
   listReservationsByCondominium,
   getReservationById,
   createReservation,
+  rescheduleReservation,
   approveReservation,
   rejectReservation,
   cancelReservation,
