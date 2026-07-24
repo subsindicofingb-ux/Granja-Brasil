@@ -15,6 +15,11 @@ import { AreaAgenda } from "@/components/reservations/area-agenda";
 import { ReservationFilters } from "@/components/reservations/reservation-filters";
 import { ReservationStatusBadge } from "@/components/reservations/reservation-status-badge";
 import { Button } from "@/components/ui/button";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 
 interface ReservationsPageProps {
   params: Promise<{ condoSlug: string }>;
@@ -172,43 +177,73 @@ async function ReservationsContent({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Espaço</th>
-                <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                <th className="px-4 py-3 text-left font-medium">Período</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reservations.map((reservation) => (
-                <tr key={reservation.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{reservation.common_area.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitWithTower(reservation.unit)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    <div>{formatDateTime(reservation.start_at)}</div>
-                    <div className="text-xs">até {formatDateTime(reservation.end_at)}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <ReservationStatusBadge status={reservation.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/reservations/${reservation.id}`}>
-                        Ver
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecords
+          mobile={reservations.map((reservation) => (
+            <MobileRecordCard key={reservation.id}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 text-base font-semibold leading-snug">
+                  {reservation.common_area.name}
+                </p>
+                <ReservationStatusBadge status={reservation.status} />
+              </div>
+              <MobileRecordRow label="Unidade">
+                {formatUnitWithTower(reservation.unit)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Período">
+                <span>
+                  {formatDateTime(reservation.start_at)}
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    até {formatDateTime(reservation.end_at)}
+                  </span>
+                </span>
+              </MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/reservations/${reservation.id}`}>
+                  Ver reserva
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Espaço</th>
+                    <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                    <th className="px-4 py-3 text-left font-medium">Período</th>
+                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reservations.map((reservation) => (
+                    <tr key={reservation.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">{reservation.common_area.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatUnitWithTower(reservation.unit)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        <div>{formatDateTime(reservation.start_at)}</div>
+                        <div className="text-xs">até {formatDateTime(reservation.end_at)}</div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <ReservationStatusBadge status={reservation.status} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/reservations/${reservation.id}`}>
+                            Ver
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );

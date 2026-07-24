@@ -4,6 +4,11 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { listTowersByCondominium } from "@/lib/services/towers";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { Button } from "@/components/ui/button";
 import { Suspense } from "react";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
@@ -42,32 +47,47 @@ async function TowersContent({ condoSlug }: { condoSlug: string }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <table className="w-full text-sm">
-        <thead className="border-b bg-muted/40">
-          <tr>
-            <th className="px-4 py-3 text-left font-medium">Nome</th>
-            <th className="px-4 py-3 text-left font-medium">Andares</th>
-            <th className="px-4 py-3 text-right font-medium">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {towers.map((tower) => (
-            <tr key={tower.id} className="border-b last:border-0">
-              <td className="px-4 py-3 font-medium">{tower.name}</td>
-              <td className="px-4 py-3 text-muted-foreground">{tower.floors}</td>
-              <td className="px-4 py-3 text-right">
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/app/${condoSlug}/towers/${tower.id}`}>
-                    {access.permissions.canManageStructure ? "Editar" : "Detalhes"}
-                  </Link>
-                </Button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ResponsiveRecords
+      mobile={towers.map((tower) => (
+        <MobileRecordCard key={tower.id}>
+          <p className="min-w-0 text-base font-semibold leading-snug">{tower.name}</p>
+          <MobileRecordRow label="Andares">{tower.floors}</MobileRecordRow>
+          <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+            <Link href={`/app/${condoSlug}/towers/${tower.id}`}>
+              {access.permissions.canManageStructure ? "Editar" : "Detalhes"}
+            </Link>
+          </Button>
+        </MobileRecordCard>
+      ))}
+      desktop={
+        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/40">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Nome</th>
+                <th className="px-4 py-3 text-left font-medium">Andares</th>
+                <th className="px-4 py-3 text-right font-medium">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {towers.map((tower) => (
+                <tr key={tower.id} className="border-b last:border-0">
+                  <td className="px-4 py-3 font-medium">{tower.name}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{tower.floors}</td>
+                  <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/app/${condoSlug}/towers/${tower.id}`}>
+                        {access.permissions.canManageStructure ? "Editar" : "Detalhes"}
+                      </Link>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      }
+    />
   );
 }
 

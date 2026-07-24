@@ -10,7 +10,6 @@ import { MobileBottomNav, isPrimaryMobileNavHref } from "@/components/layout/mob
 import { selectCondominiumAction } from "@/lib/auth/actions";
 import type { CondoAccess, MembershipWithCondo } from "@/lib/auth/types";
 import { getRolePermissions } from "@/lib/auth/roles";
-import { ROLES } from "@/lib/constants";
 import { getVisibleNavItems } from "@/lib/navigation";
 import {
   Building2,
@@ -61,10 +60,9 @@ export function MobileCondoNav({ condoSlug, access, memberships }: MobileCondoNa
   const [pending, startTransition] = useTransition();
   const basePath = `/app/${condoSlug}`;
   const navItems = getVisibleNavItems(access);
-  const isResident = access.role === ROLES.RESIDENT;
-  const sheetItems = isResident
-    ? navItems.filter((item) => !isPrimaryMobileNavHref(item.href))
-    : navItems;
+  const sheetItems = navItems.filter(
+    (item) => !isPrimaryMobileNavHref(item.href, access.role),
+  );
 
   useEffect(() => {
     if (!open) {
@@ -179,13 +177,11 @@ export function MobileCondoNav({ condoSlug, access, memberships }: MobileCondoNa
         </div>
       )}
 
-      {isResident && (
-        <MobileBottomNav
-          condoSlug={condoSlug}
-          access={access}
-          onOpenMore={() => setOpen(true)}
-        />
-      )}
+      <MobileBottomNav
+        condoSlug={condoSlug}
+        access={access}
+        onOpenMore={() => setOpen(true)}
+      />
     </>
   );
 }

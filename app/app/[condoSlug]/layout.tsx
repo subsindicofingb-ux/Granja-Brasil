@@ -28,7 +28,9 @@ export default async function CondoLayout({ children, params }: CondoLayoutProps
             <div className="hidden lg:block">
               <AppHeader access={access} />
             </div>
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+            <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+              {children}
+            </main>
           </div>
         </CondoSidebarProvider>
       </div>

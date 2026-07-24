@@ -21,76 +21,82 @@ export function ReservationFilters({
   const basePath = `/app/${condoSlug}/reservations`;
 
   return (
-    <form method="get" className="flex flex-wrap items-end gap-3">
+    <form method="get" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
       <input type="hidden" name="view" value={view} />
 
-      <div className="space-y-2">
-        <Label htmlFor="area">Espaço</Label>
-        <select
-          id="area"
-          name="area"
-          defaultValue={selectedArea ?? ""}
-          className="flex h-9 min-w-[180px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-        >
-          <option value="">Todos os espaços</option>
-          {areas.map((area) => (
-            <option key={area.id} value={area.id}>
-              {area.name}
-            </option>
-          ))}
-        </select>
+      <div className="grid grid-cols-1 gap-3 sm:contents">
+        <div className="space-y-2 sm:min-w-[180px]">
+          <Label htmlFor="area">Espaço</Label>
+          <select
+            id="area"
+            name="area"
+            defaultValue={selectedArea ?? ""}
+            className="flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm sm:h-9 sm:min-w-[180px]"
+          >
+            <option value="">Todos os espaços</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2 sm:min-w-[160px]">
+          <Label htmlFor="status">Status</Label>
+          <select
+            id="status"
+            name="status"
+            defaultValue={selectedStatus}
+            className="flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm sm:h-9 sm:min-w-[160px]"
+          >
+            <option value="all">Todos</option>
+            <option value={RESERVATION_STATUS.AWAITING_RECEIPT}>Aguardando comprovante</option>
+            <option value={RESERVATION_STATUS.PENDING}>Pendentes</option>
+            <option value={RESERVATION_STATUS.APPROVED}>Aprovadas</option>
+            <option value={RESERVATION_STATUS.REJECTED}>Rejeitadas</option>
+            <option value={RESERVATION_STATUS.CANCELLED}>Canceladas</option>
+          </select>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
-        <select
-          id="status"
-          name="status"
-          defaultValue={selectedStatus}
-          className="flex h-9 min-w-[160px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-        >
-          <option value="all">Todos</option>
-          <option value={RESERVATION_STATUS.AWAITING_RECEIPT}>Aguardando comprovante</option>
-          <option value={RESERVATION_STATUS.PENDING}>Pendentes</option>
-          <option value={RESERVATION_STATUS.APPROVED}>Aprovadas</option>
-          <option value={RESERVATION_STATUS.REJECTED}>Rejeitadas</option>
-          <option value={RESERVATION_STATUS.CANCELLED}>Canceladas</option>
-        </select>
-      </div>
-
-      <Button type="submit" variant="secondary" size="sm">
-        Aplicar
-      </Button>
-
-      {(selectedArea || selectedStatus !== "all") && (
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`${basePath}?view=${view}`}>Limpar</Link>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" variant="secondary" size="sm" className="min-h-11 flex-1 sm:min-h-9 sm:flex-none">
+          Aplicar
         </Button>
-      )}
 
-      <div className="ml-auto flex gap-2">
-        <Button
-          variant={view === "list" ? "default" : "outline"}
-          size="sm"
-          asChild
-        >
-          <Link
-            href={`${basePath}?view=list${selectedArea ? `&area=${selectedArea}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}`}
+        {(selectedArea || selectedStatus !== "all") && (
+          <Button variant="ghost" size="sm" className="min-h-11 sm:min-h-9" asChild>
+            <Link href={`${basePath}?view=${view}`}>Limpar</Link>
+          </Button>
+        )}
+
+        <div className="ml-auto flex w-full gap-2 sm:w-auto">
+          <Button
+            variant={view === "list" ? "default" : "outline"}
+            size="sm"
+            className="min-h-11 flex-1 sm:min-h-9 sm:flex-none"
+            asChild
           >
-            Lista
-          </Link>
-        </Button>
-        <Button
-          variant={view === "agenda" ? "default" : "outline"}
-          size="sm"
-          asChild
-        >
-          <Link
-            href={`${basePath}?view=agenda${selectedArea ? `&area=${selectedArea}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}`}
+            <Link
+              href={`${basePath}?view=list${selectedArea ? `&area=${selectedArea}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}`}
+            >
+              Lista
+            </Link>
+          </Button>
+          <Button
+            variant={view === "agenda" ? "default" : "outline"}
+            size="sm"
+            className="min-h-11 flex-1 sm:min-h-9 sm:flex-none"
+            asChild
           >
-            Agenda
-          </Link>
-        </Button>
+            <Link
+              href={`${basePath}?view=agenda${selectedArea ? `&area=${selectedArea}` : ""}${selectedStatus !== "all" ? `&status=${selectedStatus}` : ""}`}
+            >
+              Agenda
+            </Link>
+          </Button>
+        </div>
       </div>
     </form>
   );

@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { MobileCondoNav } from "@/components/layout/mobile-condo-nav";
 import type { CondoAccess, MembershipWithCondo } from "@/lib/auth/types";
-import { ROLES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface CondoSidebarProviderProps {
@@ -23,7 +22,6 @@ export function CondoSidebarProvider({
   children,
 }: CondoSidebarProviderProps) {
   const pathname = usePathname();
-  const isResident = access.role === ROLES.RESIDENT;
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -40,8 +38,8 @@ export function CondoSidebarProvider({
         <MobileCondoNav condoSlug={condoSlug} access={access} memberships={memberships} />
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden",
-            isResident && "pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0",
+            "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
+            "pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0",
           )}
         >
           {children}

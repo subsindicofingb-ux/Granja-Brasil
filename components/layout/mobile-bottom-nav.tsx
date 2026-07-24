@@ -4,15 +4,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarDays,
+  Car,
   DoorOpen,
   Home,
+  Inbox,
   LayoutDashboard,
   Megaphone,
   MoreHorizontal,
+  Package,
   UserCheck,
 } from "lucide-react";
 import type { CondoAccess } from "@/lib/auth/types";
-import { ROLES, type NavIcon } from "@/lib/constants";
+import { ROLES, type NavIcon, type Role } from "@/lib/constants";
 import { getVisibleNavItems } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -23,9 +26,22 @@ const iconMap = {
   Megaphone,
   UserCheck,
   DoorOpen,
+  Car,
+  Inbox,
+  Package,
 } as const;
 
-const PRIMARY_HREFS = ["", "reservations", "announcements", "access-open", "visitors"] as const;
+function getPrimaryHrefs(role: Role): readonly string[] {
+  if (role === ROLES.RESIDENT) {
+    return ["", "reservations", "announcements", "access-open", "visitors"];
+  }
+
+  if (role === ROLES.DOORMAN) {
+    return ["", "visitors", "vehicles", "correspondence", "announcements"];
+  }
+
+  return ["", "reservations", "vehicles", "visitors", "announcements"];
+}
 
 type MobileBottomNavProps = {
   condoSlug: string;
@@ -37,21 +53,23 @@ export function MobileBottomNav({ condoSlug, access, onOpenMore }: MobileBottomN
   const pathname = usePathname();
   const basePath = `/app/${condoSlug}`;
   const visible = getVisibleNavItems(access);
-  const primaryItems = PRIMARY_HREFS.map((href) =>
-    visible.find((item) => item.href === href),
-  ).filter((item): item is NonNullable<typeof item> => Boolean(item));
+  const primaryHrefs = getPrimaryHrefs(access.role);
+  const primaryItems = primaryHrefs
+    .map((href) => visible.find((item) => item.href === href))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 4);
 
-  if (access.role !== ROLES.RESIDENT || primaryItems.length === 0) {
+  if (primaryItems.length === 0) {
     return null;
   }
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-sky-200/80 bg-sky-50/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       aria-label="Menu principal"
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-between gap-1 px-1 pt-1">
-        {primaryItems.slice(0, 4).map((item) => {
+        {primaryItems.map((item) => {
           const href = item.href ? `${basePath}/${item.href}` : basePath;
           const isActive =
             item.href === "" ? pathname === basePath : pathname.startsWith(href);
@@ -64,7 +82,7 @@ export function MobileBottomNav({ condoSlug, access, onOpenMore }: MobileBottomN
               href={href}
               className={cn(
                 "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-center",
-                isActive ? "bg-primary/10 text-primary" : "text-foreground",
+                isActive ? "bg-sky-100 text-sky-900" : "text-slate-700",
               )}
             >
               <Icon className="h-6 w-6 shrink-0" aria-hidden />
@@ -77,7 +95,7 @@ export function MobileBottomNav({ condoSlug, access, onOpenMore }: MobileBottomN
         <button
           type="button"
           onClick={onOpenMore}
-          className="flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-center text-foreground"
+          className="flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-center text-slate-700"
         >
           <MoreHorizontal className="h-6 w-6 shrink-0" aria-hidden />
           <span className="text-[11px] font-semibold leading-tight">Mais</span>
@@ -87,8 +105,8 @@ export function MobileBottomNav({ condoSlug, access, onOpenMore }: MobileBottomN
   );
 }
 
-export function isPrimaryMobileNavHref(href: string): boolean {
-  return (PRIMARY_HREFS as readonly string[]).includes(href);
+export function isPrimaryMobileNavHref(href: string, role: Role): boolean {
+  return getPrimaryHrefs(role).includes(href);
 }
 
 export type { NavIcon };

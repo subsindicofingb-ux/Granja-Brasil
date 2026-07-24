@@ -5,6 +5,11 @@ import { formatAccessDeviceConnectionStatus, getAccessDeviceTypeLabel } from "@/
 import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -55,50 +60,85 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Nome</th>
-                <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium">Host</th>
-                <th className="px-4 py-3 text-left font-medium">Conexão</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {devices.map((device) => (
-                <tr key={device.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{device.display_name}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {!device.is_active && <Badge className="border bg-background">Inativo</Badge>}
-                      {device.is_pilot && <Badge className="border-amber-300 bg-amber-50 text-amber-900">Piloto</Badge>}
-                      {!device.is_owned && <Badge className="border bg-background">Compartilhado</Badge>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {getAccessDeviceTypeLabel(device.access_type)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{device.host_url}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatAccessDeviceConnectionStatus({
-                      lastConnectionOkAt: device.last_connection_ok_at,
-                      lastConnectionError: device.last_connection_error,
-                    })}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/settings/access-devices/${device.id}`}>
-                        {device.is_owned ? "Editar" : "Ver"}
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecords
+          mobile={devices.map((device) => (
+            <MobileRecordCard key={device.id}>
+              <div className="space-y-2">
+                <p className="min-w-0 text-base font-semibold leading-snug">{device.display_name}</p>
+                {(!device.is_active || device.is_pilot || !device.is_owned) && (
+                  <div className="flex flex-wrap gap-1">
+                    {!device.is_active && <Badge className="border bg-background">Inativo</Badge>}
+                    {device.is_pilot && (
+                      <Badge className="border-amber-300 bg-amber-50 text-amber-900">Piloto</Badge>
+                    )}
+                    {!device.is_owned && <Badge className="border bg-background">Compartilhado</Badge>}
+                  </div>
+                )}
+              </div>
+              <MobileRecordRow label="Tipo">
+                {getAccessDeviceTypeLabel(device.access_type)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Host">{device.host_url}</MobileRecordRow>
+              <MobileRecordRow label="Conexão">
+                {formatAccessDeviceConnectionStatus({
+                  lastConnectionOkAt: device.last_connection_ok_at,
+                  lastConnectionError: device.last_connection_error,
+                })}
+              </MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/settings/access-devices/${device.id}`}>
+                  {device.is_owned ? "Editar" : "Ver"}
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Nome</th>
+                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    <th className="px-4 py-3 text-left font-medium">Host</th>
+                    <th className="px-4 py-3 text-left font-medium">Conexão</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {devices.map((device) => (
+                    <tr key={device.id} className="border-b last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{device.display_name}</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {!device.is_active && <Badge className="border bg-background">Inativo</Badge>}
+                          {device.is_pilot && <Badge className="border-amber-300 bg-amber-50 text-amber-900">Piloto</Badge>}
+                          {!device.is_owned && <Badge className="border bg-background">Compartilhado</Badge>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {getAccessDeviceTypeLabel(device.access_type)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{device.host_url}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatAccessDeviceConnectionStatus({
+                          lastConnectionOkAt: device.last_connection_ok_at,
+                          lastConnectionError: device.last_connection_error,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/settings/access-devices/${device.id}`}>
+                            {device.is_owned ? "Editar" : "Ver"}
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
 
       <Button variant="outline" asChild>

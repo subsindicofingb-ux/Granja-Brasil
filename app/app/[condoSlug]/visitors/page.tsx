@@ -15,6 +15,11 @@ import { getGuestTypeLabel } from "@/lib/visitor-authorizations/labels";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { VisitorAuthorizationFilters } from "@/components/visitors/visitor-authorization-filters";
 import { VisitorDisplayStatusBadge } from "@/components/visitors/visitor-display-status-badge";
 import { Button } from "@/components/ui/button";
@@ -145,59 +150,104 @@ async function VisitorsContent({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Nome</th>
-                <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                <th className="px-4 py-3 text-left font-medium">Período</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {authorizations.map((authorization) => (
-                <tr key={authorization.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{authorization.full_name}</div>
-                    {authorization.vehicle_plate && (
-                      <div className="text-xs text-muted-foreground">
-                        Placa: {authorization.vehicle_plate}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {getGuestTypeLabel(authorization.guest_type)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitWithTower(authorization.unit)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    <div>{formatDateTime(authorization.access_starts_at)}</div>
-                    <div className="text-xs">até {formatDateTime(authorization.access_ends_at)}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <VisitorDisplayStatusBadge record={authorization} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>
-                        {access.permissions.canManageVisitorAuthorizations &&
-                        (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
-                          authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED) &&
-                        !authorization.checked_out_at
-                          ? "Editar"
-                          : "Ver"}
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecords
+          mobile={authorizations.map((authorization) => (
+            <MobileRecordCard key={authorization.id}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 text-base font-semibold leading-snug">
+                  {authorization.full_name}
+                </p>
+                <VisitorDisplayStatusBadge record={authorization} />
+              </div>
+              {authorization.vehicle_plate && (
+                <p className="text-sm text-muted-foreground">
+                  Placa: {authorization.vehicle_plate}
+                </p>
+              )}
+              <MobileRecordRow label="Tipo">
+                {getGuestTypeLabel(authorization.guest_type)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Unidade">
+                {formatUnitWithTower(authorization.unit)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Período">
+                <span>
+                  {formatDateTime(authorization.access_starts_at)}
+                  <span className="block text-xs font-normal text-muted-foreground">
+                    até {formatDateTime(authorization.access_ends_at)}
+                  </span>
+                </span>
+              </MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>
+                  {access.permissions.canManageVisitorAuthorizations &&
+                  (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
+                    authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED) &&
+                  !authorization.checked_out_at
+                    ? "Editar"
+                    : "Ver"}
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Nome</th>
+                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                    <th className="px-4 py-3 text-left font-medium">Período</th>
+                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {authorizations.map((authorization) => (
+                    <tr key={authorization.id} className="border-b last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{authorization.full_name}</div>
+                        {authorization.vehicle_plate && (
+                          <div className="text-xs text-muted-foreground">
+                            Placa: {authorization.vehicle_plate}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {getGuestTypeLabel(authorization.guest_type)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatUnitWithTower(authorization.unit)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        <div>{formatDateTime(authorization.access_starts_at)}</div>
+                        <div className="text-xs">
+                          até {formatDateTime(authorization.access_ends_at)}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <VisitorDisplayStatusBadge record={authorization} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>
+                            {access.permissions.canManageVisitorAuthorizations &&
+                            (authorization.status === VISITOR_AUTHORIZATION_STATUS.PENDING ||
+                              authorization.status === VISITOR_AUTHORIZATION_STATUS.APPROVED) &&
+                            !authorization.checked_out_at
+                              ? "Editar"
+                              : "Ver"}
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );

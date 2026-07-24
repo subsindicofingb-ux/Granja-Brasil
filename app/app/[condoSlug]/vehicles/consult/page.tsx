@@ -18,6 +18,11 @@ import { VehiclePlateSearch } from "@/components/vehicles/vehicle-plate-search";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { Button } from "@/components/ui/button";
 
 interface VehiclesConsultPageProps {
@@ -114,83 +119,145 @@ async function ConsultContent({
           description="Não há solicitações pendentes nos condomínios no momento."
         />
       ) : showPendingList ? (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Placa</th>
-                <th className="px-4 py-3 text-left font-medium">Veículo</th>
-                <th className="px-4 py-3 text-left font-medium">Condomínio</th>
-                <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                <th className="px-4 py-3 text-left font-medium">Responsável</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vehicles.map((vehicle) => (
-                <tr key={vehicle.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">
-                    {formatLicensePlate(vehicle.license_plate)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {vehicle.photo_url ? (
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
-                          <Image
-                            src={vehicle.photo_url}
-                            alt={`${vehicle.brand} ${vehicle.model}`}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      ) : null}
-                      <div>
-                        <div className="font-medium">
-                          {vehicle.brand} {vehicle.model}
-                        </div>
-                        {vehicle.tag_number && (
-                          <div className="text-xs text-muted-foreground">
-                            TAG: {vehicle.tag_number}
-                          </div>
-                        )}
-                      </div>
+        <ResponsiveRecords
+          mobile={vehicles.map((vehicle) => (
+            <MobileRecordCard key={vehicle.id}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 text-base font-semibold leading-snug">
+                  {formatLicensePlate(vehicle.license_plate)}
+                </p>
+                <Badge
+                  className={getVehicleStatusBadgeClass(
+                    vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                  )}
+                >
+                  {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                </Badge>
+              </div>
+              <MobileRecordRow label="Veículo">
+                <div className="flex items-center gap-3">
+                  {vehicle.photo_url ? (
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                      <Image
+                        src={vehicle.photo_url}
+                        alt={`${vehicle.brand} ${vehicle.model}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatCondominiumDisplayName(
-                      vehicle.condominium.name,
-                      vehicle.condominium.slug,
+                  ) : null}
+                  <div>
+                    <div>
+                      {vehicle.brand} {vehicle.model}
+                    </div>
+                    {vehicle.tag_number && (
+                      <div className="text-xs font-normal text-muted-foreground">
+                        TAG: {vehicle.tag_number}
+                      </div>
                     )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitWithTower(vehicle.unit)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {vehicle.resident?.full_name ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      className={getVehicleStatusBadgeClass(
-                        vehicle.status ?? VEHICLE_STATUS.APPROVED,
-                      )}
-                    >
-                      {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
-                        Ver cadastro
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </div>
+              </MobileRecordRow>
+              <MobileRecordRow label="Condomínio">
+                {formatCondominiumDisplayName(
+                  vehicle.condominium.name,
+                  vehicle.condominium.slug,
+                )}
+              </MobileRecordRow>
+              <MobileRecordRow label="Unidade">
+                {formatUnitWithTower(vehicle.unit)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Responsável">
+                {vehicle.resident?.full_name ?? "—"}
+              </MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                  Ver cadastro
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Placa</th>
+                    <th className="px-4 py-3 text-left font-medium">Veículo</th>
+                    <th className="px-4 py-3 text-left font-medium">Condomínio</th>
+                    <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                    <th className="px-4 py-3 text-left font-medium">Responsável</th>
+                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicles.map((vehicle) => (
+                    <tr key={vehicle.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">
+                        {formatLicensePlate(vehicle.license_plate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {vehicle.photo_url ? (
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                              <Image
+                                src={vehicle.photo_url}
+                                alt={`${vehicle.brand} ${vehicle.model}`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          ) : null}
+                          <div>
+                            <div className="font-medium">
+                              {vehicle.brand} {vehicle.model}
+                            </div>
+                            {vehicle.tag_number && (
+                              <div className="text-xs text-muted-foreground">
+                                TAG: {vehicle.tag_number}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatCondominiumDisplayName(
+                          vehicle.condominium.name,
+                          vehicle.condominium.slug,
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatUnitWithTower(vehicle.unit)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {vehicle.resident?.full_name ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge
+                          className={getVehicleStatusBadgeClass(
+                            vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                          )}
+                        >
+                          {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                            Ver cadastro
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       ) : !normalizedPlate ? (
         <EmptyState
           title="Informe a placa do veículo"
@@ -202,91 +269,157 @@ async function ConsultContent({
           description={`Não há cadastro com a placa "${formatLicensePlate(normalizedPlate)}".`}
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Placa</th>
-                <th className="px-4 py-3 text-left font-medium">Veículo</th>
-                <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                <th className="px-4 py-3 text-left font-medium">Responsável</th>
+        <ResponsiveRecords
+          mobile={vehicles.map((vehicle) => (
+            <MobileRecordCard key={vehicle.id}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 text-base font-semibold leading-snug">
+                  {formatLicensePlate(vehicle.license_plate)}
+                </p>
                 {includeUnapproved && (
-                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <Badge
+                    className={getVehicleStatusBadgeClass(
+                      vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                    )}
+                  >
+                    {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                  </Badge>
                 )}
-                {isGeneralCondoPage || isBlockSource ? (
-                  <th className="px-4 py-3 text-left font-medium">Condomínio</th>
-                ) : null}
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vehicles.map((vehicle) => (
-                <tr key={vehicle.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">
-                    {formatLicensePlate(vehicle.license_plate)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {vehicle.photo_url ? (
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
-                          <Image
-                            src={vehicle.photo_url}
-                            alt={`${vehicle.brand} ${vehicle.model}`}
-                            fill
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      ) : null}
-                      <div>
-                        <div className="font-medium">
-                          {vehicle.brand} {vehicle.model}
-                        </div>
-                        {vehicle.tag_number && (
-                          <div className="text-xs text-muted-foreground">
-                            TAG: {vehicle.tag_number}
-                          </div>
-                        )}
-                      </div>
+              </div>
+              <MobileRecordRow label="Veículo">
+                <div className="flex items-center gap-3">
+                  {vehicle.photo_url ? (
+                    <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                      <Image
+                        src={vehicle.photo_url}
+                        alt={`${vehicle.brand} ${vehicle.model}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitWithTower(vehicle.unit)}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {vehicle.resident?.full_name ?? "—"}
-                  </td>
-                  {includeUnapproved && (
-                    <td className="px-4 py-3">
-                      <Badge
-                        className={getVehicleStatusBadgeClass(
-                          vehicle.status ?? VEHICLE_STATUS.APPROVED,
-                        )}
-                      >
-                        {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
-                      </Badge>
-                    </td>
-                  )}
-                  {isGeneralCondoPage || isBlockSource ? (
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatCondominiumDisplayName(
-                        vehicle.condominium.name,
-                        vehicle.condominium.slug,
-                      )}
-                    </td>
                   ) : null}
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
-                        {access.permissions.canManageVehicles ? "Ver cadastro" : "Detalhes"}
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  <div>
+                    <div>
+                      {vehicle.brand} {vehicle.model}
+                    </div>
+                    {vehicle.tag_number && (
+                      <div className="text-xs font-normal text-muted-foreground">
+                        TAG: {vehicle.tag_number}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </MobileRecordRow>
+              <MobileRecordRow label="Unidade">
+                {formatUnitWithTower(vehicle.unit)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Responsável">
+                {vehicle.resident?.full_name ?? "—"}
+              </MobileRecordRow>
+              {(isGeneralCondoPage || isBlockSource) && (
+                <MobileRecordRow label="Condomínio">
+                  {formatCondominiumDisplayName(
+                    vehicle.condominium.name,
+                    vehicle.condominium.slug,
+                  )}
+                </MobileRecordRow>
+              )}
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                  {access.permissions.canManageVehicles ? "Ver cadastro" : "Detalhes"}
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Placa</th>
+                    <th className="px-4 py-3 text-left font-medium">Veículo</th>
+                    <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                    <th className="px-4 py-3 text-left font-medium">Responsável</th>
+                    {includeUnapproved && (
+                      <th className="px-4 py-3 text-left font-medium">Status</th>
+                    )}
+                    {isGeneralCondoPage || isBlockSource ? (
+                      <th className="px-4 py-3 text-left font-medium">Condomínio</th>
+                    ) : null}
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vehicles.map((vehicle) => (
+                    <tr key={vehicle.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">
+                        {formatLicensePlate(vehicle.license_plate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          {vehicle.photo_url ? (
+                            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
+                              <Image
+                                src={vehicle.photo_url}
+                                alt={`${vehicle.brand} ${vehicle.model}`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          ) : null}
+                          <div>
+                            <div className="font-medium">
+                              {vehicle.brand} {vehicle.model}
+                            </div>
+                            {vehicle.tag_number && (
+                              <div className="text-xs text-muted-foreground">
+                                TAG: {vehicle.tag_number}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatUnitWithTower(vehicle.unit)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {vehicle.resident?.full_name ?? "—"}
+                      </td>
+                      {includeUnapproved && (
+                        <td className="px-4 py-3">
+                          <Badge
+                            className={getVehicleStatusBadgeClass(
+                              vehicle.status ?? VEHICLE_STATUS.APPROVED,
+                            )}
+                          >
+                            {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                          </Badge>
+                        </td>
+                      )}
+                      {isGeneralCondoPage || isBlockSource ? (
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatCondominiumDisplayName(
+                            vehicle.condominium.name,
+                            vehicle.condominium.slug,
+                          )}
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                            {access.permissions.canManageVehicles ? "Ver cadastro" : "Detalhes"}
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );

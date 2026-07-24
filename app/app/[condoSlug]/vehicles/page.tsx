@@ -11,6 +11,11 @@ import { VEHICLE_STATUS } from "@/lib/constants";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { Button } from "@/components/ui/button";
 
 interface VehiclesPageProps {
@@ -131,69 +136,115 @@ async function VehiclesContent({
         </p>
       )}
 
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/40">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Foto</th>
-              <th className="px-4 py-3 text-left font-medium">Veículo</th>
-              <th className="px-4 py-3 text-left font-medium">Placa</th>
-              <th className="px-4 py-3 text-left font-medium">TAG</th>
-              <th className="px-4 py-3 text-left font-medium">Status</th>
-              <th className="px-4 py-3 text-left font-medium">Unidade</th>
-              <th className="px-4 py-3 text-right font-medium">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {vehicles.map((vehicle) => (
-              <tr key={vehicle.id} className="border-b last:border-0">
-                <td className="px-4 py-3">
-                  {vehicle.photo_url ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-md border bg-muted">
-                      <Image
-                        src={vehicle.photo_url}
-                        alt={`${vehicle.brand} ${vehicle.model}`}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 font-medium">
-                  {vehicle.brand} {vehicle.model}
-                  {vehicle.color ? (
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      {vehicle.color}
-                    </span>
-                  ) : null}
-                </td>
-                <td className="px-4 py-3">{formatLicensePlate(vehicle.license_plate)}</td>
-                <td className="px-4 py-3 text-muted-foreground">{vehicle.tag_number ?? "—"}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${getVehicleStatusBadgeClass(vehicle.status ?? VEHICLE_STATUS.APPROVED)}`}
-                  >
-                    {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {formatUnitWithTower(vehicle.unit)}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
-                      {access.permissions.canManageVehicles ? "Editar" : "Detalhes"}
-                    </Link>
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveRecords
+        mobile={vehicles.map((vehicle) => (
+          <MobileRecordCard key={vehicle.id}>
+            <div className="flex items-start justify-between gap-3">
+              <p className="min-w-0 text-base font-semibold leading-snug">
+                {vehicle.brand} {vehicle.model}
+              </p>
+              <span
+                className={`inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium ${getVehicleStatusBadgeClass(vehicle.status ?? VEHICLE_STATUS.APPROVED)}`}
+              >
+                {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+              </span>
+            </div>
+            {vehicle.color && (
+              <p className="text-sm text-muted-foreground">{vehicle.color}</p>
+            )}
+            <MobileRecordRow label="Placa">
+              {formatLicensePlate(vehicle.license_plate)}
+            </MobileRecordRow>
+            <MobileRecordRow label="TAG">{vehicle.tag_number ?? "—"}</MobileRecordRow>
+            <MobileRecordRow label="Unidade">
+              {formatUnitWithTower(vehicle.unit)}
+            </MobileRecordRow>
+            {vehicle.photo_url && (
+              <MobileRecordRow label="Foto">
+                <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-muted">
+                  <Image
+                    src={vehicle.photo_url}
+                    alt={`${vehicle.brand} ${vehicle.model}`}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+              </MobileRecordRow>
+            )}
+            <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+              <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                {access.permissions.canManageVehicles ? "Editar" : "Detalhes"}
+              </Link>
+            </Button>
+          </MobileRecordCard>
+        ))}
+        desktop={
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Foto</th>
+                  <th className="px-4 py-3 text-left font-medium">Veículo</th>
+                  <th className="px-4 py-3 text-left font-medium">Placa</th>
+                  <th className="px-4 py-3 text-left font-medium">TAG</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                  <th className="px-4 py-3 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicles.map((vehicle) => (
+                  <tr key={vehicle.id} className="border-b last:border-0">
+                    <td className="px-4 py-3">
+                      {vehicle.photo_url ? (
+                        <div className="relative h-10 w-10 overflow-hidden rounded-md border bg-muted">
+                          <Image
+                            src={vehicle.photo_url}
+                            alt={`${vehicle.brand} ${vehicle.model}`}
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      {vehicle.brand} {vehicle.model}
+                      {vehicle.color ? (
+                        <span className="block text-xs font-normal text-muted-foreground">
+                          {vehicle.color}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">{formatLicensePlate(vehicle.license_plate)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{vehicle.tag_number ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium ${getVehicleStatusBadgeClass(vehicle.status ?? VEHICLE_STATUS.APPROVED)}`}
+                      >
+                        {VEHICLE_STATUS_LABELS[vehicle.status ?? VEHICLE_STATUS.APPROVED]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatUnitWithTower(vehicle.unit)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/app/${condoSlug}/vehicles/${vehicle.id}`}>
+                          {access.permissions.canManageVehicles ? "Editar" : "Detalhes"}
+                        </Link>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
+      />
     </div>
   );
 }

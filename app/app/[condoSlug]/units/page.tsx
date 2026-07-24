@@ -14,6 +14,11 @@ import { listUnitsByCondominium } from "@/lib/services/units";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { UnitsListControls } from "@/components/units/units-list-controls";
 import { Button } from "@/components/ui/button";
 import { parseUnitSort, sortUnits } from "@/lib/units/sort";
@@ -168,44 +173,68 @@ async function UnitsContent({
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Número</th>
-                  <th className="px-4 py-3 text-left font-medium">Torre</th>
-                  <th className="px-4 py-3 text-left font-medium">Bloco</th>
-                  <th className="px-4 py-3 text-right font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {units.map((unit) => {
-                  const unitCondominium = condominiums.find(
-                    (condominium) => condominium.id === unit.tower.condominium_id,
-                  );
+          <ResponsiveRecords
+            mobile={units.map((unit) => {
+              const unitCondominium = condominiums.find(
+                (condominium) => condominium.id === unit.tower.condominium_id,
+              );
 
-                  return (
-                    <tr key={unit.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-medium">{unit.number}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{unit.block ?? "—"}</td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link
-                            href={`/app/${
-                              unitCondominium?.slug ?? condoSlug
-                            }/units/${unit.id}`}
-                          >
-                            {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
-                          </Link>
-                        </Button>
-                      </td>
+              return (
+                <MobileRecordCard key={unit.id}>
+                  <p className="min-w-0 text-base font-semibold leading-snug">{unit.number}</p>
+                  <MobileRecordRow label="Torre">{unit.tower.name}</MobileRecordRow>
+                  <MobileRecordRow label="Bloco">{unit.block ?? "—"}</MobileRecordRow>
+                  <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                    <Link
+                      href={`/app/${unitCondominium?.slug ?? condoSlug}/units/${unit.id}`}
+                    >
+                      {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
+                    </Link>
+                  </Button>
+                </MobileRecordCard>
+              );
+            })}
+            desktop={
+              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/40">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Número</th>
+                      <th className="px-4 py-3 text-left font-medium">Torre</th>
+                      <th className="px-4 py-3 text-left font-medium">Bloco</th>
+                      <th className="px-4 py-3 text-right font-medium">Ações</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {units.map((unit) => {
+                      const unitCondominium = condominiums.find(
+                        (condominium) => condominium.id === unit.tower.condominium_id,
+                      );
+
+                      return (
+                        <tr key={unit.id} className="border-b last:border-0">
+                          <td className="px-4 py-3 font-medium">{unit.number}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{unit.block ?? "—"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link
+                                href={`/app/${
+                                  unitCondominium?.slug ?? condoSlug
+                                }/units/${unit.id}`}
+                              >
+                                {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
         )}
       </div>
     );
@@ -243,34 +272,50 @@ async function UnitsContent({
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Número</th>
-                <th className="px-4 py-3 text-left font-medium">Torre</th>
-                <th className="px-4 py-3 text-left font-medium">Bloco</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {units.map((unit) => (
-                <tr key={unit.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{unit.number}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{unit.block ?? "—"}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/units/${unit.id}`}>
-                        {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecords
+          mobile={units.map((unit) => (
+            <MobileRecordCard key={unit.id}>
+              <p className="min-w-0 text-base font-semibold leading-snug">{unit.number}</p>
+              <MobileRecordRow label="Torre">{unit.tower.name}</MobileRecordRow>
+              <MobileRecordRow label="Bloco">{unit.block ?? "—"}</MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/units/${unit.id}`}>
+                  {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Número</th>
+                    <th className="px-4 py-3 text-left font-medium">Torre</th>
+                    <th className="px-4 py-3 text-left font-medium">Bloco</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {units.map((unit) => (
+                    <tr key={unit.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">{unit.number}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{unit.block ?? "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/units/${unit.id}`}>
+                            {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );

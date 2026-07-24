@@ -15,6 +15,11 @@ import { isValidUuid } from "@/lib/utils";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
+import {
+  MobileRecordCard,
+  MobileRecordRow,
+  ResponsiveRecords,
+} from "@/components/shared/responsive-records";
 import { ResidentFilters } from "@/components/residents/resident-filters";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -169,44 +174,69 @@ async function ResidentsContent({
             />
           )
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Nome</th>
-                  <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                  <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium">Contato</th>
-                  <th className="px-4 py-3 text-right font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {residents.map((resident) => (
-                  <tr key={resident.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{resident.full_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className="border bg-background">
-                        {getResidentTypeLabel(resident.type)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {resident.email ?? resident.phone ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
-                          {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
-                        </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveRecords
+            mobile={residents.map((resident) => (
+              <MobileRecordCard key={resident.id}>
+                <p className="min-w-0 text-base font-semibold leading-snug">{resident.full_name}</p>
+                <MobileRecordRow label="Unidade">
+                  {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
+                </MobileRecordRow>
+                <MobileRecordRow label="Tipo">
+                  <Badge className="border bg-background">
+                    {getResidentTypeLabel(resident.type)}
+                  </Badge>
+                </MobileRecordRow>
+                <MobileRecordRow label="Contato">
+                  {resident.email ?? resident.phone ?? "—"}
+                </MobileRecordRow>
+                <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                  <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                    {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                  </Link>
+                </Button>
+              </MobileRecordCard>
+            ))}
+            desktop={
+              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/40">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Nome</th>
+                      <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                      <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                      <th className="px-4 py-3 text-left font-medium">Contato</th>
+                      <th className="px-4 py-3 text-right font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {residents.map((resident) => (
+                      <tr key={resident.id} className="border-b last:border-0">
+                        <td className="px-4 py-3 font-medium">{resident.full_name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge className="border bg-background">
+                            {getResidentTypeLabel(resident.type)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {resident.email ?? resident.phone ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                              {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
         )}
       </div>
     );
@@ -269,44 +299,69 @@ async function ResidentsContent({
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium">Nome</th>
-                  <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                  <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium">Contato</th>
-                  <th className="px-4 py-3 text-right font-medium">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {residents.map((resident) => (
-                  <tr key={resident.id} className="border-b last:border-0">
-                    <td className="px-4 py-3 font-medium">{resident.full_name}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge className="border bg-background">
-                        {getResidentTypeLabel(resident.type)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {resident.email ?? resident.phone ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
-                          {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
-                        </Link>
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveRecords
+            mobile={residents.map((resident) => (
+              <MobileRecordCard key={resident.id}>
+                <p className="min-w-0 text-base font-semibold leading-snug">{resident.full_name}</p>
+                <MobileRecordRow label="Unidade">
+                  {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
+                </MobileRecordRow>
+                <MobileRecordRow label="Tipo">
+                  <Badge className="border bg-background">
+                    {getResidentTypeLabel(resident.type)}
+                  </Badge>
+                </MobileRecordRow>
+                <MobileRecordRow label="Contato">
+                  {resident.email ?? resident.phone ?? "—"}
+                </MobileRecordRow>
+                <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                  <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                    {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                  </Link>
+                </Button>
+              </MobileRecordCard>
+            ))}
+            desktop={
+              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/40">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Nome</th>
+                      <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                      <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                      <th className="px-4 py-3 text-left font-medium">Contato</th>
+                      <th className="px-4 py-3 text-right font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {residents.map((resident) => (
+                      <tr key={resident.id} className="border-b last:border-0">
+                        <td className="px-4 py-3 font-medium">{resident.full_name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge className="border bg-background">
+                            {getResidentTypeLabel(resident.type)}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {resident.email ?? resident.phone ?? "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                              {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
         )}
       </div>
     );
@@ -394,44 +449,69 @@ async function ResidentsContent({
           />
         )
       ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Nome</th>
-                <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium">Contato</th>
-                <th className="px-4 py-3 text-right font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredResidents.map((resident) => (
-                <tr key={resident.id} className="border-b last:border-0">
-                  <td className="px-4 py-3 font-medium">{resident.full_name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {formatUnitOptionLabel(resident.unit)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge className="border bg-background">
-                      {getResidentTypeLabel(resident.type)}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {resident.email ?? resident.phone ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
-                        {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
-                      </Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ResponsiveRecords
+          mobile={filteredResidents.map((resident) => (
+            <MobileRecordCard key={resident.id}>
+              <p className="min-w-0 text-base font-semibold leading-snug">{resident.full_name}</p>
+              <MobileRecordRow label="Unidade">
+                {formatUnitOptionLabel(resident.unit)}
+              </MobileRecordRow>
+              <MobileRecordRow label="Tipo">
+                <Badge className="border bg-background">
+                  {getResidentTypeLabel(resident.type)}
+                </Badge>
+              </MobileRecordRow>
+              <MobileRecordRow label="Contato">
+                {resident.email ?? resident.phone ?? "—"}
+              </MobileRecordRow>
+              <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                  {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                </Link>
+              </Button>
+            </MobileRecordCard>
+          ))}
+          desktop={
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium">Nome</th>
+                    <th className="px-4 py-3 text-left font-medium">Unidade</th>
+                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    <th className="px-4 py-3 text-left font-medium">Contato</th>
+                    <th className="px-4 py-3 text-right font-medium">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredResidents.map((resident) => (
+                    <tr key={resident.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-medium">{resident.full_name}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {formatUnitOptionLabel(resident.unit)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge className="border bg-background">
+                          {getResidentTypeLabel(resident.type)}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {resident.email ?? resident.phone ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
+                            {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          }
+        />
       )}
     </div>
   );
