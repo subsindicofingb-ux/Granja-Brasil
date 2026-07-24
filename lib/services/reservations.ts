@@ -719,8 +719,16 @@ export async function rescheduleReservation(input: {
   }
 
   // Mantém status, comprovante e autorização existentes (ex.: aprovada permanece aprovada).
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  // Usa service role: o WITH CHECK do RLS do morador só permite pending/cancelled na linha nova,
+  // o que impede reagendar uma reserva já autorizada sem elevar o status indevidamente via política.
+  if (!getSupabaseServiceRoleKey()) {
+    return serviceError(
+      "Não foi possível reagendar a reserva. Configure a chave de serviço do Supabase.",
+    );
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("reservations")
     .update({
       start_at: input.startAt,

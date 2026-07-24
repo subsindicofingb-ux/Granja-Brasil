@@ -5,13 +5,12 @@ import { getReservationStatusLabel } from "@/lib/reservations/labels";
 import type { ReservationNotificationEvent } from "@/lib/reservations/types";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { formatDateTime } from "@/lib/utils";
-import {
-  getCondominiumsInDoormanBlock,
-  getDoormanBlockForCondominium,
-} from "@/lib/condominiums/doorman-blocks";
-import type { CondominiumRecord } from "@/lib/services/condominiums-admin";
 
-const ADMIN_NOTIFICATION_ROLES = ["syndic", "sub_syndic", "admin", "super_admin"] as const;
+/** Administração da Granja (espaços comuns a todos). */
+const GRANJA_ADMIN_ROLES = ["admin", "super_admin"] as const;
+
+/** Administração do condomínio (espaços locais). */
+const CONDO_ADMIN_ROLES = ["syndic", "sub_syndic", "admin"] as const;
 
 function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -32,40 +31,45 @@ async function getProfileEmail(profileId: string): Promise<string | null> {
   }
 }
 
-async function getAdminNotificationEmails(condominiumIds: string[]): Promise<string[]> {
-  if (condominiumIds.length === 0) {
-    return [];
-  }
-
+async function getGranjaCondominiumId(): Promise<string | null> {
   try {
     const admin = createAdminClient();
-    const uniqueCondoIds = [...new Set(condominiumIds)];
-    const expandedIds = new Set(uniqueCondoIds);
+    const { data: rpcId, error: rpcError } = await admin.rpc("granja_condominium_id");
 
-    const { data: condominiums } = await admin.from("condominiums").select("id, slug, name");
-
-    if (condominiums?.length) {
-      for (const condominiumId of uniqueCondoIds) {
-        const condominium = condominiums.find((entry) => entry.id === condominiumId);
-        if (!condominium) continue;
-
-        const block = getDoormanBlockForCondominium(condominium as CondominiumRecord);
-        if (!block) continue;
-
-        for (const entry of getCondominiumsInDoormanBlock(
-          block,
-          condominiums as CondominiumRecord[],
-        )) {
-          expandedIds.add(entry.id);
-        }
-      }
+    if (!rpcError && typeof rpcId === "string" && rpcId.length > 0) {
+      return rpcId;
     }
+
+    const { data: byName } = await admin
+      .from("condominiums")
+      .select("id")
+      .ilike("name", "Granja Brasil")
+      .limit(1)
+      .maybeSingle();
+
+    return byName?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * E-mails só da administração responsável pelo espaço:
+ * - espaço da Granja → apenas adm Granja
+ * - espaço do condomínio → apenas síndico/adm daquele condomínio
+ */
+async function getResponsibleAdminEmails(areaCondominiumId: string): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+    const granjaId = await getGranjaCondominiumId();
+    const isGranjaArea = Boolean(granjaId) && areaCondominiumId === granjaId;
+    const roles = isGranjaArea ? GRANJA_ADMIN_ROLES : CONDO_ADMIN_ROLES;
 
     const { data: memberships, error } = await admin
       .from("memberships")
       .select("profile_id")
-      .in("condominium_id", [...expandedIds])
-      .in("role", ADMIN_NOTIFICATION_ROLES);
+      .eq("condominium_id", areaCondominiumId)
+      .in("role", [...roles]);
 
     if (error || !memberships?.length) {
       return [];
@@ -97,7 +101,6 @@ async function loadReservationEmailContext(reservationId: string): Promise<{
   requesterName: string;
   requesterId: string | null;
   areaCondominiumId: string;
-  unitCondominiumId: string;
 } | null> {
   try {
     const admin = createAdminClient();
@@ -172,7 +175,6 @@ async function loadReservationEmailContext(reservationId: string): Promise<{
       requesterName: requester?.full_name ?? "Morador",
       requesterId: data.requested_by,
       areaCondominiumId: area.condominium_id,
-      unitCondominiumId: tower.condominium_id,
     };
   } catch {
     return null;
@@ -267,11 +269,7 @@ export async function sendReservationMovementNotification(
     }
   }
 
-  const adminEmails = await getAdminNotificationEmails([
-    event.condominiumId,
-    context.areaCondominiumId,
-    context.unitCondominiumId,
-  ]);
+  const adminEmails = await getResponsibleAdminEmails(context.areaCondominiumId);
 
   for (const email of adminEmails) {
     recipientEmails.add(email);
