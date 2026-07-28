@@ -39,7 +39,12 @@ async function resolveResidentUnitScope(input: {
   membershipCondominiumId: string;
   unitId: string;
 }): Promise<
-  | { ok: true; unitCondominiumId: string; scopeCondominiumId?: string }
+  | {
+      ok: true;
+      unitCondominiumId: string;
+      scopeCondominiumId?: string;
+      allowedAccessCondominiumIds?: string[];
+    }
   | { ok: false; error: string }
 > {
   const isGeneralCondo = isGeneralCondominium(input.condoSlug);
@@ -57,15 +62,14 @@ async function resolveResidentUnitScope(input: {
 
   const blockPanelResult = await loadDoormanBlockPanelData(input.condoSlug);
   if (blockPanelResult.ok && blockPanelResult.data) {
-    const allowedIds = new Set(
-      blockPanelResult.data.condominiums.map((condominium) => condominium.id),
-    );
+    const allowedIds = blockPanelResult.data.condominiums.map((condominium) => condominium.id);
+    const allowedSet = new Set(allowedIds);
     const unitContext = await resolveUnitContext(input.unitId);
     if (!unitContext.ok) {
       return { ok: false, error: unitContext.error };
     }
 
-    if (!allowedIds.has(unitContext.data.unitCondominiumId)) {
+    if (!allowedSet.has(unitContext.data.unitCondominiumId)) {
       return { ok: false, error: "Unidade inválida para este bloco." };
     }
 
@@ -73,6 +77,7 @@ async function resolveResidentUnitScope(input: {
       ok: true,
       unitCondominiumId: unitContext.data.unitCondominiumId,
       scopeCondominiumId: unitContext.data.unitCondominiumId,
+      allowedAccessCondominiumIds: allowedIds,
     };
   }
 
@@ -88,6 +93,7 @@ async function resolveResidentUnitScope(input: {
     ok: true,
     unitCondominiumId: unitContext.data.unitCondominiumId,
     scopeCondominiumId: input.membershipCondominiumId,
+    allowedAccessCondominiumIds: [input.membershipCondominiumId],
   };
 }
 
@@ -153,6 +159,7 @@ export async function createResidentAction(
     residentId: result.data.id,
     condominiumId: unitScope.unitCondominiumId,
     accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
+    allowedCondominiumIds: unitScope.allowedAccessCondominiumIds,
   });
 
   if (!grantsResult.ok) {
@@ -232,6 +239,7 @@ export async function updateResidentAction(
     residentId,
     condominiumId: unitScope.unitCondominiumId,
     accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
+    allowedCondominiumIds: unitScope.allowedAccessCondominiumIds,
     processSync: false,
   });
 

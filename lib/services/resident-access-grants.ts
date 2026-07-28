@@ -20,18 +20,35 @@ async function validateAccessDeviceIdsForCondominium(
   condominiumId: string,
   accessDeviceIds: string[],
 ): Promise<ServiceResult<string[]>> {
+  return validateAccessDeviceIdsForCondominiums([condominiumId], accessDeviceIds);
+}
+
+export async function validateAccessDeviceIdsForCondominiums(
+  condominiumIds: string[],
+  accessDeviceIds: string[],
+): Promise<ServiceResult<string[]>> {
   if (accessDeviceIds.length === 0) {
     return serviceOk([]);
   }
 
-  const devicesResult = await listActiveAccessDevicesForCondominium(condominiumId);
-  if (!devicesResult.ok) {
-    return serviceError(devicesResult.error ?? "Erro ao validar locais de acesso.");
+  const uniqueCondoIds = Array.from(new Set(condominiumIds.filter(Boolean)));
+  if (uniqueCondoIds.length === 0) {
+    return serviceError("Condomínio inválido para validar locais de acesso.");
   }
 
-  const allowedIds = new Set(devicesResult.data.map((device) => device.id));
-  const invalidIds = accessDeviceIds.filter((deviceId) => !allowedIds.has(deviceId));
+  const devicesByCondo = await loadActiveAccessDevicesByCondominiumIds(uniqueCondoIds);
+  if (!devicesByCondo.ok) {
+    return serviceError(devicesByCondo.error ?? "Erro ao validar locais de acesso.");
+  }
 
+  const allowedIds = new Set<string>();
+  for (const list of Object.values(devicesByCondo.data)) {
+    for (const device of list) {
+      allowedIds.add(device.id);
+    }
+  }
+
+  const invalidIds = accessDeviceIds.filter((deviceId) => !allowedIds.has(deviceId));
   if (invalidIds.length > 0) {
     return serviceError("Um ou mais locais de acesso selecionados não estão disponíveis.");
   }
@@ -56,14 +73,94 @@ export async function loadActiveAccessDevicesByCondominiumIds(
   condominiumIds: string[],
 ): Promise<ServiceResult<Record<string, AccessDeviceOption[]>>> {
   const uniqueIds = Array.from(new Set(condominiumIds.filter(Boolean)));
-  const entries = await Promise.all(
-    uniqueIds.map(async (condominiumId) => {
-      const result = await listActiveAccessDevicesForCondominium(condominiumId);
-      return [condominiumId, result.ok ? result.data : []] as const;
-    }),
-  );
+  if (uniqueIds.length === 0) {
+    return serviceOk({});
+  }
 
-  return serviceOk(Object.fromEntries(entries));
+  try {
+    const admin = createAdminClient();
+    const [ownedResult, sharesResult] = await Promise.all([
+      admin
+        .from("access_devices")
+        .select("id, condominium_id, display_name, access_type, is_pilot, is_active")
+        .in("condominium_id", uniqueIds)
+        .eq("is_active", true)
+        .order("display_name", { ascending: true }),
+      admin
+        .from("access_device_shares")
+        .select("access_device_id, condominium_id")
+        .in("condominium_id", uniqueIds),
+    ]);
+
+    if (ownedResult.error) {
+      return serviceError(mapSupabaseError(ownedResult.error));
+    }
+
+    if (sharesResult.error) {
+      return serviceError(mapSupabaseError(sharesResult.error));
+    }
+
+    const map: Record<string, AccessDeviceOption[]> = Object.fromEntries(
+      uniqueIds.map((id) => [id, [] as AccessDeviceOption[]]),
+    );
+
+    for (const row of ownedResult.data ?? []) {
+      const list = map[row.condominium_id] ?? [];
+      list.push({
+        id: row.id,
+        display_name: row.display_name,
+        access_type: row.access_type,
+        is_pilot: row.is_pilot,
+        is_owned: true,
+      });
+      map[row.condominium_id] = list;
+    }
+
+    const sharedDeviceIds = Array.from(
+      new Set((sharesResult.data ?? []).map((row) => row.access_device_id)),
+    );
+
+    if (sharedDeviceIds.length > 0) {
+      const sharedDevicesResult = await admin
+        .from("access_devices")
+        .select("id, condominium_id, display_name, access_type, is_pilot, is_active")
+        .in("id", sharedDeviceIds)
+        .eq("is_active", true);
+
+      if (sharedDevicesResult.error) {
+        return serviceError(mapSupabaseError(sharedDevicesResult.error));
+      }
+
+      const devicesById = new Map(
+        (sharedDevicesResult.data ?? []).map((device) => [device.id, device]),
+      );
+
+      for (const share of sharesResult.data ?? []) {
+        const device = devicesById.get(share.access_device_id);
+        if (!device || uniqueIds.includes(device.condominium_id)) {
+          continue;
+        }
+        const list = map[share.condominium_id] ?? [];
+        if (list.some((item) => item.id === device.id)) {
+          continue;
+        }
+        list.push({
+          id: device.id,
+          display_name: device.display_name,
+          access_type: device.access_type,
+          is_pilot: device.is_pilot,
+          is_owned: false,
+        });
+        map[share.condominium_id] = list;
+      }
+    }
+
+    return serviceOk(map);
+  } catch (error) {
+    return serviceError(
+      error instanceof Error ? error.message : "Erro ao carregar locais de acesso.",
+    );
+  }
 }
 
 export async function getResidentAccessDeviceIds(
@@ -219,10 +316,13 @@ export async function replaceResidentAccessGrants(input: {
   residentId: string;
   condominiumId: string;
   accessDeviceIds: string[];
+  allowedCondominiumIds?: string[];
   processSync?: boolean;
 }): Promise<ServiceResult<void>> {
-  const validated = await validateAccessDeviceIdsForCondominium(
-    input.condominiumId,
+  const validated = await validateAccessDeviceIdsForCondominiums(
+    input.allowedCondominiumIds?.length
+      ? input.allowedCondominiumIds
+      : [input.condominiumId],
     input.accessDeviceIds,
   );
   if (!validated.ok) {
@@ -252,9 +352,12 @@ export async function replaceRegistrationRequestAccessDevices(input: {
   registrationRequestId: string;
   condominiumId: string;
   accessDeviceIds: string[];
+  allowedCondominiumIds?: string[];
 }): Promise<ServiceResult<void>> {
-  const validated = await validateAccessDeviceIdsForCondominium(
-    input.condominiumId,
+  const validated = await validateAccessDeviceIdsForCondominiums(
+    input.allowedCondominiumIds?.length
+      ? input.allowedCondominiumIds
+      : [input.condominiumId],
     input.accessDeviceIds,
   );
   if (!validated.ok) {

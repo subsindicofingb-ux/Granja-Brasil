@@ -60,12 +60,22 @@ export function ResidentForm({
       return accessDevices;
     }
 
-    if (!selectedUnit) {
-      return [];
+    const seen = new Set<string>();
+    const merged: AccessDeviceOption[] = [];
+    for (const list of Object.values(accessDevicesByCondominiumId)) {
+      for (const device of list) {
+        if (seen.has(device.id)) {
+          continue;
+        }
+        seen.add(device.id);
+        merged.push(device);
+      }
     }
 
-    return accessDevicesByCondominiumId[selectedUnit.tower.condominium_id] ?? [];
-  }, [accessDevices, accessDevicesByCondominiumId, selectedUnit]);
+    return merged.sort((left, right) =>
+      left.display_name.localeCompare(right.display_name, "pt-BR"),
+    );
+  }, [accessDevices, accessDevicesByCondominiumId]);
 
   if (units.length === 0) {
     return (

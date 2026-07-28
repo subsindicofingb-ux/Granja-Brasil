@@ -181,6 +181,7 @@ export function DoormanRegistrationRequestForm({
         <DoormanAccessDeviceSelector
           devicesByCondominiumId={accessDevicesByCondominiumId}
           selectedCondominiumId={selectedCondominiumId}
+          includeAllBlockDevices
         />
       ) : (
         <ResidentAccessDeviceFields

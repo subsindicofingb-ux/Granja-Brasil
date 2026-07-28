@@ -358,6 +358,7 @@ export async function createDoormanRegistrationRequest(input: {
   photoUrl?: string | null;
   residentType: ResidentType;
   accessDeviceIds?: string[];
+  allowedAccessCondominiumIds?: string[];
   doormanProfileId: string;
   password: string;
 }): Promise<
@@ -411,6 +412,7 @@ export async function createDoormanRegistrationRequest(input: {
       registrationRequestId: requestResult.data.id,
       condominiumId: input.condominiumId,
       accessDeviceIds: input.accessDeviceIds,
+      allowedCondominiumIds: input.allowedAccessCondominiumIds,
     });
 
     if (!grantsResult.ok) {

@@ -99,6 +99,7 @@ const RESIDENT_SELECT = `
 export async function listResidentsByCondominium(
   options?: {
     condominiumId?: string;
+    condominiumIds?: string[];
     unitId?: string;
   },
 ): Promise<ServiceResult<ResidentWithUnit[]>> {
@@ -110,6 +111,8 @@ export async function listResidentsByCondominium(
 
   if (options?.condominiumId) {
     query = query.eq("units.towers.condominium_id", options.condominiumId);
+  } else if (options?.condominiumIds && options.condominiumIds.length > 0) {
+    query = query.in("units.towers.condominium_id", options.condominiumIds);
   }
 
   if (options?.unitId) {

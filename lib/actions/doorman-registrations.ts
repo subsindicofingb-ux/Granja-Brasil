@@ -106,6 +106,10 @@ export async function createDoormanRegistrationRequestAction(
     photoUrl: uploadResult.data,
     residentType: parsed.data.resident_type,
     accessDeviceIds,
+    allowedAccessCondominiumIds:
+      isBlockSource && blockPanelResult?.ok && blockPanelResult.data
+        ? blockPanelResult.data.condominiums.map((condominium) => condominium.id)
+        : [targetCondominiumId],
     doormanProfileId: access.profile.id,
     password: parsed.data.password,
   });

@@ -98,6 +98,9 @@ async function ResidentsContent({
 
     const residentsResult = await listResidentsByCondominium({
       condominiumId: filteredCondominium?.id,
+      condominiumIds: filteredCondominium
+        ? undefined
+        : condominiums.map((condominium) => condominium.id),
       unitId,
     });
 
@@ -251,6 +254,9 @@ async function ResidentsContent({
 
     const residentsResult = await listResidentsByCondominium({
       condominiumId: filteredCondominium?.id,
+      condominiumIds: filteredCondominium
+        ? undefined
+        : panel.condominiums.map((condominium) => condominium.id),
       unitId,
     });
 
