@@ -256,6 +256,69 @@ export async function updateResidentAction(
   return { success: "Morador atualizado com sucesso." };
 }
 
+export async function updateResidentAccessGrantsAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const residentId = String(formData.get("resident_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) =>
+      ctx.permissions.canViewAccessDevices ||
+      ctx.permissions.canManageAccessDevices ||
+      ctx.permissions.canManageResidents,
+    { redirectTo: `/app/${condoSlug}/residents/${residentId}` },
+  );
+
+  const isGeneralCondo = isGeneralCondominium(condoSlug);
+  const blockPanelResult = !isGeneralCondo
+    ? await loadDoormanBlockPanelData(condoSlug)
+    : { ok: true as const, data: null };
+  const blockPanel = blockPanelResult.ok ? blockPanelResult.data : null;
+  const scopeCondominiumId =
+    isGeneralCondo || blockPanel ? undefined : access.condominium.id;
+
+  const residentResult = await getResidentById(residentId, {
+    condominiumId: scopeCondominiumId,
+  });
+
+  if (!residentResult.ok) {
+    return { error: residentResult.error ?? "Morador não encontrado." };
+  }
+
+  const unitCondominiumId = residentResult.data.unit.tower.condominium_id;
+
+  if (
+    blockPanel &&
+    !blockPanel.condominiums.some((condominium) => condominium.id === unitCondominiumId)
+  ) {
+    return { error: "Morador fora do bloco operacional desta portaria." };
+  }
+
+  const allowedAccessCondominiumIds = blockPanel
+    ? blockPanel.condominiums.map((condominium) => condominium.id)
+    : isGeneralCondo
+      ? undefined
+      : [access.condominium.id];
+
+  const accessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
+  const grantsResult = await replaceResidentAccessGrants({
+    residentId,
+    condominiumId: unitCondominiumId,
+    accessDeviceIds,
+    allowedCondominiumIds: allowedAccessCondominiumIds,
+  });
+
+  if (!grantsResult.ok) {
+    return { error: grantsResult.error ?? "Não foi possível salvar os locais de acesso." };
+  }
+
+  revalidateResidentPaths(condoSlug, residentId);
+  return { success: "Locais de acesso atualizados." };
+}
+
 export async function updateResidentPhotoAction(
   _prev: AuthActionState,
   formData: FormData,

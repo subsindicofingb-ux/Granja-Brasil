@@ -20,10 +20,37 @@ import { ResidentForm } from "@/components/residents/resident-form";
 import { ResidentPhotoForm, ResidentPhotoPreview } from "@/components/residents/resident-photo-form";
 import { ResidentDeleteButton } from "@/components/residents/resident-delete-button";
 import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
+import { ResidentAccessGrantsForm } from "@/components/access-devices/resident-access-grants-form";
 import { ResidentAccessSyncButton } from "@/components/access-devices/resident-access-sync-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import type { AccessDeviceOption } from "@/lib/access-devices/grant-types";
+
+function mergeAccessDeviceOptions(
+  devices: AccessDeviceOption[],
+  byCondominiumId?: Record<string, AccessDeviceOption[]>,
+): AccessDeviceOption[] {
+  if (!byCondominiumId) {
+    return devices;
+  }
+
+  const seen = new Set<string>();
+  const merged: AccessDeviceOption[] = [];
+  for (const list of Object.values(byCondominiumId)) {
+    for (const device of list) {
+      if (seen.has(device.id)) {
+        continue;
+      }
+      seen.add(device.id);
+      merged.push(device);
+    }
+  }
+
+  return merged.sort((left, right) =>
+    left.display_name.localeCompare(right.display_name, "pt-BR"),
+  );
+}
 
 interface ResidentDetailPageProps {
   params: Promise<{ condoSlug: string; residentId: string }>;
@@ -125,6 +152,10 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     ? residentAccessDeviceIdsResult.data
     : [];
   const canEdit = access.permissions.canManageResidents;
+  const canEditAccessGrants =
+    access.permissions.canViewAccessDevices ||
+    access.permissions.canManageAccessDevices ||
+    access.permissions.canManageResidents;
   const canUploadPhoto =
     access.permissions.canManageResidents || access.permissions.canConsultResidents;
   const canDelete =
@@ -132,6 +163,10 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
   const units = "units" in unitsResult.data ? unitsResult.data.units : [];
   const condominiumNamesById =
     "condominiumNamesById" in unitsResult.data ? unitsResult.data.condominiumNamesById : {};
+  const editableAccessDevices = mergeAccessDeviceOptions(
+    accessDevices,
+    accessDevicesByCondominiumId,
+  );
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -241,9 +276,33 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                   <span className="font-medium text-green-700">Sim</span>
                 </div>
               )}
-              <div className="border-t pt-3">
-                <p className="mb-2 text-muted-foreground">Locais de acesso</p>
-                <ResidentAccessDeviceSummary grants={accessGrants} />
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-muted-foreground">Locais de acesso</p>
+                {canEditAccessGrants ? (
+                  <>
+                    <ResidentAccessGrantsForm
+                      condoSlug={condoSlug}
+                      residentId={resident.id}
+                      accessDevices={editableAccessDevices}
+                      defaultAccessDeviceIds={defaultAccessDeviceIds}
+                    />
+                    {accessGrants.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground">
+                          Status da sincronização com os equipamentos ControlID.
+                        </p>
+                        <ResidentAccessDeviceSummary grants={accessGrants} />
+                        <ResidentAccessSyncButton
+                          condoSlug={condoSlug}
+                          residentId={resident.id}
+                          hasAccessGrants={accessGrants.length > 0}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <ResidentAccessDeviceSummary grants={accessGrants} />
+                )}
               </div>
             </div>
           )}

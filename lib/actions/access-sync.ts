@@ -22,12 +22,15 @@ export async function syncResidentAccessAction(
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageResidents,
+    (ctx) =>
+      ctx.permissions.canManageResidents ||
+      ctx.permissions.canViewAccessDevices ||
+      ctx.permissions.canManageAccessDevices,
     { redirectTo: `/app/${condoSlug}/residents/${residentId}` },
   );
 
   const residentResult = await getResidentById(residentId, {
-    condominiumId: access.condominium.id,
+    condominiumId: undefined,
   });
 
   if (!residentResult.ok) {
