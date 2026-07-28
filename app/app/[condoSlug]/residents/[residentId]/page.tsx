@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { ROLES } from "@/lib/constants";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { getResidentById } from "@/lib/services/residents";
@@ -9,6 +10,7 @@ import { listUnitsByCondominium } from "@/lib/services/units";
 import {
   getResidentAccessDeviceIds,
   listActiveAccessDevicesForCondominium,
+  loadActiveAccessDevicesByCondominiumIds,
   listResidentAccessGrants,
 } from "@/lib/services/resident-access-grants";
 import { getResidentTypeLabel, formatUnitOptionLabel } from "@/lib/residents/labels";
@@ -31,7 +33,12 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
   const { condoSlug, residentId } = await params;
   const access = await requireCondoAccess(condoSlug);
   const isGeneralCondo = isGeneralCondominium(condoSlug);
-  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const panelResult = !isGeneralCondo ? await resolveDoormanOperationalPanel(condoSlug) : null;
+  const isBlockSource = Boolean(panelResult?.ok && panelResult.data.mode === "block");
+  const blockPanel =
+    panelResult?.ok && panelResult.data.mode === "block" ? panelResult.data.panel : null;
+  const scopeCondominiumId =
+    isGeneralCondo || isBlockSource ? undefined : access.condominium.id;
 
   const residentResult = await getResidentById(residentId, {
     condominiumId: scopeCondominiumId,
@@ -51,19 +58,36 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     );
   }
 
+  if (
+    blockPanel &&
+    !blockPanel.condominiums.some(
+      (condominium) => condominium.id === residentResult.data.unit.tower.condominium_id,
+    )
+  ) {
+    notFound();
+  }
+
   const unitsResult = isGeneralCondo
     ? await loadGeneralCondoPanelData()
-    : await listUnitsByCondominium(access.condominium.id).then((result) =>
-        result.ok
-          ? {
-              ok: true as const,
-              data: {
-                units: result.data,
-                condominiumNamesById: {} as Record<string, string>,
-              },
-            }
-          : result,
-      );
+    : blockPanel
+      ? {
+          ok: true as const,
+          data: {
+            units: blockPanel.units,
+            condominiumNamesById: blockPanel.condominiumNamesById,
+          },
+        }
+      : await listUnitsByCondominium(access.condominium.id).then((result) =>
+          result.ok
+            ? {
+                ok: true as const,
+                data: {
+                  units: result.data,
+                  condominiumNamesById: {} as Record<string, string>,
+                },
+              }
+            : result,
+        );
 
   if (!unitsResult.ok) {
     return (
@@ -78,12 +102,24 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
 
   const resident = residentResult.data;
   const residentCondominiumId = resident.unit.tower.condominium_id;
-  const [accessDevicesResult, accessGrantsResult, residentAccessDeviceIdsResult] = await Promise.all([
+  const [
+    accessDevicesResult,
+    accessDevicesByCondoResult,
+    accessGrantsResult,
+    residentAccessDeviceIdsResult,
+  ] = await Promise.all([
     listActiveAccessDevicesForCondominium(residentCondominiumId),
+    blockPanel
+      ? loadActiveAccessDevicesByCondominiumIds(
+          blockPanel.condominiums.map((condominium) => condominium.id),
+        )
+      : Promise.resolve({ ok: true as const, data: {} as Record<string, never> }),
     listResidentAccessGrants(resident.id),
     getResidentAccessDeviceIds(resident.id),
   ]);
   const accessDevices = accessDevicesResult.ok ? accessDevicesResult.data : [];
+  const accessDevicesByCondominiumId =
+    blockPanel && accessDevicesByCondoResult.ok ? accessDevicesByCondoResult.data : undefined;
   const accessGrants = accessGrantsResult.ok ? accessGrantsResult.data : [];
   const defaultAccessDeviceIds = residentAccessDeviceIdsResult.ok
     ? residentAccessDeviceIdsResult.data
@@ -140,6 +176,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
                 condominiumNamesById={condominiumNamesById}
                 mode="edit"
                 accessDevices={accessDevices}
+                accessDevicesByCondominiumId={accessDevicesByCondominiumId}
                 defaultAccessDeviceIds={defaultAccessDeviceIds}
                 defaultValues={{
                   residentId: resident.id,

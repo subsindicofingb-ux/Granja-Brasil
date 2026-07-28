@@ -6,6 +6,7 @@ import { requireCondoPermission, requireCondoAccess } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import {
   enqueueResidentProfileSyncUpdates,
@@ -33,6 +34,63 @@ function getPhotoFile(formData: FormData): File | null {
   return value instanceof File ? value : null;
 }
 
+async function resolveResidentUnitScope(input: {
+  condoSlug: string;
+  membershipCondominiumId: string;
+  unitId: string;
+}): Promise<
+  | { ok: true; unitCondominiumId: string; scopeCondominiumId?: string }
+  | { ok: false; error: string }
+> {
+  const isGeneralCondo = isGeneralCondominium(input.condoSlug);
+  if (isGeneralCondo) {
+    const unitContext = await resolveUnitContext(input.unitId);
+    if (!unitContext.ok) {
+      return { ok: false, error: unitContext.error };
+    }
+
+    return {
+      ok: true,
+      unitCondominiumId: unitContext.data.unitCondominiumId,
+    };
+  }
+
+  const blockPanelResult = await loadDoormanBlockPanelData(input.condoSlug);
+  if (blockPanelResult.ok && blockPanelResult.data) {
+    const allowedIds = new Set(
+      blockPanelResult.data.condominiums.map((condominium) => condominium.id),
+    );
+    const unitContext = await resolveUnitContext(input.unitId);
+    if (!unitContext.ok) {
+      return { ok: false, error: unitContext.error };
+    }
+
+    if (!allowedIds.has(unitContext.data.unitCondominiumId)) {
+      return { ok: false, error: "Unidade inválida para este bloco." };
+    }
+
+    return {
+      ok: true,
+      unitCondominiumId: unitContext.data.unitCondominiumId,
+      scopeCondominiumId: unitContext.data.unitCondominiumId,
+    };
+  }
+
+  const unitContext = await resolveUnitContext(
+    input.unitId,
+    input.membershipCondominiumId,
+  );
+  if (!unitContext.ok) {
+    return { ok: false, error: unitContext.error };
+  }
+
+  return {
+    ok: true,
+    unitCondominiumId: unitContext.data.unitCondominiumId,
+    scopeCondominiumId: input.membershipCondominiumId,
+  };
+}
+
 export async function createResidentAction(
   _prev: AuthActionState,
   formData: FormData,
@@ -57,16 +115,18 @@ export async function createResidentAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const isGeneralCondo = isGeneralCondominium(condoSlug);
-  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
-  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+  const unitScope = await resolveResidentUnitScope({
+    condoSlug,
+    membershipCondominiumId: access.condominium.id,
+    unitId: parsed.data.unit_id,
+  });
 
-  if (!unitContext.ok) {
-    return { error: unitContext.error };
+  if (!unitScope.ok) {
+    return { error: unitScope.error };
   }
 
   const uploadResult = await uploadCondoImage({
-    condominiumId: unitContext.data.unitCondominiumId,
+    condominiumId: unitScope.unitCondominiumId,
     folder: "residents",
     file: getPhotoFile(formData),
   });
@@ -76,7 +136,7 @@ export async function createResidentAction(
   }
 
   const result = await createResident({
-    condominiumId: scopeCondominiumId,
+    condominiumId: unitScope.scopeCondominiumId,
     unitId: parsed.data.unit_id,
     fullName: parsed.data.full_name,
     email: parsed.data.email,
@@ -91,7 +151,7 @@ export async function createResidentAction(
 
   const grantsResult = await replaceResidentAccessGrants({
     residentId: result.data.id,
-    condominiumId: unitContext.data.unitCondominiumId,
+    condominiumId: unitScope.unitCondominiumId,
     accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
   });
 
@@ -129,16 +189,18 @@ export async function updateResidentAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const isGeneralCondo = isGeneralCondominium(condoSlug);
-  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
-  const unitContext = await resolveUnitContext(parsed.data.unit_id, scopeCondominiumId);
+  const unitScope = await resolveResidentUnitScope({
+    condoSlug,
+    membershipCondominiumId: access.condominium.id,
+    unitId: parsed.data.unit_id,
+  });
 
-  if (!unitContext.ok) {
-    return { error: unitContext.error };
+  if (!unitScope.ok) {
+    return { error: unitScope.error };
   }
 
   const uploadResult = await uploadCondoImage({
-    condominiumId: unitContext.data.unitCondominiumId,
+    condominiumId: unitScope.unitCondominiumId,
     folder: "residents",
     file: getPhotoFile(formData),
   });
@@ -149,7 +211,7 @@ export async function updateResidentAction(
 
   const result = await updateResident({
     residentId,
-    condominiumId: scopeCondominiumId,
+    condominiumId: unitScope.scopeCondominiumId,
     unitId: parsed.data.unit_id,
     fullName: parsed.data.full_name,
     email: parsed.data.email,
@@ -168,7 +230,7 @@ export async function updateResidentAction(
 
   const grantsResult = await replaceResidentAccessGrants({
     residentId,
-    condominiumId: unitContext.data.unitCondominiumId,
+    condominiumId: unitScope.unitCondominiumId,
     accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
     processSync: false,
   });

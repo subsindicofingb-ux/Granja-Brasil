@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import {
   listActiveAccessDevicesForCondominium,
+  loadActiveAccessDevicesByCondominiumIds,
 } from "@/lib/services/resident-access-grants";
 import { suggestDefaultAccessDeviceIdsFromOptions } from "@/lib/access-devices/suggested-grants";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -64,6 +66,53 @@ export default async function NewResidentPage({ params, searchParams }: NewResid
               units={panelResult.data.units}
               condominiumNamesById={panelResult.data.condominiumNamesById}
               mode="create"
+              defaultValues={{ unitId: preselectedUnitId }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  if (!panelResult.ok) {
+    return (
+      <div className="mx-auto max-w-lg space-y-4">
+        <ErrorAlert message={panelResult.error} />
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/residents`}>Voltar</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (panelResult.data.mode === "block") {
+    const { panel } = panelResult.data;
+    const accessDevicesResult = await loadActiveAccessDevicesByCondominiumIds(
+      panel.condominiums.map((condominium) => condominium.id),
+    );
+    const accessDevicesByCondominiumId = accessDevicesResult.ok
+      ? accessDevicesResult.data
+      : {};
+
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <PageHeader
+          title="Novo morador"
+          description={`Cadastre um morador vinculado a uma unidade do bloco ${panel.block.label}.`}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Dados do morador</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResidentForm
+              condoSlug={condoSlug}
+              units={panel.units}
+              condominiumNamesById={panel.condominiumNamesById}
+              mode="create"
+              accessDevicesByCondominiumId={accessDevicesByCondominiumId}
               defaultValues={{ unitId: preselectedUnitId }}
             />
           </CardContent>

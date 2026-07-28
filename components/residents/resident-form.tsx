@@ -1,12 +1,12 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useActionState } from "react";
 import Link from "next/link";
 import { createResidentAction, updateResidentAction } from "@/lib/actions/residents";
 import {
   RESIDENT_TYPE_OPTIONS,
   formatUnitOptionLabel,
-  formatUnitWithTower,
 } from "@/lib/residents/labels";
 import type { ResidentType } from "@/types";
 import type { UnitWithTower } from "@/lib/services/units";
@@ -24,6 +24,7 @@ interface ResidentFormProps {
   mode: "create" | "edit";
   condominiumNamesById?: Record<string, string>;
   accessDevices?: AccessDeviceOption[];
+  accessDevicesByCondominiumId?: Record<string, AccessDeviceOption[]>;
   defaultAccessDeviceIds?: string[];
   defaultValues?: {
     residentId?: string;
@@ -42,11 +43,29 @@ export function ResidentForm({
   mode,
   condominiumNamesById,
   accessDevices = [],
+  accessDevicesByCondominiumId,
   defaultAccessDeviceIds = [],
   defaultValues,
 }: ResidentFormProps) {
   const action = mode === "create" ? createResidentAction : updateResidentAction;
   const [state, formAction, pending] = useActionState(action, {});
+  const [selectedUnitId, setSelectedUnitId] = useState(defaultValues?.unitId ?? "");
+
+  const selectedUnit = useMemo(
+    () => units.find((unit) => unit.id === selectedUnitId),
+    [units, selectedUnitId],
+  );
+  const devicesForSelectedUnit = useMemo(() => {
+    if (!accessDevicesByCondominiumId) {
+      return accessDevices;
+    }
+
+    if (!selectedUnit) {
+      return [];
+    }
+
+    return accessDevicesByCondominiumId[selectedUnit.tower.condominium_id] ?? [];
+  }, [accessDevices, accessDevicesByCondominiumId, selectedUnit]);
 
   if (units.length === 0) {
     return (
@@ -90,7 +109,8 @@ export function ResidentForm({
           id="unit_id"
           name="unit_id"
           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-          defaultValue={defaultValues?.unitId ?? ""}
+          value={selectedUnitId}
+          onChange={(event) => setSelectedUnitId(event.target.value)}
           required
         >
           <option value="" disabled>
@@ -143,8 +163,15 @@ export function ResidentForm({
       </div>
 
       <ResidentAccessDeviceFields
-        devices={accessDevices}
-        defaultSelectedIds={defaultAccessDeviceIds}
+        key={selectedUnit?.tower.condominium_id ?? "no-unit"}
+        devices={devicesForSelectedUnit}
+        defaultSelectedIds={
+          selectedUnitId && selectedUnitId === (defaultValues?.unitId ?? "")
+            ? defaultAccessDeviceIds
+            : accessDevicesByCondominiumId
+              ? []
+              : defaultAccessDeviceIds
+        }
       />
 
       <div className="flex gap-2 pt-2">
