@@ -336,7 +336,32 @@ export async function deleteResidentAction(
   }
 
   const isGeneralCondo = isGeneralCondominium(condoSlug);
-  const scopeCondominiumId = isGeneralCondo ? undefined : access.condominium.id;
+  const blockPanelResult = !isGeneralCondo
+    ? await loadDoormanBlockPanelData(condoSlug)
+    : null;
+  const isBlockSource = Boolean(blockPanelResult?.ok && blockPanelResult.data);
+
+  let scopeCondominiumId: string | undefined = isGeneralCondo
+    ? undefined
+    : access.condominium.id;
+
+  if (isBlockSource && blockPanelResult?.ok && blockPanelResult.data) {
+    const residentResult = await getResidentById(residentId);
+    if (!residentResult.ok) {
+      return { error: residentResult.error };
+    }
+
+    const residentCondominiumId = residentResult.data.unit.tower.condominium_id;
+    const allowed = blockPanelResult.data.condominiums.some(
+      (condominium) => condominium.id === residentCondominiumId,
+    );
+
+    if (!allowed) {
+      return { error: "Morador inválido para este bloco." };
+    }
+
+    scopeCondominiumId = residentCondominiumId;
+  }
 
   const result = await deleteResident({
     residentId,
