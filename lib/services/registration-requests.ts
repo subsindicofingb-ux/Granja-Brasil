@@ -368,6 +368,25 @@ export async function createDoormanRegistrationRequest(input: {
     queued: boolean;
   }>
 > {
+  const accessDeviceIds = input.accessDeviceIds ?? [];
+  const allowedAccessCondominiumIds =
+    input.allowedAccessCondominiumIds?.length
+      ? input.allowedAccessCondominiumIds
+      : [input.condominiumId];
+
+  if (accessDeviceIds.length > 0) {
+    const { validateAccessDeviceIdsForCondominiums } = await import(
+      "@/lib/services/resident-access-grants"
+    );
+    const devicesCheck = await validateAccessDeviceIdsForCondominiums(
+      allowedAccessCondominiumIds,
+      accessDeviceIds,
+    );
+    if (!devicesCheck.ok) {
+      return serviceError(devicesCheck.error ?? "Locais de acesso inválidos.");
+    }
+  }
+
   const profileResult = await resolveProfileIdForRegistrationEmail(
     input.fullName,
     input.email,
@@ -404,19 +423,21 @@ export async function createDoormanRegistrationRequest(input: {
     return requestResult;
   }
 
-  if (input.accessDeviceIds && input.accessDeviceIds.length > 0) {
+  if (accessDeviceIds.length > 0) {
     const { replaceRegistrationRequestAccessDevices } = await import(
       "@/lib/services/resident-access-grants"
     );
     const grantsResult = await replaceRegistrationRequestAccessDevices({
       registrationRequestId: requestResult.data.id,
       condominiumId: input.condominiumId,
-      accessDeviceIds: input.accessDeviceIds,
-      allowedCondominiumIds: input.allowedAccessCondominiumIds,
+      accessDeviceIds,
+      allowedCondominiumIds: allowedAccessCondominiumIds,
     });
 
     if (!grantsResult.ok) {
-      return serviceError(grantsResult.error ?? "Solicitação criada, mas locais de acesso falharam.");
+      const admin = createAdminClient();
+      await admin.from("registration_requests").delete().eq("id", requestResult.data.id);
+      return serviceError(grantsResult.error ?? "Não foi possível salvar os locais de acesso.");
     }
   }
 
@@ -424,7 +445,8 @@ export async function createDoormanRegistrationRequest(input: {
     requestId: requestResult.data.id,
     condominiumId: input.condominiumId,
     reviewerProfileId: input.doormanProfileId,
-    accessDeviceIds: input.accessDeviceIds,
+    accessDeviceIds,
+    allowedAccessCondominiumIds,
     reviewNotes: "Cadastro realizado pela portaria.",
   });
 
@@ -450,6 +472,7 @@ export async function fulfillRegistrationRequest(input: {
   residentType?: ResidentType;
   markAsUnitResponsible?: boolean;
   accessDeviceIds?: string[];
+  allowedAccessCondominiumIds?: string[];
   membershipRole?: Role;
 }): Promise<
   ServiceResult<{
@@ -613,10 +636,16 @@ export async function fulfillRegistrationRequest(input: {
         residentId,
         condominiumId: input.condominiumId,
         accessDeviceIds,
+        allowedCondominiumIds: input.allowedAccessCondominiumIds?.length
+          ? input.allowedAccessCondominiumIds
+          : [input.condominiumId],
       });
 
       if (!grantsResult.ok) {
-        return serviceError(grantsResult.error ?? "Morador criado, mas locais de acesso falharam.");
+        await admin.from("residents").delete().eq("id", residentId);
+        return serviceError(
+          grantsResult.error ?? "Não foi possível vincular os locais de acesso. Tente novamente.",
+        );
       }
     }
   }

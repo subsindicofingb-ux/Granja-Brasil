@@ -15,6 +15,7 @@ import { loadDoormanBlockPanelData } from "@/lib/condominiums/doorman-block-data
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
 import {
   listActiveAccessDevicesForCondominium,
+  loadActiveAccessDevicesByCondominiumIds,
 } from "@/lib/services/resident-access-grants";
 import { createDoormanRegistrationRequest } from "@/lib/services/registration-requests";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -118,13 +119,33 @@ export async function createDoormanRegistrationRequestAction(
     return { error: result.error ?? "Não foi possível concluir o cadastro." };
   }
 
-  const devicesResult = await listActiveAccessDevicesForCondominium(targetCondominiumId);
-  const accessDeviceNames =
-    devicesResult.ok
-      ? devicesResult.data
+  let accessDeviceNames: string[] = [];
+  if (accessDeviceIds.length > 0) {
+    const condoIdsForDevices =
+      isBlockSource && blockPanelResult?.ok && blockPanelResult.data
+        ? blockPanelResult.data.condominiums.map((condominium) => condominium.id)
+        : [targetCondominiumId];
+    const devicesByCondoResult = await loadActiveAccessDevicesByCondominiumIds(condoIdsForDevices);
+    if (devicesByCondoResult.ok) {
+      const seen = new Set<string>();
+      for (const list of Object.values(devicesByCondoResult.data)) {
+        for (const device of list) {
+          if (!accessDeviceIds.includes(device.id) || seen.has(device.id)) {
+            continue;
+          }
+          seen.add(device.id);
+          accessDeviceNames.push(device.display_name);
+        }
+      }
+    } else {
+      const devicesResult = await listActiveAccessDevicesForCondominium(targetCondominiumId);
+      if (devicesResult.ok) {
+        accessDeviceNames = devicesResult.data
           .filter((device) => accessDeviceIds.includes(device.id))
-          .map((device) => device.display_name)
-      : [];
+          .map((device) => device.display_name);
+      }
+    }
+  }
 
   const unitLabel = result.data.request.unit_number ?? "—";
   const condominiumName = result.data.request.condominium?.name ?? "Condomínio";
