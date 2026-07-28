@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { canManageInCategory } from "@/lib/auth/permission-matrix";
 import { formatCondominiumDisplayName, isGeneralCondominium } from "@/lib/condominiums/display";
+import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { ROLES, DEMO_CONDO_SLUG } from "@/lib/constants";
 import {
   getCondominiumBySlug,
@@ -240,6 +241,149 @@ async function UnitsContent({
     );
   }
 
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  if (panelResult.ok && panelResult.data.mode === "block") {
+    const { panel } = panelResult.data;
+    const filteredCondominium = selectedCondominiumSlug
+      ? panel.condominiums.find((condominium) => condominium.slug === selectedCondominiumSlug)
+      : undefined;
+
+    if (selectedCondominiumSlug && !filteredCondominium) {
+      return <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />;
+    }
+
+    const filteredUnits = filteredCondominium
+      ? panel.units.filter((unit) => unit.tower.condominium_id === filteredCondominium.id)
+      : panel.units;
+    const getCondominiumLabel = (unit: (typeof panel.units)[number]) =>
+      panel.condominiumNamesById[unit.tower.condominium_id] ?? "—";
+    const units =
+      selectedSort === "block_asc" || selectedSort === "block_desc"
+        ? [...filteredUnits].sort((left, right) => {
+            const direction = selectedSort === "block_desc" ? -1 : 1;
+            const collator = new Intl.Collator("pt-BR", {
+              numeric: true,
+              sensitivity: "base",
+            });
+            const byCondo =
+              collator.compare(getCondominiumLabel(left), getCondominiumLabel(right)) *
+              direction;
+            return byCondo === 0 ? collator.compare(left.number, right.number) : byCondo;
+          })
+        : sortUnits(filteredUnits, selectedSort, getCondominiumLabel);
+    const canManageStructure = canManageInCategory(access, "structure");
+
+    return (
+      <div className="space-y-4">
+        <UnitsListControls
+          condoSlug={condoSlug}
+          condominiums={panel.condominiums}
+          selectedCondominiumSlug={selectedCondominiumSlug}
+          selectedSort={selectedSort}
+          showCondominiumSort
+        />
+
+        {units.length === 0 ? (
+          <EmptyState
+            title={
+              filteredCondominium
+                ? `Nenhuma unidade em ${formatCondominiumDisplayName(
+                    filteredCondominium.name,
+                    filteredCondominium.slug,
+                  )}`
+                : "Nenhuma unidade cadastrada"
+            }
+            description={
+              filteredCondominium
+                ? "Não há unidades para o bloco selecionado."
+                : `Não há unidades nos condomínios do bloco ${panel.block.label}.`
+            }
+            action={
+              canManageStructure ? (
+                <Button asChild>
+                  <Link
+                    href={
+                      filteredCondominium
+                        ? `/app/${condoSlug}/units/new?condominium=${filteredCondominium.slug}`
+                        : `/app/${condoSlug}/units/new`
+                    }
+                  >
+                    Nova unidade
+                  </Link>
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <ResponsiveRecords
+            mobile={units.map((unit) => {
+              const unitCondominium = panel.condominiums.find(
+                (condominium) => condominium.id === unit.tower.condominium_id,
+              );
+
+              return (
+                <MobileRecordCard key={unit.id}>
+                  <p className="min-w-0 text-base font-semibold leading-snug">{unit.number}</p>
+                  <MobileRecordRow label="Torre">{unit.tower.name}</MobileRecordRow>
+                  <MobileRecordRow label="Bloco">{getCondominiumLabel(unit)}</MobileRecordRow>
+                  <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
+                    <Link
+                      href={`/app/${unitCondominium?.slug ?? condoSlug}/units/${unit.id}`}
+                    >
+                      {canManageStructure ? "Editar" : "Detalhes"}
+                    </Link>
+                  </Button>
+                </MobileRecordCard>
+              );
+            })}
+            desktop={
+              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                <table className="w-full text-sm">
+                  <thead className="border-b bg-muted/40">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium">Número</th>
+                      <th className="px-4 py-3 text-left font-medium">Torre</th>
+                      <th className="px-4 py-3 text-left font-medium">Bloco</th>
+                      <th className="px-4 py-3 text-right font-medium">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {units.map((unit) => {
+                      const unitCondominium = panel.condominiums.find(
+                        (condominium) => condominium.id === unit.tower.condominium_id,
+                      );
+
+                      return (
+                        <tr key={unit.id} className="border-b last:border-0">
+                          <td className="px-4 py-3 font-medium">{unit.number}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {getCondominiumLabel(unit)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link
+                                href={`/app/${
+                                  unitCondominium?.slug ?? condoSlug
+                                }/units/${unit.id}`}
+                              >
+                                {canManageStructure ? "Editar" : "Detalhes"}
+                              </Link>
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            }
+          />
+        )}
+      </div>
+    );
+  }
+
   const [towersResult, unitsResult] = await Promise.all([
     listTowersByCondominium(access.condominium.id),
     listUnitsByCondominium(access.condominium.id),
@@ -328,16 +472,35 @@ export default async function UnitsPage({ params, searchParams }: UnitsPageProps
   const selectedSort = parseUnitSort(sort?.trim().toLowerCase());
 
   if (normalizedCondominiumSlug) {
-    const condominiumResult = await getCondominiumBySlug(normalizedCondominiumSlug);
-    if (!condominiumResult.ok) {
-      return (
-        <div className="space-y-6">
-          <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
-            <UnitsHeader condoSlug={condoSlug} />
-          </Suspense>
-          <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
-        </div>
-      );
+    if (isGeneralCondominium(condoSlug)) {
+      const condominiumResult = await getCondominiumBySlug(normalizedCondominiumSlug);
+      if (!condominiumResult.ok) {
+        return (
+          <div className="space-y-6">
+            <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
+              <UnitsHeader condoSlug={condoSlug} />
+            </Suspense>
+            <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
+          </div>
+        );
+      }
+    } else {
+      const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+      if (panelResult.ok && panelResult.data.mode === "block") {
+        const validSlugs = panelResult.data.panel.condominiums.map(
+          (condominium) => condominium.slug,
+        );
+        if (!validSlugs.includes(normalizedCondominiumSlug)) {
+          return (
+            <div className="space-y-6">
+              <Suspense fallback={<div className="h-16 animate-pulse rounded-lg bg-muted" />}>
+                <UnitsHeader condoSlug={condoSlug} />
+              </Suspense>
+              <ErrorAlert message="Condomínio inválido para filtro." title="Filtro inválido" />
+            </div>
+          );
+        }
+      }
     }
   }
 
