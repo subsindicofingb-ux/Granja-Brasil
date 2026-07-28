@@ -22,10 +22,12 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageAccessDevices,
-    { redirectTo: `/app/${condoSlug}/settings` },
+    (ctx) =>
+      ctx.permissions.canManageAccessDevices || ctx.permissions.canViewAccessDevices,
+    { redirectTo: `/app/${condoSlug}` },
   );
 
+  const canManage = access.permissions.canManageAccessDevices;
   const devicesResult = await listAccessDevicesForCondominium(access.condominium.id);
 
   if (!devicesResult.ok) {
@@ -38,25 +40,37 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
     <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
         title="Locais de acesso"
-        description="Cadastre pontos ControlID com nomes livres e tipos de uso por condomínio."
+        description={
+          canManage
+            ? "Cadastre pontos ControlID com nomes livres e tipos de uso por condomínio."
+            : "Consulte os pontos ControlID liberados neste condomínio."
+        }
         action={
-          <Button asChild>
-            <Link href={`/app/${condoSlug}/settings/access-devices/new`}>
-              <Plus className="h-4 w-4" />
-              Novo local
-            </Link>
-          </Button>
+          canManage ? (
+            <Button asChild>
+              <Link href={`/app/${condoSlug}/settings/access-devices/new`}>
+                <Plus className="h-4 w-4" />
+                Novo local
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
 
       {devices.length === 0 ? (
         <EmptyState
           title="Nenhum local cadastrado"
-          description="Comece pelo equipamento piloto Brinquedoteca ou cadastre portaria, garagem e áreas comuns."
+          description={
+            canManage
+              ? "Comece pelo equipamento piloto Brinquedoteca ou cadastre portaria, garagem e áreas comuns."
+              : "Ainda não há locais de acesso cadastrados neste condomínio."
+          }
           action={
-            <Button asChild>
-              <Link href={`/app/${condoSlug}/settings/access-devices/new`}>Cadastrar local</Link>
-            </Button>
+            canManage ? (
+              <Button asChild>
+                <Link href={`/app/${condoSlug}/settings/access-devices/new`}>Cadastrar local</Link>
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -87,7 +101,7 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
               </MobileRecordRow>
               <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/settings/access-devices/${device.id}`}>
-                  {device.is_owned ? "Editar" : "Ver"}
+                  {canManage && device.is_owned ? "Editar" : "Ver"}
                 </Link>
               </Button>
             </MobileRecordCard>
@@ -128,7 +142,7 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/app/${condoSlug}/settings/access-devices/${device.id}`}>
-                            {device.is_owned ? "Editar" : "Ver"}
+                            {canManage && device.is_owned ? "Editar" : "Ver"}
                           </Link>
                         </Button>
                       </td>
@@ -142,7 +156,9 @@ export default async function AccessDevicesPage({ params }: AccessDevicesPagePro
       )}
 
       <Button variant="outline" asChild>
-        <Link href={`/app/${condoSlug}/settings`}>Voltar às configurações</Link>
+        <Link href={canManage ? `/app/${condoSlug}/settings` : `/app/${condoSlug}`}>
+          {canManage ? "Voltar às configurações" : "Voltar"}
+        </Link>
       </Button>
     </div>
   );

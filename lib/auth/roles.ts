@@ -1,4 +1,4 @@
-import type { Role } from "@/lib/constants";
+﻿import type { Role } from "@/lib/constants";
 
 /**
  * Mapeamento papel → permissões (espelha RLS do Supabase).
@@ -35,6 +35,7 @@ export type RolePermissions = {
   canConsultVehicles: boolean;
   canRegisterVehiclesWithApproval: boolean;
   canManageAccessDevices: boolean;
+  canViewAccessDevices: boolean;
   canViewDashboard: boolean;
   canCreateFromDashboard: boolean;
   canManageDashboardPendencies: boolean;
@@ -72,6 +73,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewAccessDevices: true,
     canViewDashboard: true,
     canCreateFromDashboard: true,
     canManageDashboardPendencies: true,
@@ -107,6 +109,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewAccessDevices: true,
     canViewDashboard: true,
     canCreateFromDashboard: true,
     canManageDashboardPendencies: true,
@@ -142,6 +145,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewAccessDevices: true,
     canViewDashboard: true,
     canCreateFromDashboard: true,
     canManageDashboardPendencies: true,
@@ -177,6 +181,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: true,
+    canViewAccessDevices: true,
     canViewDashboard: true,
     canCreateFromDashboard: true,
     canManageDashboardPendencies: true,
@@ -212,6 +217,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: false,
+    canViewAccessDevices: false,
     canViewDashboard: true,
     canCreateFromDashboard: false,
     canManageDashboardPendencies: false,
@@ -247,6 +253,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: true,
     canRegisterVehiclesWithApproval: true,
     canManageAccessDevices: false,
+    canViewAccessDevices: false,
     canViewDashboard: true,
     canCreateFromDashboard: true,
     canManageDashboardPendencies: true,
@@ -282,6 +289,7 @@ export const ROLE_PERMISSIONS = {
     canConsultVehicles: false,
     canRegisterVehiclesWithApproval: false,
     canManageAccessDevices: false,
+    canViewAccessDevices: false,
     canViewDashboard: true,
     canCreateFromDashboard: false,
     canManageDashboardPendencies: false,

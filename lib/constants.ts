@@ -122,7 +122,8 @@ export type NavIcon =
   | "Settings"
   | "Package"
   | "Droplets"
-  | "DoorOpen";
+  | "DoorOpen"
+  | "KeyRound";
 
 import type { NavVisibleContext } from "@/lib/nav-types";
 
@@ -218,6 +219,13 @@ export const NAV_ITEMS: NavItem[] = [
     visible: ({ permissions }) => permissions.canViewVisitorAuthorizations,
   },
   {
+    label: "Locais de acesso",
+    href: "settings/access-devices",
+    icon: "KeyRound",
+    visible: ({ permissions }) =>
+      permissions.canViewAccessDevices || permissions.canManageAccessDevices,
+  },
+  {
     label: "Abrir acesso",
     href: "access-open",
     icon: "DoorOpen",
@@ -225,6 +233,7 @@ export const NAV_ITEMS: NavItem[] = [
       role === ROLES.RESIDENT ||
       permissions.canRegisterVisitorAuthorizations ||
       permissions.canManageAccessDevices ||
+      permissions.canViewAccessDevices ||
       permissions.canConsultVisitorAuthorizations,
   },
   { label: "Configurações", href: "settings", icon: "Settings" },

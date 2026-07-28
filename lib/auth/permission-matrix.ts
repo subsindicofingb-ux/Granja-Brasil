@@ -172,7 +172,7 @@ function deriveCategoryCrud(role: Role, category: PermissionCategoryId): Categor
       };
     case "access_devices":
       return {
-        view: permissions.canManageAccessDevices,
+        view: permissions.canViewAccessDevices || permissions.canManageAccessDevices,
         create: permissions.canManageAccessDevices,
         delete: permissions.canManageAccessDevices,
       };
@@ -316,6 +316,7 @@ function applyCategoryToPermissions(
       };
     case "access_devices":
       return {
+        canViewAccessDevices: cells.view || cells.create || cells.delete,
         canManageAccessDevices: cells.create || cells.delete,
       };
     case "condo_settings":

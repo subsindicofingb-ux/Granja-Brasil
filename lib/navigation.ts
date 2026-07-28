@@ -21,6 +21,7 @@ const NAV_CATEGORY_BY_HREF: Partial<Record<string, PermissionCategoryId>> = {
   notifications: "notifications",
   visitors: "visitors",
   settings: "condo_settings",
+  "settings/access-devices": "access_devices",
 };
 
 function getManagePermissionForCategory(
@@ -57,7 +58,7 @@ function getManagePermissionForCategory(
     case "members":
       return permissions.canManageMembers;
     case "access_devices":
-      return permissions.canManageAccessDevices;
+      return permissions.canManageAccessDevices || permissions.canViewAccessDevices;
     case "condo_settings":
       return permissions.canManageCondo;
     default:

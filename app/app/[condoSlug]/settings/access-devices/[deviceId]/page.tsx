@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { getAccessDeviceTypeLabel } from "@/lib/access-devices/labels";
 import { getAccessDeviceById } from "@/lib/services/access-devices";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { AccessDeviceForm } from "@/components/access-devices/access-device-form";
@@ -23,13 +24,16 @@ export default async function AccessDeviceDetailPage({
 
   const access = await requireCondoPermission(
     condoSlug,
-    (ctx) => ctx.permissions.canManageAccessDevices,
+    (ctx) =>
+      ctx.permissions.canManageAccessDevices || ctx.permissions.canViewAccessDevices,
     { redirectTo: `/app/${condoSlug}/settings/access-devices` },
   );
 
+  const canManage = access.permissions.canManageAccessDevices;
+
   const [deviceResult, condominiumsResult] = await Promise.all([
     getAccessDeviceById(deviceId, access.condominium.id),
-    listCondominiums(),
+    canManage ? listCondominiums() : Promise.resolve({ ok: true as const, data: [] }),
   ]);
 
   if (!deviceResult.ok || !deviceResult.data) {
@@ -44,6 +48,7 @@ export default async function AccessDeviceDetailPage({
   const shareableCondominiums = condominiumsResult.data.filter(
     (condominium) => condominium.id !== access.condominium.id,
   );
+  const showEditForm = canManage && device.is_owned;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -52,20 +57,20 @@ export default async function AccessDeviceDetailPage({
       <PageHeader
         title={device.display_name}
         description={
-          device.is_owned
+          showEditForm
             ? "Edite nome, tipo de uso e conexão ControlID."
-            : "Visualização de equipamento compartilhado de outro condomínio."
+            : "Visualização do ponto ControlID liberado neste condomínio."
         }
       />
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {device.is_owned ? "Configuração do equipamento" : "Detalhes do equipamento"}
+            {showEditForm ? "Configuração do equipamento" : "Detalhes do equipamento"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {device.is_owned ? (
+          {showEditForm ? (
             <AccessDeviceForm
               condoSlug={condoSlug}
               mode="edit"
@@ -88,15 +93,27 @@ export default async function AccessDeviceDetailPage({
           ) : (
             <div className="space-y-3 text-sm">
               <p>
-                <span className="text-muted-foreground">Proprietário:</span>{" "}
-                {device.owner_condominium?.name ?? "—"}
+                <span className="text-muted-foreground">Tipo:</span>{" "}
+                {getAccessDeviceTypeLabel(device.access_type)}
               </p>
               <p>
                 <span className="text-muted-foreground">Host:</span> {device.host_url}
               </p>
-              <p className="text-muted-foreground">
-                Somente o condomínio proprietário pode editar este equipamento.
+              {!device.is_owned && (
+                <p>
+                  <span className="text-muted-foreground">Proprietário:</span>{" "}
+                  {device.owner_condominium?.name ?? "—"}
+                </p>
+              )}
+              <p>
+                <span className="text-muted-foreground">Status:</span>{" "}
+                {device.is_active ? "Ativo" : "Inativo"}
               </p>
+              {!device.is_owned && canManage && (
+                <p className="text-muted-foreground">
+                  Somente o condomínio proprietário pode editar este equipamento.
+                </p>
+              )}
             </div>
           )}
         </CardContent>
