@@ -101,6 +101,8 @@ export type VisitorAuthorizationListOptions = {
   consultWindowOnly?: boolean;
   search?: string;
   useAdmin?: boolean;
+  /** Escopo multi-condomínio (ex.: bloco Jacarandás/Jequitibás). */
+  condominiumIds?: string[];
 };
 
 export async function listVisitorAuthorizationsByCondominium(
@@ -112,8 +114,13 @@ export async function listVisitorAuthorizationsByCondominium(
   let query = supabase
     .from("visitor_authorizations")
     .select(VISITOR_DETAIL_SELECT)
-    .eq("condominium_id", condominiumId)
     .order("access_starts_at", { ascending: false });
+
+  if (options?.condominiumIds && options.condominiumIds.length > 0) {
+    query = query.in("condominium_id", options.condominiumIds);
+  } else {
+    query = query.eq("condominium_id", condominiumId);
+  }
 
   if (options?.unitId) {
     query = query.eq("unit_id", options.unitId);
@@ -194,16 +201,22 @@ export async function listVisitorAuthorizationsByUnit(
 export async function getVisitorAuthorizationById(
   authorizationId: string,
   condominiumId: string,
-  options?: { useAdmin?: boolean },
+  options?: { useAdmin?: boolean; condominiumIds?: string[] },
 ): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
   const supabase = options?.useAdmin ? createAdminClient() : await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("visitor_authorizations")
     .select(VISITOR_DETAIL_SELECT)
-    .eq("id", authorizationId)
-    .eq("condominium_id", condominiumId)
-    .maybeSingle();
+    .eq("id", authorizationId);
+
+  if (options?.condominiumIds && options.condominiumIds.length > 0) {
+    query = query.in("condominium_id", options.condominiumIds);
+  } else {
+    query = query.eq("condominium_id", condominiumId);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     return serviceError(mapSupabaseError(error));

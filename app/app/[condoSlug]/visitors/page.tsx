@@ -5,6 +5,10 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import {
+  getOperationalCondominiumIds,
+  resolveDoormanOperationalPanel,
+} from "@/lib/condominiums/doorman-panel";
+import {
   GUEST_TYPE,
   VISITOR_AUTHORIZATION_STATUS,
   type GuestType,
@@ -111,11 +115,19 @@ async function VisitorsContent({
     );
   }
 
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  const operationalCondominiumIds =
+    panelResult.ok
+      ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
+      : [access.condominium.id];
+
   const result = await listVisitorAuthorizationsByCondominium(access.condominium.id, {
     status,
     guestType,
     search,
     useAdmin: limitedConsult,
+    condominiumIds:
+      operationalCondominiumIds.length > 1 ? operationalCondominiumIds : undefined,
     ...unitQuery,
   });
 

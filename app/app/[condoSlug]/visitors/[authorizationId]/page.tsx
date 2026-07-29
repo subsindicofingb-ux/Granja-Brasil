@@ -4,6 +4,10 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import {
+  getOperationalCondominiumIds,
+  resolveDoormanOperationalPanel,
+} from "@/lib/condominiums/doorman-panel";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listUnitIdsForProfile } from "@/lib/services/reservations";
 import { listUnitIdsForVisitorRegistration } from "@/lib/services/visitor-access-grants";
@@ -44,8 +48,16 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
   }
 
   const limitedConsult = isEmployeeLimitedConsult(access.role);
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  const operationalCondominiumIds =
+    panelResult.ok
+      ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
+      : [access.condominium.id];
+
   const result = await getVisitorAuthorizationById(authorizationId, access.condominium.id, {
     useAdmin: limitedConsult,
+    condominiumIds:
+      operationalCondominiumIds.length > 1 ? operationalCondominiumIds : undefined,
   });
 
   if (!result.ok) {
