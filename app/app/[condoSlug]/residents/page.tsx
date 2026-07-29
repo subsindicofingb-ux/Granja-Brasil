@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoPermission } from "@/lib/auth/access";
+import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { canManageInCategory } from "@/lib/auth/permission-matrix";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
@@ -82,6 +83,8 @@ async function ResidentsContent({
     (ctx) => ctx.permissions.canManageResidents || ctx.permissions.canConsultResidents,
     { redirectTo: `/app/${condoSlug}` },
   );
+  const limitedConsult = isEmployeeLimitedConsult(access.role);
+  const useAdmin = limitedConsult;
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
 
   if (isGeneralCondoPage) {
@@ -105,6 +108,7 @@ async function ResidentsContent({
         : condominiums.map((condominium) => condominium.id),
       unitId,
       search: searchQuery,
+      useAdmin,
     });
 
     if (!residentsResult.ok) {
@@ -188,14 +192,18 @@ async function ResidentsContent({
                 <MobileRecordRow label="Unidade">
                   {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
                 </MobileRecordRow>
-                <MobileRecordRow label="Tipo">
-                  <Badge className="border bg-background">
-                    {getResidentTypeLabel(resident.type)}
-                  </Badge>
-                </MobileRecordRow>
-                <MobileRecordRow label="Contato">
-                  {resident.email ?? resident.phone ?? "—"}
-                </MobileRecordRow>
+                {!limitedConsult && (
+                  <>
+                    <MobileRecordRow label="Tipo">
+                      <Badge className="border bg-background">
+                        {getResidentTypeLabel(resident.type)}
+                      </Badge>
+                    </MobileRecordRow>
+                    <MobileRecordRow label="Contato">
+                      {resident.email ?? resident.phone ?? "—"}
+                    </MobileRecordRow>
+                  </>
+                )}
                 <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                   <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
                     {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
@@ -210,8 +218,12 @@ async function ResidentsContent({
                     <tr>
                       <th className="px-4 py-3 text-left font-medium">Nome</th>
                       <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                      <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                      <th className="px-4 py-3 text-left font-medium">Contato</th>
+                      {!limitedConsult && (
+                        <>
+                          <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                          <th className="px-4 py-3 text-left font-medium">Contato</th>
+                        </>
+                      )}
                       <th className="px-4 py-3 text-right font-medium">Ações</th>
                     </tr>
                   </thead>
@@ -222,14 +234,18 @@ async function ResidentsContent({
                         <td className="px-4 py-3 text-muted-foreground">
                           {formatUnitOptionLabel(resident.unit, condominiumNamesById)}
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge className="border bg-background">
-                            {getResidentTypeLabel(resident.type)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {resident.email ?? resident.phone ?? "—"}
-                        </td>
+                        {!limitedConsult && (
+                          <>
+                            <td className="px-4 py-3">
+                              <Badge className="border bg-background">
+                                {getResidentTypeLabel(resident.type)}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {resident.email ?? resident.phone ?? "—"}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-3 text-right">
                           <Button variant="ghost" size="sm" asChild>
                             <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
@@ -263,6 +279,7 @@ async function ResidentsContent({
         : panel.condominiums.map((condominium) => condominium.id),
       unitId,
       search: searchQuery,
+      useAdmin,
     });
 
     if (!residentsResult.ok) {
@@ -318,14 +335,18 @@ async function ResidentsContent({
                 <MobileRecordRow label="Unidade">
                   {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
                 </MobileRecordRow>
-                <MobileRecordRow label="Tipo">
-                  <Badge className="border bg-background">
-                    {getResidentTypeLabel(resident.type)}
-                  </Badge>
-                </MobileRecordRow>
-                <MobileRecordRow label="Contato">
-                  {resident.email ?? resident.phone ?? "—"}
-                </MobileRecordRow>
+                {!limitedConsult && (
+                  <>
+                    <MobileRecordRow label="Tipo">
+                      <Badge className="border bg-background">
+                        {getResidentTypeLabel(resident.type)}
+                      </Badge>
+                    </MobileRecordRow>
+                    <MobileRecordRow label="Contato">
+                      {resident.email ?? resident.phone ?? "—"}
+                    </MobileRecordRow>
+                  </>
+                )}
                 <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                   <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
                     {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
@@ -340,8 +361,12 @@ async function ResidentsContent({
                     <tr>
                       <th className="px-4 py-3 text-left font-medium">Nome</th>
                       <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                      <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                      <th className="px-4 py-3 text-left font-medium">Contato</th>
+                      {!limitedConsult && (
+                        <>
+                          <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                          <th className="px-4 py-3 text-left font-medium">Contato</th>
+                        </>
+                      )}
                       <th className="px-4 py-3 text-right font-medium">Ações</th>
                     </tr>
                   </thead>
@@ -352,14 +377,18 @@ async function ResidentsContent({
                         <td className="px-4 py-3 text-muted-foreground">
                           {formatUnitOptionLabel(resident.unit, panel.condominiumNamesById)}
                         </td>
-                        <td className="px-4 py-3">
-                          <Badge className="border bg-background">
-                            {getResidentTypeLabel(resident.type)}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {resident.email ?? resident.phone ?? "—"}
-                        </td>
+                        {!limitedConsult && (
+                          <>
+                            <td className="px-4 py-3">
+                              <Badge className="border bg-background">
+                                {getResidentTypeLabel(resident.type)}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {resident.email ?? resident.phone ?? "—"}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-3 text-right">
                           <Button variant="ghost" size="sm" asChild>
                             <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
@@ -386,6 +415,7 @@ async function ResidentsContent({
       condominiumId: access.condominium.id,
       unitId,
       search: searchQuery,
+      useAdmin,
     }),
   ]);
 
@@ -472,14 +502,18 @@ async function ResidentsContent({
               <MobileRecordRow label="Unidade">
                 {formatUnitOptionLabel(resident.unit)}
               </MobileRecordRow>
-              <MobileRecordRow label="Tipo">
-                <Badge className="border bg-background">
-                  {getResidentTypeLabel(resident.type)}
-                </Badge>
-              </MobileRecordRow>
-              <MobileRecordRow label="Contato">
-                {resident.email ?? resident.phone ?? "—"}
-              </MobileRecordRow>
+              {!limitedConsult && (
+                <>
+                  <MobileRecordRow label="Tipo">
+                    <Badge className="border bg-background">
+                      {getResidentTypeLabel(resident.type)}
+                    </Badge>
+                  </MobileRecordRow>
+                  <MobileRecordRow label="Contato">
+                    {resident.email ?? resident.phone ?? "—"}
+                  </MobileRecordRow>
+                </>
+              )}
               <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/residents/${resident.id}`}>
                   {access.permissions.canManageResidents ? "Editar" : "Detalhes"}
@@ -494,8 +528,12 @@ async function ResidentsContent({
                   <tr>
                     <th className="px-4 py-3 text-left font-medium">Nome</th>
                     <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
-                    <th className="px-4 py-3 text-left font-medium">Contato</th>
+                    {!limitedConsult && (
+                      <>
+                        <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                        <th className="px-4 py-3 text-left font-medium">Contato</th>
+                      </>
+                    )}
                     <th className="px-4 py-3 text-right font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -506,14 +544,18 @@ async function ResidentsContent({
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatUnitOptionLabel(resident.unit)}
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge className="border bg-background">
-                          {getResidentTypeLabel(resident.type)}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {resident.email ?? resident.phone ?? "—"}
-                      </td>
+                      {!limitedConsult && (
+                        <>
+                          <td className="px-4 py-3">
+                            <Badge className="border bg-background">
+                              {getResidentTypeLabel(resident.type)}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {resident.email ?? resident.phone ?? "—"}
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/app/${condoSlug}/residents/${resident.id}`}>

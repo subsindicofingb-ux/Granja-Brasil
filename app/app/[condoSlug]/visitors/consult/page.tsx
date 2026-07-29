@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { redirect } from "next/navigation";
 import {
   GUEST_TYPE,
@@ -64,11 +65,13 @@ async function ConsultContent({
     redirect(`/app/${condoSlug}/visitors`);
   }
 
+  const limitedConsult = isEmployeeLimitedConsult(access.role);
   const result = await listVisitorAuthorizationsByCondominium(access.condominium.id, {
     status,
     guestType,
     search,
     consultWindowOnly,
+    useAdmin: limitedConsult,
   });
 
   if (!result.ok) {
@@ -107,30 +110,36 @@ async function ConsultContent({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-base font-semibold leading-snug">{authorization.full_name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {getGuestTypeLabel(authorization.guest_type)}
-                    {authorization.company_name && ` · ${authorization.company_name}`}
-                  </p>
+                  {!limitedConsult && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {getGuestTypeLabel(authorization.guest_type)}
+                      {authorization.company_name && ` · ${authorization.company_name}`}
+                    </p>
+                  )}
                 </div>
-                <VisitorDisplayStatusBadge record={authorization} />
+                {!limitedConsult && <VisitorDisplayStatusBadge record={authorization} />}
               </div>
-              {authorization.vehicle_plate && (
+              {!limitedConsult && authorization.vehicle_plate && (
                 <MobileRecordRow label="Placa">{authorization.vehicle_plate}</MobileRecordRow>
               )}
-              <MobileRecordRow label="Documento">
-                {authorization.document_number ?? "—"}
-              </MobileRecordRow>
+              {!limitedConsult && (
+                <MobileRecordRow label="Documento">
+                  {authorization.document_number ?? "—"}
+                </MobileRecordRow>
+              )}
               <MobileRecordRow label="Unidade">
                 {formatUnitWithTower(authorization.unit)}
               </MobileRecordRow>
-              <MobileRecordRow label="Período">
-                <span>
-                  {formatDateTime(authorization.access_starts_at)}
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    até {formatDateTime(authorization.access_ends_at)}
+              {!limitedConsult && (
+                <MobileRecordRow label="Período">
+                  <span>
+                    {formatDateTime(authorization.access_starts_at)}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      até {formatDateTime(authorization.access_ends_at)}
+                    </span>
                   </span>
-                </span>
-              </MobileRecordRow>
+                </MobileRecordRow>
+              )}
               <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>Ver</Link>
               </Button>
@@ -142,10 +151,16 @@ async function ConsultContent({
                 <thead className="border-b bg-muted/40">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium">Nome</th>
-                    <th className="px-4 py-3 text-left font-medium">Documento</th>
+                    {!limitedConsult && (
+                      <th className="px-4 py-3 text-left font-medium">Documento</th>
+                    )}
                     <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                    <th className="px-4 py-3 text-left font-medium">Período</th>
-                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    {!limitedConsult && (
+                      <>
+                        <th className="px-4 py-3 text-left font-medium">Período</th>
+                        <th className="px-4 py-3 text-left font-medium">Status</th>
+                      </>
+                    )}
                     <th className="px-4 py-3 text-right font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -154,29 +169,39 @@ async function ConsultContent({
                     <tr key={authorization.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium">{authorization.full_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {getGuestTypeLabel(authorization.guest_type)}
-                          {authorization.company_name && ` · ${authorization.company_name}`}
-                        </div>
-                        {authorization.vehicle_plate && (
-                          <div className="text-xs text-muted-foreground">
-                            Placa: {authorization.vehicle_plate}
-                          </div>
+                        {!limitedConsult && (
+                          <>
+                            <div className="text-xs text-muted-foreground">
+                              {getGuestTypeLabel(authorization.guest_type)}
+                              {authorization.company_name && ` · ${authorization.company_name}`}
+                            </div>
+                            {authorization.vehicle_plate && (
+                              <div className="text-xs text-muted-foreground">
+                                Placa: {authorization.vehicle_plate}
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {authorization.document_number ?? "—"}
-                      </td>
+                      {!limitedConsult && (
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {authorization.document_number ?? "—"}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatUnitWithTower(authorization.unit)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <div>{formatDateTime(authorization.access_starts_at)}</div>
-                        <div className="text-xs">até {formatDateTime(authorization.access_ends_at)}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <VisitorDisplayStatusBadge record={authorization} />
-                      </td>
+                      {!limitedConsult && (
+                        <>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            <div>{formatDateTime(authorization.access_starts_at)}</div>
+                            <div className="text-xs">até {formatDateTime(authorization.access_ends_at)}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <VisitorDisplayStatusBadge record={authorization} />
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>Ver</Link>

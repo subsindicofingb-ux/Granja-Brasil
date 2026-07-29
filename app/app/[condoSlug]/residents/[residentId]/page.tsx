@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { resolveDoormanOperationalPanel } from "@/lib/condominiums/doorman-panel";
 import { ROLES } from "@/lib/constants";
@@ -59,6 +60,7 @@ interface ResidentDetailPageProps {
 export default async function ResidentDetailPage({ params }: ResidentDetailPageProps) {
   const { condoSlug, residentId } = await params;
   const access = await requireCondoAccess(condoSlug);
+  const limitedConsult = isEmployeeLimitedConsult(access.role);
   const isGeneralCondo = isGeneralCondominium(condoSlug);
   const panelResult = !isGeneralCondo ? await resolveDoormanOperationalPanel(condoSlug) : null;
   const isBlockSource = Boolean(panelResult?.ok && panelResult.data.mode === "block");
@@ -69,6 +71,7 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
 
   const residentResult = await getResidentById(residentId, {
     condominiumId: scopeCondominiumId,
+    useAdmin: limitedConsult,
   });
 
   if (!residentResult.ok) {
@@ -92,6 +95,39 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     )
   ) {
     notFound();
+  }
+
+  const resident = residentResult.data;
+
+  if (limitedConsult) {
+    const unitLabel = formatUnitOptionLabel(
+      resident.unit,
+      blockPanel?.condominiumNamesById,
+    );
+
+    return (
+      <div className="mx-auto max-w-lg space-y-6">
+        <PageHeader title={resident.full_name} description="Consulta de cadastro." />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Informações</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Nome</span>
+              <span className="text-right font-medium">{resident.full_name}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-muted-foreground">Unidade</span>
+              <span className="text-right font-medium">{unitLabel}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/residents`}>Voltar</Link>
+        </Button>
+      </div>
+    );
   }
 
   const unitsResult = isGeneralCondo
@@ -127,7 +163,6 @@ export default async function ResidentDetailPage({ params }: ResidentDetailPageP
     );
   }
 
-  const resident = residentResult.data;
   const residentCondominiumId = resident.unit.tower.condominium_id;
   const [
     accessDevicesResult,

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
@@ -42,7 +43,10 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
     notFound();
   }
 
-  const result = await getVisitorAuthorizationById(authorizationId, access.condominium.id);
+  const limitedConsult = isEmployeeLimitedConsult(access.role);
+  const result = await getVisitorAuthorizationById(authorizationId, access.condominium.id, {
+    useAdmin: limitedConsult,
+  });
 
   if (!result.ok) {
     if (result.error.includes("não encontrada")) {
@@ -59,6 +63,33 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
   }
 
   const authorization = result.data;
+
+  if (limitedConsult) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <PageHeader title={authorization.full_name} description="Consulta de cadastro." />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Informações</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Nome</span>
+              <span className="font-medium">{authorization.full_name}</span>
+            </div>
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Unidade</span>
+              <span className="font-medium">{formatUnitWithTower(authorization.unit)}</span>
+            </div>
+          </CardContent>
+        </Card>
+        <Button variant="outline" asChild>
+          <Link href={`/app/${condoSlug}/visitors`}>Voltar</Link>
+        </Button>
+      </div>
+    );
+  }
+
   const isStaff = access.permissions.canManageVisitorAuthorizations;
   const canApprove = access.permissions.canApproveVisitorAuthorizations;
   const canConsult = access.permissions.canConsultVisitorAuthorizations;

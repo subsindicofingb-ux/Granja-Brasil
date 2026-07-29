@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import {
   GUEST_TYPE,
@@ -98,6 +99,7 @@ async function VisitorsContent({
     return <ErrorAlert message="Sem permissão para visualizar autorizações." />;
   }
 
+  const limitedConsult = isEmployeeLimitedConsult(access.role);
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
 
   if (unitQuery === "none") {
@@ -113,6 +115,7 @@ async function VisitorsContent({
     status,
     guestType,
     search,
+    useAdmin: limitedConsult,
     ...unitQuery,
   });
 
@@ -157,27 +160,31 @@ async function VisitorsContent({
                 <p className="min-w-0 text-base font-semibold leading-snug">
                   {authorization.full_name}
                 </p>
-                <VisitorDisplayStatusBadge record={authorization} />
+                {!limitedConsult && <VisitorDisplayStatusBadge record={authorization} />}
               </div>
-              {authorization.vehicle_plate && (
+              {!limitedConsult && authorization.vehicle_plate && (
                 <p className="text-sm text-muted-foreground">
                   Placa: {authorization.vehicle_plate}
                 </p>
               )}
-              <MobileRecordRow label="Tipo">
-                {getGuestTypeLabel(authorization.guest_type)}
-              </MobileRecordRow>
+              {!limitedConsult && (
+                <MobileRecordRow label="Tipo">
+                  {getGuestTypeLabel(authorization.guest_type)}
+                </MobileRecordRow>
+              )}
               <MobileRecordRow label="Unidade">
                 {formatUnitWithTower(authorization.unit)}
               </MobileRecordRow>
-              <MobileRecordRow label="Período">
-                <span>
-                  {formatDateTime(authorization.access_starts_at)}
-                  <span className="block text-xs font-normal text-muted-foreground">
-                    até {formatDateTime(authorization.access_ends_at)}
+              {!limitedConsult && (
+                <MobileRecordRow label="Período">
+                  <span>
+                    {formatDateTime(authorization.access_starts_at)}
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      até {formatDateTime(authorization.access_ends_at)}
+                    </span>
                   </span>
-                </span>
-              </MobileRecordRow>
+                </MobileRecordRow>
+              )}
               <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>
                   {access.permissions.canManageVisitorAuthorizations &&
@@ -196,10 +203,16 @@ async function VisitorsContent({
                 <thead className="border-b bg-muted/40">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium">Nome</th>
-                    <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    {!limitedConsult && (
+                      <th className="px-4 py-3 text-left font-medium">Tipo</th>
+                    )}
                     <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                    <th className="px-4 py-3 text-left font-medium">Período</th>
-                    <th className="px-4 py-3 text-left font-medium">Status</th>
+                    {!limitedConsult && (
+                      <>
+                        <th className="px-4 py-3 text-left font-medium">Período</th>
+                        <th className="px-4 py-3 text-left font-medium">Status</th>
+                      </>
+                    )}
                     <th className="px-4 py-3 text-right font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -208,27 +221,33 @@ async function VisitorsContent({
                     <tr key={authorization.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium">{authorization.full_name}</div>
-                        {authorization.vehicle_plate && (
+                        {!limitedConsult && authorization.vehicle_plate && (
                           <div className="text-xs text-muted-foreground">
                             Placa: {authorization.vehicle_plate}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {getGuestTypeLabel(authorization.guest_type)}
-                      </td>
+                      {!limitedConsult && (
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {getGuestTypeLabel(authorization.guest_type)}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatUnitWithTower(authorization.unit)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <div>{formatDateTime(authorization.access_starts_at)}</div>
-                        <div className="text-xs">
-                          até {formatDateTime(authorization.access_ends_at)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <VisitorDisplayStatusBadge record={authorization} />
-                      </td>
+                      {!limitedConsult && (
+                        <>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            <div>{formatDateTime(authorization.access_starts_at)}</div>
+                            <div className="text-xs">
+                              até {formatDateTime(authorization.access_ends_at)}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <VisitorDisplayStatusBadge record={authorization} />
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>

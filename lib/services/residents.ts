@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { buildAnnouncementResidentUnitLabel } from "@/lib/announcements/resident-labels";
 import {
   assertUniqueResidentContactInUnit,
@@ -102,9 +103,11 @@ export async function listResidentsByCondominium(
     condominiumIds?: string[];
     unitId?: string;
     search?: string;
+    /** Consulta operacional (ex.: funcionário) — evita RLS incompleto. */
+    useAdmin?: boolean;
   },
 ): Promise<ServiceResult<ResidentWithUnit[]>> {
-  const supabase = await createClient();
+  const supabase = options?.useAdmin ? createAdminClient() : await createClient();
 
   let query = supabase.from("residents").select(RESIDENT_SELECT).order("full_name", {
     ascending: true,
@@ -136,9 +139,9 @@ export async function listResidentsByCondominium(
 
 export async function getResidentById(
   residentId: string,
-  options?: { condominiumId?: string },
+  options?: { condominiumId?: string; useAdmin?: boolean },
 ): Promise<ServiceResult<ResidentWithUnit>> {
-  const supabase = await createClient();
+  const supabase = options?.useAdmin ? createAdminClient() : await createClient();
 
   let query = supabase.from("residents").select(RESIDENT_SELECT).eq("id", residentId);
 

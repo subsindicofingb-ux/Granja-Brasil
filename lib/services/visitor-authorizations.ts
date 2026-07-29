@@ -1,5 +1,6 @@
 import type { Database } from "@/types/database.types";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { VISITOR_AUTHORIZATION_STATUS } from "@/lib/constants";
 import type { VisitorAuthorizationStatus } from "@/lib/constants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -99,13 +100,14 @@ export type VisitorAuthorizationListOptions = {
   guestType?: VisitorAuthorizationRecord["guest_type"] | "all";
   consultWindowOnly?: boolean;
   search?: string;
+  useAdmin?: boolean;
 };
 
 export async function listVisitorAuthorizationsByCondominium(
   condominiumId: string,
   options?: VisitorAuthorizationListOptions,
 ): Promise<ServiceResult<VisitorAuthorizationWithDetails[]>> {
-  const supabase = await createClient();
+  const supabase = options?.useAdmin ? createAdminClient() : await createClient();
 
   let query = supabase
     .from("visitor_authorizations")
@@ -142,15 +144,22 @@ export async function listVisitorAuthorizationsByCondominium(
   if (options?.search) {
     const term = options.search.trim().toLowerCase();
     if (term) {
-      rows = rows.filter(
-        (row) =>
-          row.full_name.toLowerCase().includes(term) ||
+      rows = rows.filter((row) => {
+        const matchesName = row.full_name.toLowerCase().includes(term);
+        const matchesUnit =
+          row.unit.number.toLowerCase().includes(term) ||
+          row.unit.tower.name.toLowerCase().includes(term);
+        if (options.useAdmin) {
+          return matchesName || matchesUnit;
+        }
+        return (
+          matchesName ||
+          matchesUnit ||
           row.document_number?.toLowerCase().includes(term) ||
           row.vehicle_plate?.toLowerCase().includes(term) ||
-          row.company_name?.toLowerCase().includes(term) ||
-          row.unit.number.toLowerCase().includes(term) ||
-          row.unit.tower.name.toLowerCase().includes(term),
-      );
+          row.company_name?.toLowerCase().includes(term)
+        );
+      });
     }
   }
 
@@ -185,8 +194,9 @@ export async function listVisitorAuthorizationsByUnit(
 export async function getVisitorAuthorizationById(
   authorizationId: string,
   condominiumId: string,
+  options?: { useAdmin?: boolean },
 ): Promise<ServiceResult<VisitorAuthorizationWithDetails>> {
-  const supabase = await createClient();
+  const supabase = options?.useAdmin ? createAdminClient() : await createClient();
 
   const { data, error } = await supabase
     .from("visitor_authorizations")
