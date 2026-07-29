@@ -120,6 +120,13 @@ function deriveCategoryCrud(role: Role, category: PermissionCategoryId): Categor
         delete: permissions.canManageAreas,
       };
     case "reservations":
+      if (role === ROLES.STAFF) {
+        return {
+          view: permissions.canManageReservations || permissions.canApproveReservations,
+          create: false,
+          delete: false,
+        };
+      }
       return {
         view: permissions.canManageReservations || permissions.canApproveReservations,
         create:

@@ -120,7 +120,10 @@ export function StaffDashboard({
 
   const actionTiles: QuickActionTile[] = [];
 
-  if (permissions.canManageReservations) {
+  if (
+    permissions.canManageReservations &&
+    (permissions.canApproveReservations || permissions.canBookReservationsForCondo)
+  ) {
     actionTiles.push({
       title: "Nova reserva",
       description: "Agendar espaço comum",

@@ -5,14 +5,14 @@ import { getMemberRoleLabel } from "@/lib/auth/member-roles";
 import { canCreateInCategory, canDeleteInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { ROLES, type Role } from "@/lib/constants";
 import { listActiveAccessDevicesForCondominium } from "@/lib/services/resident-access-grants";
-import {
-  listMembershipAccessDeviceIds,
-} from "@/lib/services/membership-access-devices";
+import { listMembershipAccessDeviceIds } from "@/lib/services/membership-access-devices";
 import { MembershipAccessForm } from "@/components/auth/membership-access-form";
+import { MembershipProfileForm } from "@/components/auth/membership-profile-form";
 import { PageHeader } from "@/components/shared/page-shell";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 interface MemberDetailPageProps {
@@ -43,7 +43,8 @@ export default async function MemberDetailPage({ params }: MemberDetailPageProps
       role,
       profile:profiles (
         id,
-        full_name
+        full_name,
+        avatar_url
       )
     `,
     )
@@ -56,7 +57,17 @@ export default async function MemberDetailPage({ params }: MemberDetailPageProps
   }
 
   const role = membership.role as Role;
-  const [devicesResult, deviceIdsResult] = await Promise.all([
+  const profile = Array.isArray(membership.profile)
+    ? membership.profile[0]
+    : membership.profile;
+
+  if (!profile) {
+    notFound();
+  }
+
+  const admin = createAdminClient();
+  const [{ data: authUser }, devicesResult, deviceIdsResult] = await Promise.all([
+    admin.auth.admin.getUserById(profile.id),
     listActiveAccessDevicesForCondominium(access.condominium.id),
     listMembershipAccessDeviceIds(membershipId),
   ]);
@@ -69,21 +80,44 @@ export default async function MemberDetailPage({ params }: MemberDetailPageProps
     return <ErrorAlert message={deviceIdsResult.error} title="Erro ao carregar vínculos" />;
   }
 
-  const profile = Array.isArray(membership.profile)
-    ? membership.profile[0]
-    : membership.profile;
+  const email = authUser.user?.email ?? "";
+  const phone =
+    typeof authUser.user?.user_metadata?.phone === "string"
+      ? authUser.user.user_metadata.phone
+      : "";
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
-        title={profile?.full_name ?? "Membro"}
-        description={`${getMemberRoleLabel(role)} · configure os pontos de acesso habilitados.`}
+        title={profile.full_name ?? "Membro"}
+        description={`${getMemberRoleLabel(role)} · dados pessoais e pontos de acesso.`}
         action={
           <Button variant="outline" asChild>
             <Link href={`/app/${condoSlug}/settings/members`}>Voltar</Link>
           </Button>
         }
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Dados pessoais</CardTitle>
+          <CardDescription>
+            Atualize nome, e-mail, telefone e foto deste cadastro quando necessário.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <MembershipProfileForm
+            condoSlug={condoSlug}
+            membershipId={membershipId}
+            defaultValues={{
+              fullName: profile.full_name ?? "",
+              email,
+              phone,
+              avatarUrl: profile.avatar_url,
+            }}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -4,6 +4,7 @@ import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { loadGeneralCondoPanelData } from "@/lib/condominiums/general-condo-data";
 import { listCommonAreasByCondominium, listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { ROLES } from "@/lib/constants";
+import { canCreateReservations } from "@/lib/reservations/create-permission";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import {
   getReservationByIdForContext,
@@ -31,7 +32,7 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
   const { reagendar: rescheduleFromId } = await searchParams;
   const access = await requireCondoAccess(condoSlug);
 
-  if (!access.permissions.canManageReservations) {
+  if (!canCreateReservations(access)) {
     redirect(`/app/${condoSlug}/reservations`);
   }
 

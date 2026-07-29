@@ -9,7 +9,7 @@ const CONTROL_ID_PHOTO_FOLDERS = new Set(["residents", "registration-requests", 
 
 export async function uploadCondoImage(input: {
   condominiumId: string;
-  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests" | "notifications" | "visitors";
+  folder: "residents" | "vehicles" | "reservations" | "announcements" | "registration-requests" | "notifications" | "visitors" | "members";
   file: File | null;
 }): Promise<ServiceResult<string | null>> {
   const file = input.file;

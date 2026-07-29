@@ -57,8 +57,7 @@ async function ConsultContent({
   const searchCondominiumIds =
     blockCondominiumIds ?? (granjaChildIdsResult?.ok ? granjaChildIdsResult.data : undefined);
   const includeUnapproved =
-    isGeneralCondoPage &&
-    (access.permissions.canManageVehicles || access.permissions.canConsultVehicles);
+    access.permissions.canManageVehicles || access.permissions.canConsultVehicles;
   const isPendingView =
     includeUnapproved && status === VEHICLE_STATUS.PENDING;
   const unitQuery = unitFilterToQueryOptions(await getUnitListFilterForAccess(access));
@@ -103,7 +102,7 @@ async function ConsultContent({
 
   return (
     <div className="space-y-4">
-      {includeUnapproved && (
+      {includeUnapproved && isGeneralCondoPage && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           {showPendingList
             ? "Veículos aguardando aprovação do síndico, com condomínio e unidade de origem."

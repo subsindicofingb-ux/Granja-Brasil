@@ -77,10 +77,7 @@ export function MembershipList({
                     member.role !== ROLES.RESIDENT &&
                     (member.role !== ROLES.SUPER_ADMIN || actorRole === ROLES.SUPER_ADMIN) ? (
                       <div className="flex items-center justify-end gap-2">
-                        {canConfigure &&
-                          (member.role === ROLES.STAFF ||
-                            member.role === ROLES.DOORMAN ||
-                            member.role === ROLES.SUB_SYNDIC) && (
+                        {canConfigure && (
                             <Button variant="ghost" size="sm" asChild>
                               <Link href={`/app/${condoSlug}/settings/members/${member.id}`}>
                                 Configurar

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
+import { canCreateReservations } from "@/lib/reservations/create-permission";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
 import { listReservationsForContext } from "@/lib/services/reservations";
@@ -50,7 +51,7 @@ async function ReservationsHeader({ condoSlug }: { condoSlug: string }) {
       title="Reservas"
       description="Agenda e gestão de reservas dos espaços comuns."
       action={
-        access.permissions.canManageReservations ? (
+        canCreateReservations(access) ? (
           <Button asChild>
             <Link href={`/app/${condoSlug}/reservations/new`}>
               <Plus className="h-4 w-4" />
@@ -169,7 +170,7 @@ async function ReservationsContent({
               : "Crie a primeira reserva de um espaço comum."
           }
           action={
-            access.permissions.canManageReservations ? (
+            canCreateReservations(access) ? (
               <Button asChild>
                 <Link href={`/app/${condoSlug}/reservations/new`}>Nova reserva</Link>
               </Button>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Vehicle } from "@/types";
 import { VEHICLE_STATUS, type VehicleStatus } from "@/lib/constants";
 import { resolveUnitContext } from "@/lib/services/unit-access";
@@ -148,6 +149,29 @@ function normalizeLicensePlateQuery(plate: string): string {
   return plate.replace(/[\s-]/g, "").trim().toUpperCase();
 }
 
+function normalizeLicensePlateForStorage(plate: string): string {
+  return normalizeLicensePlateQuery(plate);
+}
+
+function buildLicensePlateSearchVariants(normalized: string): string[] {
+  const variants = new Set<string>([normalized]);
+
+  if (normalized.length === 7) {
+    variants.add(`${normalized.slice(0, 3)}-${normalized.slice(3)}`);
+    // Mercosul: posição 4 é dígito; troca comum O ↔ 0
+    const fourth = normalized[3];
+    if (fourth === "0") {
+      variants.add(`${normalized.slice(0, 3)}O${normalized.slice(4)}`);
+      variants.add(`${normalized.slice(0, 3)}-O${normalized.slice(4)}`);
+    } else if (fourth === "O") {
+      variants.add(`${normalized.slice(0, 3)}0${normalized.slice(4)}`);
+      variants.add(`${normalized.slice(0, 3)}-0${normalized.slice(4)}`);
+    }
+  }
+
+  return Array.from(variants);
+}
+
 function mapVehicleConsultRow(row: VehicleConsultRow): VehicleWithUnitAndCondominium {
   return {
     ...mapVehicleRow(row),
@@ -272,14 +296,20 @@ export async function searchVehiclesForConsult(options?: {
     return serviceOk([]);
   }
 
-  const supabase = await createClient();
+  // Admin: consulta operacional precisa achar placas com hífen/espaço e
+  // cadastros em status pendente, sem depender de RLS parcial.
+  const admin = createAdminClient();
+  const variants = buildLicensePlateSearchVariants(plateQuery);
+  const plateFilter = variants
+    .map((variant) => `license_plate.ilike.%${variant}%`)
+    .join(",");
 
-  let query = supabase
+  let query = admin
     .from("vehicles")
     .select(VEHICLE_CONSULT_SELECT)
-    .ilike("license_plate", `%${plateQuery}%`)
+    .or(plateFilter)
     .order("license_plate", { ascending: true })
-    .limit(50);
+    .limit(100);
 
   if (!options?.includeUnapproved) {
     query = query.eq("status", VEHICLE_STATUS.APPROVED);
@@ -303,9 +333,11 @@ export async function searchVehiclesForConsult(options?: {
     return serviceError(mapSupabaseError(error));
   }
 
-  return serviceOk(
-    ((data as unknown as VehicleConsultRow[] | null) ?? []).map(mapVehicleConsultRow),
+  const matched = ((data as unknown as VehicleConsultRow[] | null) ?? []).filter((row) =>
+    normalizeLicensePlateQuery(row.license_plate).includes(plateQuery),
   );
+
+  return serviceOk(matched.map(mapVehicleConsultRow));
 }
 
 export async function listPendingVehiclesForConsult(): Promise<
@@ -412,7 +444,7 @@ export async function createVehicle(input: {
       brand: input.brand,
       model: input.model,
       color: input.color,
-      license_plate: input.licensePlate.trim().toUpperCase(),
+      license_plate: normalizeLicensePlateForStorage(input.licensePlate),
       tag_number: input.tagNumber,
       photo_url: input.photoUrl,
       status: input.status ?? VEHICLE_STATUS.APPROVED,
@@ -464,7 +496,7 @@ export async function updateVehicle(input: {
       brand: input.brand,
       model: input.model,
       color: input.color,
-      license_plate: input.licensePlate.trim().toUpperCase(),
+      license_plate: normalizeLicensePlateForStorage(input.licensePlate),
       tag_number: input.tagNumber,
       photo_url: input.photoUrl,
     })

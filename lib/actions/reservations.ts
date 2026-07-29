@@ -19,6 +19,7 @@ import {
 } from "@/lib/services/reservations";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { canCollectReservationHandover } from "@/lib/reservations/handover";
+import { canCreateReservations } from "@/lib/reservations/create-permission";
 import { localDateTimeToIso, parseTimeToMinutes } from "@/lib/reservations/timezone";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { canCancelReservation } from "@/lib/reservations/validate-booking";
@@ -81,7 +82,7 @@ export async function createReservationAction(
   const condoSlug = String(formData.get("condo_slug") ?? "");
   const access = await requireCondoAccess(condoSlug);
 
-  if (!access.permissions.canManageReservations) {
+  if (!canCreateReservations(access)) {
     return { error: "Sem permissão para criar reservas." };
   }
 
