@@ -101,6 +101,7 @@ export async function listResidentsByCondominium(
     condominiumId?: string;
     condominiumIds?: string[];
     unitId?: string;
+    search?: string;
   },
 ): Promise<ServiceResult<ResidentWithUnit[]>> {
   const supabase = await createClient();
@@ -117,6 +118,11 @@ export async function listResidentsByCondominium(
 
   if (options?.unitId) {
     query = query.eq("unit_id", options.unitId);
+  }
+
+  const search = options?.search?.trim();
+  if (search) {
+    query = query.ilike("full_name", `%${search}%`);
   }
 
   const { data, error } = await query;

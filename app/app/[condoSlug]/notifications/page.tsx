@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Suspense } from "react";
-import { requireCondoPermission } from "@/lib/auth/access";
+import { redirect } from "next/navigation";
+import { requireCondoAccess, requireCondoPermission } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { ROLES } from "@/lib/constants";
 import { listUnitNotificationsForContext } from "@/lib/services/notifications";
 import { NotificationCard } from "@/components/notifications/notification-card";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -114,6 +116,12 @@ async function NotificationsContent({ condoSlug }: { condoSlug: string }) {
 
 export default async function NotificationsPage({ params }: NotificationsPageProps) {
   const { condoSlug } = await params;
+  const gateAccess = await requireCondoAccess(condoSlug);
+
+  if (gateAccess.role === ROLES.STAFF && gateAccess.permissions.canSendAnnouncements) {
+    redirect(`/app/${condoSlug}/notifications/employee`);
+  }
+
   const access = await requireCondoPermission(
     condoSlug,
     (ctx) => ctx.permissions.canSendUnitNotifications || ctx.permissions.canViewUnitNotifications,

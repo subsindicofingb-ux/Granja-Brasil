@@ -147,6 +147,14 @@ function deriveCategoryCrud(role: Role, category: PermissionCategoryId): Categor
         delete: permissions.canManageWaterMeters,
       };
     case "notifications":
+      // Funcionário: "Notificações" na hierarquia = mensagem à administração (nunca morador).
+      if (role === ROLES.STAFF) {
+        return {
+          view: permissions.canSendAnnouncements,
+          create: permissions.canSendAnnouncements,
+          delete: false,
+        };
+      }
       return {
         view: permissions.canSendUnitNotifications || permissions.canViewUnitNotifications,
         create: permissions.canSendUnitNotifications,
@@ -278,12 +286,27 @@ function applyCategoryToPermissions(
         canManageAreas: cells.create || cells.delete,
       };
     case "reservations":
+      // Funcionário: Ver reservas e colher assinatura (sem aprovar/criar).
+      if (role === ROLES.STAFF) {
+        return {
+          canManageReservations: cells.view || cells.create || cells.delete,
+          canApproveReservations: false,
+          canBookReservationsForCondo: false,
+        };
+      }
       return {
         canManageReservations: cells.view || cells.create,
         canApproveReservations: cells.delete || cells.create,
         canBookReservationsForCondo: cells.create || base.canBookReservationsForCondo,
       };
     case "announcements":
+      // Funcionário envia mensagem à administração sem publicar avisos a moradores.
+      if (role === ROLES.STAFF) {
+        return {
+          canManageAnnouncements: false,
+          canSendAnnouncements: cells.view || cells.create || cells.delete || base.canSendAnnouncements,
+        };
+      }
       return {
         canManageAnnouncements: cells.create || cells.delete,
         canSendAnnouncements: cells.view || cells.create || cells.delete,
@@ -298,6 +321,14 @@ function applyCategoryToPermissions(
         canManageWaterMeters: cells.create || cells.delete,
       };
     case "notifications":
+      // Funcionário: criar notificação = avisar administração (nunca morador).
+      if (role === ROLES.STAFF) {
+        return {
+          canViewUnitNotifications: false,
+          canSendUnitNotifications: false,
+          canSendAnnouncements: cells.view || cells.create || cells.delete || base.canSendAnnouncements,
+        };
+      }
       return {
         canViewUnitNotifications: cells.view || cells.create || cells.delete,
         canSendUnitNotifications: cells.create || cells.delete,

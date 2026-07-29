@@ -3,7 +3,7 @@ import {
   canAccessCategoryNav,
   type PermissionCategoryId,
 } from "@/lib/auth/permission-matrix";
-import { NAV_ITEMS, type NavItem } from "@/lib/constants";
+import { NAV_ITEMS, ROLES, type NavItem } from "@/lib/constants";
 
 export type { NavVisibleContext } from "@/lib/nav-types";
 
@@ -103,7 +103,8 @@ function hasCategoryNavAccess(access: CondoAccess, category: PermissionCategoryI
   if (category === "notifications") {
     return (
       canAccessCategoryNav(access, category, managePermission) ||
-      access.permissions.canViewUnitNotifications
+      access.permissions.canViewUnitNotifications ||
+      (access.role === ROLES.STAFF && access.permissions.canSendAnnouncements)
     );
   }
 

@@ -294,6 +294,57 @@ async function resolveAnnouncementCreatedRecipientProfileIds(
   return getResidentProfileIdsForCondominium(announcement.condominium_id);
 }
 
+async function getProfileIdsByRoles(
+  condominiumId: string,
+  roles: readonly ("super_admin" | "admin" | "syndic" | "sub_syndic")[],
+): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("memberships")
+      .select("profile_id")
+      .eq("condominium_id", condominiumId)
+      .in("role", [...roles]);
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row) => row.profile_id);
+  } catch (error) {
+    logEmailFailure(
+      "roles",
+      error instanceof Error ? error.message : "Falha ao buscar destinatários.",
+    );
+    return [];
+  }
+}
+
+export async function notifyEmployeeAdminMessage(input: {
+  announcement: AnnouncementWithDetails;
+  senderProfileId: string;
+  isGranjaEmployee: boolean;
+}): Promise<void> {
+  const { announcement, senderProfileId, isGranjaEmployee } = input;
+  const fallbackCondoSlug = await resolveFallbackSlug(announcement);
+
+  const recipientProfileIds = isGranjaEmployee
+    ? await getProfileIdsByRoles(announcement.condominium_id, ["super_admin", "admin"])
+    : await getProfileIdsByRoles(announcement.condominium_id, ["syndic", "sub_syndic"]);
+
+  await sendAnnouncementEmailToProfiles({
+    profileIds: recipientProfileIds,
+    excludeProfileId: senderProfileId,
+    fallbackCondoSlug,
+    announcementId: announcement.id,
+    subject: `Notificação do funcionário: ${announcement.title}`,
+    preview: "Nova notificação da equipe operacional.",
+    title: "Notificação do funcionário",
+    bodyText: `Assunto: ${announcement.title}\n\n${announcement.body}`,
+    actionLabel: "Abrir mensagem",
+  });
+}
+
 export async function notifyAnnouncementCreated(input: {
   announcement: AnnouncementWithDetails;
   senderProfileId: string;

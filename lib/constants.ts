@@ -177,7 +177,9 @@ export const NAV_ITEMS: NavItem[] = [
     href: "vehicles",
     icon: "Car",
     visible: ({ permissions }) =>
-      permissions.canManageVehicles || permissions.canViewUnitVehicles,
+      permissions.canManageVehicles ||
+      permissions.canViewUnitVehicles ||
+      permissions.canConsultVehicles,
   },
   {
     label: "Espaços comuns",
@@ -209,8 +211,10 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Notificações",
     href: "notifications",
     icon: "Bell",
-    visible: ({ permissions }) =>
-      permissions.canSendUnitNotifications || permissions.canViewUnitNotifications,
+    visible: ({ role, permissions }) =>
+      permissions.canSendUnitNotifications ||
+      permissions.canViewUnitNotifications ||
+      (role === ROLES.STAFF && permissions.canSendAnnouncements),
   },
   {
     label: "Visitantes",

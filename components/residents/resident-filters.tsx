@@ -15,6 +15,7 @@ interface ResidentFiltersProps {
   condominiums?: CondominiumRecord[];
   selectedCondominiumSlug?: string;
   condominiumNamesById?: Record<string, string>;
+  searchQuery?: string;
 }
 
 export function ResidentFilters({
@@ -26,6 +27,7 @@ export function ResidentFilters({
   condominiums,
   selectedCondominiumSlug,
   condominiumNamesById,
+  searchQuery,
 }: ResidentFiltersProps) {
   const basePath = `/app/${condoSlug}/residents`;
   const useCondominiumFilter = Boolean(condominiums?.length);
@@ -43,11 +45,22 @@ export function ResidentFilters({
       : units;
 
   const hasFilters = Boolean(
-    selectedTowerId || selectedUnitId || selectedCondominiumSlug,
+    selectedTowerId || selectedUnitId || selectedCondominiumSlug || searchQuery,
   );
 
   return (
     <form method="get" className="flex flex-wrap items-end gap-3">
+      <div className="space-y-2">
+        <Label htmlFor="q">Nome</Label>
+        <input
+          id="q"
+          name="q"
+          type="search"
+          defaultValue={searchQuery ?? ""}
+          placeholder="Buscar por nome"
+          className="flex h-9 min-w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+        />
+      </div>
       {useCondominiumFilter ? (
         <div className="space-y-2">
           <Label htmlFor="condominium">Condomínio</Label>

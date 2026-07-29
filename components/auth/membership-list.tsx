@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { getMemberRoleLabel } from "@/lib/auth/member-roles";
 import { removeMembershipAction } from "@/lib/auth/actions";
 import type { Role } from "@/lib/constants";
@@ -22,6 +23,7 @@ interface MembershipListProps {
   currentProfileId: string;
   actorRole: Role;
   canDelete: boolean;
+  canConfigure?: boolean;
 }
 
 export function MembershipList({
@@ -30,8 +32,10 @@ export function MembershipList({
   currentProfileId,
   actorRole,
   canDelete,
+  canConfigure = false,
 }: MembershipListProps) {
   const [state, formAction, pending] = useActionState(removeMembershipAction, {});
+  const showActions = canDelete || canConfigure;
 
   return (
     <div className="space-y-4">
@@ -52,7 +56,7 @@ export function MembershipList({
             <tr>
               <th className="px-4 py-3 text-left font-medium">Nome</th>
               <th className="px-4 py-3 text-left font-medium">Papel</th>
-              {canDelete && <th className="px-4 py-3 text-right font-medium">Ações</th>}
+              {showActions && <th className="px-4 py-3 text-right font-medium">Ações</th>}
             </tr>
           </thead>
           <tbody>
@@ -67,24 +71,38 @@ export function MembershipList({
                 <td className="px-4 py-3 text-muted-foreground">
                   {getMemberRoleLabel(member.role)}
                 </td>
-                {canDelete && (
+                {showActions && (
                   <td className="px-4 py-3 text-right">
                     {member.profile?.id !== currentProfileId &&
                     member.role !== ROLES.RESIDENT &&
                     (member.role !== ROLES.SUPER_ADMIN || actorRole === ROLES.SUPER_ADMIN) ? (
-                      <form action={formAction}>
-                        <input type="hidden" name="condo_slug" value={condoSlug} />
-                        <input type="hidden" name="membership_id" value={member.id} />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          disabled={pending}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          Remover
-                        </Button>
-                      </form>
+                      <div className="flex items-center justify-end gap-2">
+                        {canConfigure &&
+                          (member.role === ROLES.STAFF ||
+                            member.role === ROLES.DOORMAN ||
+                            member.role === ROLES.SUB_SYNDIC) && (
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/app/${condoSlug}/settings/members/${member.id}`}>
+                                Configurar
+                              </Link>
+                            </Button>
+                          )}
+                        {canDelete ? (
+                          <form action={formAction}>
+                            <input type="hidden" name="condo_slug" value={condoSlug} />
+                            <input type="hidden" name="membership_id" value={member.id} />
+                            <Button
+                              type="submit"
+                              variant="ghost"
+                              size="sm"
+                              disabled={pending}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              Remover
+                            </Button>
+                          </form>
+                        ) : null}
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}

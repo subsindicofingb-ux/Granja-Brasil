@@ -12,12 +12,14 @@ import {
   notifyAnnouncementCreated,
   notifyAnnouncementRead,
   notifyAnnouncementReply,
+  notifyEmployeeAdminMessage,
 } from "@/lib/email/announcement-notifications";
 import type { AnnouncementWithDetails } from "@/lib/announcements/types";
 import {
   createAnnouncement,
   createAnnouncementReply,
   createDoormanToResidentAnnouncement,
+  createEmployeeAdminMessage,
   createResidentAnnouncement,
   createStaffToGranjaAnnouncement,
   getAnnouncementById,
@@ -261,6 +263,59 @@ export async function createStaffToGranjaAnnouncementAction(
   });
 
   revalidateAnnouncementPaths(condoSlug, result.data.id);
+  redirect(`/app/${condoSlug}/announcements/${result.data.id}?enviado=1`);
+}
+
+export async function createEmployeeAdminMessageAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) =>
+      ctx.role === ROLES.STAFF && ctx.permissions.canSendAnnouncements,
+    { redirectTo: `/app/${condoSlug}/notifications` },
+  );
+
+  const parsed = parseSyndicContactFormData(formData);
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const attachment = await uploadAnnouncementAttachment(access.condominium.id, formData);
+
+  if (!attachment.ok) {
+    return { error: attachment.error };
+  }
+
+  const result = await createEmployeeAdminMessage({
+    condominiumId: access.condominium.id,
+    createdBy: access.profile.id,
+    title: parsed.data.title,
+    body: parsed.data.body,
+    attachmentUrl: attachment.url,
+    attachmentName: attachment.name,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  try {
+    await notifyEmployeeAdminMessage({
+      announcement: result.data,
+      senderProfileId: access.profile.id,
+      isGranjaEmployee: isGeneralCondominium(condoSlug),
+    });
+  } catch (error) {
+    console.error("[email:employee-admin-message]", error);
+  }
+
+  revalidateAnnouncementPaths(condoSlug, result.data.id);
+  revalidatePath(`/app/${condoSlug}/notifications`);
   redirect(`/app/${condoSlug}/announcements/${result.data.id}?enviado=1`);
 }
 

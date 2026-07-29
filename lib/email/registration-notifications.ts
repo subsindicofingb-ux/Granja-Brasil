@@ -6,11 +6,15 @@ import {
   getCondominiumsInDoormanBlock,
   getDoormanBlockForCondominium,
 } from "@/lib/condominiums/doorman-blocks";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { REGISTRATION_PROFILE_TYPES } from "@/lib/constants";
 import type { CondominiumRecord } from "@/lib/services/condominiums-admin";
 import type { RegistrationRequestNotificationEvent } from "@/lib/registrations/types";
 import type { ResidentType } from "@/types";
 
 const SYNDIC_NOTIFICATION_ROLES = ["syndic", "sub_syndic", "admin"] as const;
+const GRANJA_STAFF_NOTIFICATION_ROLES = ["super_admin", "admin"] as const;
+const CONDO_EMPLOYEE_NOTIFICATION_ROLES = ["syndic", "sub_syndic"] as const;
 
 function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -35,41 +39,17 @@ async function getCondominiumSlug(condominiumId: string): Promise<string | null>
   }
 }
 
-async function getSyndicNotificationEmails(condominiumId: string): Promise<string[]> {
+async function getNotificationEmailsForRoles(
+  condominiumIds: string[],
+  roles: readonly ("super_admin" | "admin" | "syndic" | "sub_syndic")[],
+): Promise<string[]> {
   try {
     const admin = createAdminClient();
-
-    const { data: condominium, error: condominiumError } = await admin
-      .from("condominiums")
-      .select("id, slug, name")
-      .eq("id", condominiumId)
-      .maybeSingle();
-
-    if (condominiumError || !condominium) {
-      return [];
-    }
-
-    let condominiumIds = [condominiumId];
-    const block = getDoormanBlockForCondominium(condominium);
-
-    if (block) {
-      const { data: condominiums, error: condominiumsError } = await admin
-        .from("condominiums")
-        .select("id, slug, name");
-
-      if (!condominiumsError && condominiums?.length) {
-        condominiumIds = getCondominiumsInDoormanBlock(
-          block,
-          condominiums as CondominiumRecord[],
-        ).map((entry) => entry.id);
-      }
-    }
-
     const { data: memberships, error } = await admin
       .from("memberships")
       .select("profile_id")
       .in("condominium_id", condominiumIds)
-      .in("role", SYNDIC_NOTIFICATION_ROLES);
+      .in("role", [...roles]);
 
     if (error || !memberships?.length) {
       return [];
@@ -85,6 +65,67 @@ async function getSyndicNotificationEmails(condominiumId: string): Promise<strin
     }
 
     return [...new Set(emails)];
+  } catch {
+    return [];
+  }
+}
+
+async function getRegistrationNotificationEmails(
+  event: RegistrationRequestNotificationEvent,
+): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+
+    const { data: condominium, error: condominiumError } = await admin
+      .from("condominiums")
+      .select("id, slug, name")
+      .eq("id", event.condominiumId)
+      .maybeSingle();
+
+    if (condominiumError || !condominium) {
+      return [];
+    }
+
+    const isGranja = isGeneralCondominium(condominium.slug);
+    const isEmployeeSignup = event.profileType === REGISTRATION_PROFILE_TYPES.STAFF;
+
+    let condominiumIds = [event.condominiumId];
+    const block = getDoormanBlockForCondominium(condominium);
+
+    if (block && !isGranja) {
+      const { data: condominiums, error: condominiumsError } = await admin
+        .from("condominiums")
+        .select("id, slug, name");
+
+      if (!condominiumsError && condominiums?.length) {
+        condominiumIds = getCondominiumsInDoormanBlock(
+          block,
+          condominiums as CondominiumRecord[],
+        ).map((entry) => entry.id);
+      }
+    }
+
+    if (isGranja) {
+      const emails = await getNotificationEmailsForRoles(
+        condominiumIds,
+        GRANJA_STAFF_NOTIFICATION_ROLES,
+      );
+      if (emails.length > 0) {
+        return emails;
+      }
+
+      const { data: allCondos } = await admin.from("condominiums").select("id");
+      return getNotificationEmailsForRoles(
+        (allCondos ?? []).map((row) => row.id),
+        GRANJA_STAFF_NOTIFICATION_ROLES,
+      );
+    }
+
+    if (isEmployeeSignup) {
+      return getNotificationEmailsForRoles(condominiumIds, CONDO_EMPLOYEE_NOTIFICATION_ROLES);
+    }
+
+    return getNotificationEmailsForRoles(condominiumIds, SYNDIC_NOTIFICATION_ROLES);
   } catch {
     return [];
   }
@@ -162,7 +203,7 @@ export async function sendRegistrationRequestNotification(
     return false;
   }
 
-  const emails = await getSyndicNotificationEmails(event.condominiumId);
+  const emails = await getRegistrationNotificationEmails(event);
   if (emails.length === 0) {
     return false;
   }

@@ -42,7 +42,9 @@ export default async function AccessOpenPage({ params }: AccessOpenPageProps) {
         description={
           staffBypass
             ? "Envie um pulso remoto para visita ou emergência. Síndicos e administração podem abrir os locais ativos do condomínio sem cadastro facial. Cada abertura fica registrada."
-            : "Envie um pulso remoto para a sua visita ou em emergência. Só funciona nos locais sincronizados da sua unidade e cada abertura fica registrada."
+            : access.role === ROLES.STAFF
+              ? "Envie um pulso remoto somente nos locais habilitados no seu cadastro. Cada abertura fica registrada."
+              : "Envie um pulso remoto para a sua visita ou em emergência. Só funciona nos locais sincronizados da sua unidade e cada abertura fica registrada."
         }
       />
 
@@ -57,7 +59,7 @@ export default async function AccessOpenPage({ params }: AccessOpenPageProps) {
             <AccessRemoteOpenForm
               condoSlug={condoSlug}
               devices={devicesResult.data}
-              staffMode={staffBypass}
+              staffMode={staffBypass || access.role === ROLES.STAFF}
             />
           )}
         </CardContent>

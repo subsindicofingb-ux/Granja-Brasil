@@ -802,6 +802,27 @@ export async function addMembershipAction(
     return { error: insertError.message };
   }
 
+  if (role === ROLES.STAFF) {
+    try {
+      await notifyNewRegistrationRequest({
+        requestId: `membership:${targetUser.id}`,
+        condominiumId: access.condominium.id,
+        condominiumName: access.condominium.name,
+        fullName:
+          (targetUser.user_metadata?.full_name as string | undefined) ??
+          targetUser.email?.split("@")[0] ??
+          "Funcionário",
+        email: targetUser.email ?? email,
+        unitLabel: "Sem unidade (funcionário)",
+        profileType: "staff",
+        residentType: "responsible",
+        source: "signup",
+      });
+    } catch (error) {
+      console.error("[email:staff-membership]", error);
+    }
+  }
+
   revalidatePath(`/app/${condoSlug}/settings/members`);
   return { success: "Membro vinculado com sucesso." };
 }

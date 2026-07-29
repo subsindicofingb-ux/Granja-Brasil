@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getLinkedResidentForProfile } from "@/lib/services/residents";
 import { listAccessDevicesForCondominium } from "@/lib/services/access-devices";
+import { listAccessDevicesForMembershipProfile } from "@/lib/services/membership-access-devices";
 import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@/lib/services/types";
 import { ROLES, type Role } from "@/lib/constants";
 
@@ -78,6 +79,30 @@ export async function listSyncedAccessDevicesForProfile(input: {
           unit_id: null,
           requires_facial_sync: false,
         })),
+    );
+  }
+
+  if (input.role === ROLES.STAFF) {
+    const enabled = await listAccessDevicesForMembershipProfile({
+      profileId: input.profileId,
+      condominiumId: input.condominiumId,
+    });
+    if (!enabled.ok) {
+      return serviceError(enabled.error);
+    }
+
+    return serviceOk(
+      enabled.data.map((device) => ({
+        grant_id: null,
+        access_device_id: device.access_device_id,
+        display_name: device.display_name,
+        access_type: device.access_type,
+        entry_kind: device.entry_kind,
+        direction: device.direction,
+        controlid_user_id: null,
+        unit_id: null,
+        requires_facial_sync: false,
+      })),
     );
   }
 
@@ -333,6 +358,50 @@ export async function remoteOpenAccessDevice(input: {
       .from("access_devices")
       .select("id, display_name, host_url, api_username, api_password_encrypted, is_active")
       .eq("id", deviceMeta.id)
+      .maybeSingle();
+
+    if (deviceError) {
+      return serviceError(mapSupabaseError(deviceError));
+    }
+
+    if (!device?.is_active) {
+      return serviceError("Este equipamento está inativo.");
+    }
+
+    return pulseDeviceAndLog({
+      condominiumId: input.condominiumId,
+      profileId: input.profileId,
+      role: input.role,
+      device,
+      residentId: null,
+      unitId: null,
+      controlIdUserId: null,
+      reason: input.reason,
+      notes: input.notes,
+      visitorAuthorizationId: input.visitorAuthorizationId,
+    });
+  }
+
+  if (input.role === ROLES.STAFF) {
+    const enabled = await listAccessDevicesForMembershipProfile({
+      profileId: input.profileId,
+      condominiumId: input.condominiumId,
+    });
+    if (!enabled.ok) {
+      return serviceError(enabled.error);
+    }
+
+    const allowed = enabled.data.find(
+      (device) => device.access_device_id === input.accessDeviceId,
+    );
+    if (!allowed) {
+      return serviceError("Este local não está habilitado para o seu cadastro.");
+    }
+
+    const { data: device, error: deviceError } = await admin
+      .from("access_devices")
+      .select("id, display_name, host_url, api_username, api_password_encrypted, is_active")
+      .eq("id", input.accessDeviceId)
       .maybeSingle();
 
     if (deviceError) {

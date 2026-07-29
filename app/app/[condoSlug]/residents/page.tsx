@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface ResidentsPageProps {
   params: Promise<{ condoSlug: string }>;
-  searchParams: Promise<{ tower?: string; unit?: string; condominium?: string }>;
+  searchParams: Promise<{ tower?: string; unit?: string; condominium?: string; q?: string }>;
 }
 
 async function ResidentsHeader({ condoSlug }: { condoSlug: string }) {
@@ -69,11 +69,13 @@ async function ResidentsContent({
   towerId,
   unitId,
   selectedCondominiumSlug,
+  searchQuery,
 }: {
   condoSlug: string;
   towerId?: string;
   unitId?: string;
   selectedCondominiumSlug?: string;
+  searchQuery?: string;
 }) {
   const access = await requireCondoPermission(
     condoSlug,
@@ -102,6 +104,7 @@ async function ResidentsContent({
         ? undefined
         : condominiums.map((condominium) => condominium.id),
       unitId,
+      search: searchQuery,
     });
 
     if (!residentsResult.ok) {
@@ -119,6 +122,7 @@ async function ResidentsContent({
           condominiumNamesById={condominiumNamesById}
           selectedCondominiumSlug={selectedCondominiumSlug}
           selectedUnitId={unitId}
+          searchQuery={searchQuery}
         />
 
         {residents.length === 0 ? (
@@ -148,12 +152,12 @@ async function ResidentsContent({
           ) : (
             <EmptyState
               title={
-                unitId || selectedCondominiumSlug
+                unitId || selectedCondominiumSlug || searchQuery
                   ? "Nenhum morador neste filtro"
                   : "Nenhum morador cadastrado"
               }
               description={
-                unitId || selectedCondominiumSlug
+                unitId || selectedCondominiumSlug || searchQuery
                   ? "Não há moradores para os filtros selecionados."
                   : "Cadastre o primeiro morador do condomínio."
               }
@@ -258,6 +262,7 @@ async function ResidentsContent({
         ? undefined
         : panel.condominiums.map((condominium) => condominium.id),
       unitId,
+      search: searchQuery,
     });
 
     if (!residentsResult.ok) {
@@ -275,6 +280,7 @@ async function ResidentsContent({
           condominiumNamesById={panel.condominiumNamesById}
           selectedCondominiumSlug={selectedCondominiumSlug}
           selectedUnitId={unitId}
+          searchQuery={searchQuery}
         />
 
         {panel.units.length === 0 ? (
@@ -285,12 +291,12 @@ async function ResidentsContent({
         ) : residents.length === 0 ? (
           <EmptyState
             title={
-              unitId || selectedCondominiumSlug
+              unitId || selectedCondominiumSlug || searchQuery
                 ? "Nenhum morador neste filtro"
                 : "Nenhum morador cadastrado"
             }
             description={
-              unitId || selectedCondominiumSlug
+              unitId || selectedCondominiumSlug || searchQuery
                 ? "Não há moradores para os filtros selecionados."
                 : "Não há moradores cadastrados neste bloco."
             }
@@ -379,6 +385,7 @@ async function ResidentsContent({
     listResidentsByCondominium({
       condominiumId: access.condominium.id,
       unitId,
+      search: searchQuery,
     }),
   ]);
 
@@ -409,6 +416,7 @@ async function ResidentsContent({
         units={units}
         selectedTowerId={towerId}
         selectedUnitId={unitId}
+        searchQuery={searchQuery}
       />
 
       {filteredResidents.length === 0 ? (
@@ -430,10 +438,12 @@ async function ResidentsContent({
         ) : (
           <EmptyState
             title={
-              unitId || towerId ? "Nenhum morador neste filtro" : "Nenhum morador cadastrado"
+              unitId || towerId || searchQuery
+                ? "Nenhum morador neste filtro"
+                : "Nenhum morador cadastrado"
             }
             description={
-              unitId || towerId
+              unitId || towerId || searchQuery
                 ? "Não há moradores para os filtros selecionados."
                 : "Cadastre o primeiro morador do condomínio."
             }
@@ -525,10 +535,11 @@ async function ResidentsContent({
 
 export default async function ResidentsPage({ params, searchParams }: ResidentsPageProps) {
   const { condoSlug } = await params;
-  const { tower, unit, condominium } = await searchParams;
+  const { tower, unit, condominium, q } = await searchParams;
   const towerId = isValidUuid(tower) ? tower : undefined;
   const unitId = isValidUuid(unit) ? unit : undefined;
   const selectedCondominiumSlug = condominium?.trim().toLowerCase() || undefined;
+  const searchQuery = q?.trim() || undefined;
 
   if (selectedCondominiumSlug) {
     if (isGeneralCondominium(condoSlug)) {
@@ -573,6 +584,7 @@ export default async function ResidentsPage({ params, searchParams }: ResidentsP
           towerId={towerId}
           unitId={unitId}
           selectedCondominiumSlug={selectedCondominiumSlug}
+          searchQuery={searchQuery}
         />
       </Suspense>
     </div>

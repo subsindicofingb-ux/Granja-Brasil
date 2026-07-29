@@ -1154,6 +1154,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      membership_access_devices: {
+        Row: {
+          id: string;
+          membership_id: string;
+          access_device_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          membership_id: string;
+          access_device_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          membership_id?: string;
+          access_device_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       access_sync_jobs: {
         Row: {
           id: string;

@@ -118,6 +118,7 @@ export default async function MembersPage({ params, searchParams }: MembersPageP
             currentProfileId={access.profile.id}
             actorRole={access.role}
             canDelete={canDeleteMembers}
+            canConfigure={canCreateMembers || canDeleteMembers}
           />
         </CardContent>
       </Card>
