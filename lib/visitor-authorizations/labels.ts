@@ -64,8 +64,9 @@ export function getVisitorDisplayStatusBadgeClass(
     case "rejected":
       return "border-red-200 bg-red-50 text-red-700";
     case "cancelled":
-    case "expired":
       return "border-gray-200 bg-gray-50 text-gray-600";
+    case "expired":
+      return "border-red-200 bg-red-50 text-red-700";
     case "approved":
       return "border-green-200 bg-green-50 text-green-700";
     default:

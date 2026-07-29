@@ -25,9 +25,9 @@ import {
   ResponsiveRecords,
 } from "@/components/shared/responsive-records";
 import { VisitorAuthorizationFilters } from "@/components/visitors/visitor-authorization-filters";
+import { VisitorCheckInOutDates } from "@/components/visitors/visitor-check-in-out-dates";
 import { VisitorDisplayStatusBadge } from "@/components/visitors/visitor-display-status-badge";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/utils";
 
 interface ConsultPageProps {
   params: Promise<{ condoSlug: string }>;
@@ -129,7 +129,7 @@ async function ConsultContent({
                     </p>
                   )}
                 </div>
-                {!limitedConsult && <VisitorDisplayStatusBadge record={authorization} />}
+                <VisitorDisplayStatusBadge record={authorization} />
               </div>
               {!limitedConsult && authorization.vehicle_plate && (
                 <MobileRecordRow label="Placa">{authorization.vehicle_plate}</MobileRecordRow>
@@ -142,16 +142,9 @@ async function ConsultContent({
               <MobileRecordRow label="Unidade">
                 {formatUnitWithTower(authorization.unit)}
               </MobileRecordRow>
-              {!limitedConsult && (
-                <MobileRecordRow label="Período">
-                  <span>
-                    {formatDateTime(authorization.access_starts_at)}
-                    <span className="block text-xs font-normal text-muted-foreground">
-                      até {formatDateTime(authorization.access_ends_at)}
-                    </span>
-                  </span>
-                </MobileRecordRow>
-              )}
+              <MobileRecordRow label="Acesso">
+                <VisitorCheckInOutDates record={authorization} />
+              </MobileRecordRow>
               <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
                 <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>Ver</Link>
               </Button>
@@ -167,12 +160,8 @@ async function ConsultContent({
                       <th className="px-4 py-3 text-left font-medium">Documento</th>
                     )}
                     <th className="px-4 py-3 text-left font-medium">Unidade</th>
-                    {!limitedConsult && (
-                      <>
-                        <th className="px-4 py-3 text-left font-medium">Período</th>
-                        <th className="px-4 py-3 text-left font-medium">Status</th>
-                      </>
-                    )}
+                    <th className="px-4 py-3 text-left font-medium">Check-in / Check-out</th>
+                    <th className="px-4 py-3 text-left font-medium">Status</th>
                     <th className="px-4 py-3 text-right font-medium">Ações</th>
                   </tr>
                 </thead>
@@ -203,17 +192,12 @@ async function ConsultContent({
                       <td className="px-4 py-3 text-muted-foreground">
                         {formatUnitWithTower(authorization.unit)}
                       </td>
-                      {!limitedConsult && (
-                        <>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            <div>{formatDateTime(authorization.access_starts_at)}</div>
-                            <div className="text-xs">até {formatDateTime(authorization.access_ends_at)}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <VisitorDisplayStatusBadge record={authorization} />
-                          </td>
-                        </>
-                      )}
+                      <td className="px-4 py-3">
+                        <VisitorCheckInOutDates record={authorization} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <VisitorDisplayStatusBadge record={authorization} />
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <Button variant="ghost" size="sm" asChild>
                           <Link href={`/app/${condoSlug}/visitors/${authorization.id}`}>Ver</Link>

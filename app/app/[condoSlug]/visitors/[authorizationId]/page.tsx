@@ -27,6 +27,7 @@ import { VisitorAuthorizationForm } from "@/components/visitors/visitor-authoriz
 import { VisitorAccessEditForm } from "@/components/visitors/visitor-access-edit-form";
 import { VisitorAccessControl } from "@/components/visitors/visitor-access-control";
 import { ResidentAccessDeviceSummary } from "@/components/access-devices/resident-access-device-fields";
+import { VisitorCheckInOutDates } from "@/components/visitors/visitor-check-in-out-dates";
 import { VisitorDisplayStatusBadge } from "@/components/visitors/visitor-display-status-badge";
 import { DoormanNotesForm } from "@/components/visitors/doorman-notes-form";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -79,7 +80,11 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
   if (limitedConsult) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <PageHeader title={authorization.full_name} description="Consulta de cadastro." />
+        <PageHeader
+          title={authorization.full_name}
+          description="Consulta de cadastro."
+          action={<VisitorDisplayStatusBadge record={authorization} />}
+        />
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Informações</CardTitle>
@@ -92,6 +97,10 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Unidade</span>
               <span className="font-medium">{formatUnitWithTower(authorization.unit)}</span>
+            </div>
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-start">
+              <span className="text-muted-foreground">Acesso</span>
+              <VisitorCheckInOutDates record={authorization} className="sm:text-right" />
             </div>
           </CardContent>
         </Card>
@@ -226,13 +235,9 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
                 />
               </div>
             )}
-            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-              <span className="text-muted-foreground">Início</span>
-              <span className="font-medium">{formatDateTime(authorization.access_starts_at)}</span>
-            </div>
-            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-              <span className="text-muted-foreground">Fim</span>
-              <span className="font-medium">{formatDateTime(authorization.access_ends_at)}</span>
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-start">
+              <span className="text-muted-foreground">Acesso</span>
+              <VisitorCheckInOutDates record={authorization} className="sm:text-right" />
             </div>
             {authorization.requester && (
               <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
