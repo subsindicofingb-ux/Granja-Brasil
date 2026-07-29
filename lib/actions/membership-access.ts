@@ -5,7 +5,11 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { canCreateInCategory, canDeleteInCategory } from "@/lib/auth/permission-matrix";
 import type { AuthActionState } from "@/lib/auth/types";
 import { parseAccessDeviceIdsFromFormData } from "@/lib/access-devices/form";
-import { replaceMembershipAccessDevices } from "@/lib/services/membership-access-devices";
+import { replaceMembershipAccessDevices, listMembershipAccessDeviceIds } from "@/lib/services/membership-access-devices";
+import {
+  loadMembershipProfileForSync,
+  syncMembershipToControlIdDevices,
+} from "@/lib/services/membership-access-sync";
 import {
   formDataHasRemovePhoto,
   resolvePhotoUrl,
@@ -16,6 +20,32 @@ import { createClient } from "@/lib/supabase/server";
 
 function canConfigureMembers(access: Awaited<ReturnType<typeof requireCondoAccess>>): boolean {
   return canCreateInCategory(access, "members") || canDeleteInCategory(access, "members");
+}
+
+function formatMembershipSyncMessage(input: {
+  baseSuccess: string;
+  synced: number;
+  removed: number;
+  errors: string[];
+}): string {
+  const parts = [input.baseSuccess];
+
+  if (input.synced > 0 || input.removed > 0) {
+    const syncBits: string[] = [];
+    if (input.synced > 0) {
+      syncBits.push(`${input.synced} local(is) sincronizado(s)`);
+    }
+    if (input.removed > 0) {
+      syncBits.push(`${input.removed} removido(s)`);
+    }
+    parts.push(`ControlID: ${syncBits.join(", ")}.`);
+  }
+
+  if (input.errors.length > 0) {
+    parts.push(`Pendências: ${input.errors.join(" · ")}`);
+  }
+
+  return parts.join(" ");
 }
 
 export async function updateMembershipAccessDevicesAction(
@@ -47,19 +77,63 @@ export async function updateMembershipAccessDevicesAction(
     return { error: "Membro não encontrado neste condomínio." };
   }
 
+  const previousIdsResult = await listMembershipAccessDeviceIds(membershipId);
+  if (!previousIdsResult.ok) {
+    return { error: previousIdsResult.error ?? "Erro ao carregar locais atuais." };
+  }
+
+  const nextAccessDeviceIds = parseAccessDeviceIdsFromFormData(formData);
   const result = await replaceMembershipAccessDevices({
     membershipId,
     condominiumId: access.condominium.id,
-    accessDeviceIds: parseAccessDeviceIdsFromFormData(formData),
+    accessDeviceIds: nextAccessDeviceIds,
   });
 
   if (!result.ok) {
     return { error: result.error ?? "Não foi possível salvar os locais de acesso." };
   }
 
+  const profileResult = await loadMembershipProfileForSync(membershipId);
+  if (!profileResult.ok) {
+    revalidatePath(`/app/${condoSlug}/settings/members`);
+    revalidatePath(`/app/${condoSlug}/settings/members/${membershipId}`);
+    return {
+      success:
+        "Locais de acesso salvos, mas não foi possível sincronizar o ControlID: " +
+        (profileResult.error ?? "erro desconhecido"),
+    };
+  }
+
+  const nextSet = new Set(nextAccessDeviceIds);
+  const removeDeviceIds = previousIdsResult.data.filter((id) => !nextSet.has(id));
+
+  const syncResult = await syncMembershipToControlIdDevices({
+    membershipId,
+    fullName: profileResult.data.fullName,
+    photoUrl: profileResult.data.photoUrl,
+    accessDeviceIds: nextAccessDeviceIds,
+    removeDeviceIds,
+  });
+
   revalidatePath(`/app/${condoSlug}/settings/members`);
   revalidatePath(`/app/${condoSlug}/settings/members/${membershipId}`);
-  return { success: "Locais de acesso do membro atualizados." };
+
+  if (!syncResult.ok) {
+    return {
+      success:
+        "Locais de acesso atualizados, mas o ControlID falhou: " +
+        (syncResult.error ?? "erro desconhecido"),
+    };
+  }
+
+  return {
+    success: formatMembershipSyncMessage({
+      baseSuccess: "Locais de acesso do membro atualizados.",
+      synced: syncResult.data.synced,
+      removed: syncResult.data.removed,
+      errors: syncResult.data.errors,
+    }),
+  };
 }
 
 export async function updateMembershipProfileAction(
@@ -147,7 +221,46 @@ export async function updateMembershipProfileAction(
     return { error: authError.message };
   }
 
+  const deviceIdsResult = await listMembershipAccessDeviceIds(membershipId);
+  if (!deviceIdsResult.ok) {
+    revalidatePath(`/app/${condoSlug}/settings/members`);
+    revalidatePath(`/app/${condoSlug}/settings/members/${membershipId}`);
+    return {
+      success:
+        "Dados pessoais atualizados, mas não foi possível sincronizar o ControlID: " +
+        (deviceIdsResult.error ?? "erro desconhecido"),
+    };
+  }
+
+  let syncMessage = "Dados pessoais atualizados.";
+
+  if (deviceIdsResult.data.length > 0) {
+    const syncResult = await syncMembershipToControlIdDevices({
+      membershipId,
+      fullName,
+      photoUrl: avatarUrl,
+      accessDeviceIds: deviceIdsResult.data,
+    });
+
+    if (!syncResult.ok) {
+      revalidatePath(`/app/${condoSlug}/settings/members`);
+      revalidatePath(`/app/${condoSlug}/settings/members/${membershipId}`);
+      return {
+        success:
+          "Dados pessoais atualizados, mas o ControlID falhou: " +
+          (syncResult.error ?? "erro desconhecido"),
+      };
+    }
+
+    syncMessage = formatMembershipSyncMessage({
+      baseSuccess: "Dados pessoais atualizados.",
+      synced: syncResult.data.synced,
+      removed: syncResult.data.removed,
+      errors: syncResult.data.errors,
+    });
+  }
+
   revalidatePath(`/app/${condoSlug}/settings/members`);
   revalidatePath(`/app/${condoSlug}/settings/members/${membershipId}`);
-  return { success: "Dados pessoais atualizados." };
+  return { success: syncMessage };
 }

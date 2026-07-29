@@ -18,3 +18,10 @@ export function buildVisitorControlIdRegistration(visitorAuthorizationId: string
   const numeric = (BigInt(`0x${compact}`) % BigInt(89_999_999)) + BigInt(10_000_000);
   return numeric.toString().padStart(8, "0");
 }
+
+/** Matrícula ControlID para membros/equipe (faixa 1M–9.999.999, distinta de moradores). */
+export function buildMembershipControlIdRegistration(membershipId: string): string {
+  const compact = membershipId.replace(/-/g, "").slice(0, 12);
+  const numeric = (BigInt(`0x${compact}`) % BigInt(8_999_999)) + BigInt(1_000_000);
+  return numeric.toString().padStart(8, "0");
+}
