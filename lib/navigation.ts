@@ -17,6 +17,7 @@ const NAV_CATEGORY_BY_HREF: Partial<Record<string, PermissionCategoryId>> = {
   reservations: "reservations",
   announcements: "announcements",
   correspondence: "correspondence",
+  occurrences: "occurrences",
   "water-meters": "water_meters",
   notifications: "notifications",
   visitors: "visitors",
@@ -49,6 +50,8 @@ function getManagePermissionForCategory(
       return permissions.canManageAnnouncements;
     case "correspondence":
       return permissions.canManageCorrespondence;
+    case "occurrences":
+      return permissions.canManageOccurrences;
     case "water_meters":
       return permissions.canManageWaterMeters;
     case "notifications":
@@ -112,6 +115,14 @@ function hasCategoryNavAccess(access: CondoAccess, category: PermissionCategoryI
     return (
       canAccessCategoryNav(access, category, managePermission) ||
       access.permissions.canViewWaterMeters
+    );
+  }
+
+  if (category === "occurrences") {
+    return (
+      canAccessCategoryNav(access, category, managePermission) ||
+      access.permissions.canViewOccurrences ||
+      access.permissions.canRegisterOccurrences
     );
   }
 

@@ -12,6 +12,7 @@ export const PERMISSION_CATEGORY_IDS = [
   "reservations",
   "announcements",
   "correspondence",
+  "occurrences",
   "water_meters",
   "notifications",
   "visitors",
@@ -51,6 +52,7 @@ export const PERMISSION_CATEGORY_LABELS: Record<PermissionCategoryId, string> = 
   reservations: "Reservas",
   announcements: "Avisos",
   correspondence: "Correspondências",
+  occurrences: "Ocorrências",
   water_meters: "Hidrômetros",
   notifications: "Notificações",
   visitors: "Visitantes",
@@ -146,6 +148,12 @@ function deriveCategoryCrud(role: Role, category: PermissionCategoryId): Categor
         view: permissions.canManageCorrespondence,
         create: permissions.canManageCorrespondence,
         delete: permissions.canManageCorrespondence,
+      };
+    case "occurrences":
+      return {
+        view: permissions.canViewOccurrences || permissions.canRegisterOccurrences,
+        create: permissions.canRegisterOccurrences,
+        delete: permissions.canManageOccurrences,
       };
     case "water_meters":
       return {
@@ -321,6 +329,12 @@ function applyCategoryToPermissions(
     case "correspondence":
       return {
         canManageCorrespondence: cells.create || cells.delete,
+      };
+    case "occurrences":
+      return {
+        canViewOccurrences: cells.view || cells.create || cells.delete,
+        canRegisterOccurrences: cells.create || cells.delete,
+        canManageOccurrences: cells.delete,
       };
     case "water_meters":
       return {

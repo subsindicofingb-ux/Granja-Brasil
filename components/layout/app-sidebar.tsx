@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Car,
   ChevronRight,
+  ClipboardList,
   Home,
   LayoutDashboard,
   Megaphone,
@@ -42,6 +43,7 @@ const iconMap = {
   Droplets,
   DoorOpen,
   KeyRound,
+  ClipboardList,
 } as const;
 
 interface AppSidebarProps {

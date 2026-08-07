@@ -962,6 +962,60 @@ export interface Database {
           },
         ];
       };
+      occurrences: {
+        Row: {
+          id: string;
+          condominium_id: string;
+          unit_id: string | null;
+          category: Database["public"]["Enums"]["occurrence_category"];
+          title: string;
+          description: string;
+          location_text: string | null;
+          status: Database["public"]["Enums"]["occurrence_status"];
+          occurred_at: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+          closed_at: string | null;
+          closed_by: string | null;
+          internal_notes: string | null;
+        };
+        Insert: {
+          id?: string;
+          condominium_id: string;
+          unit_id?: string | null;
+          category?: Database["public"]["Enums"]["occurrence_category"];
+          title: string;
+          description: string;
+          location_text?: string | null;
+          status?: Database["public"]["Enums"]["occurrence_status"];
+          occurred_at?: string;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          internal_notes?: string | null;
+        };
+        Update: {
+          id?: string;
+          condominium_id?: string;
+          unit_id?: string | null;
+          category?: Database["public"]["Enums"]["occurrence_category"];
+          title?: string;
+          description?: string;
+          location_text?: string | null;
+          status?: Database["public"]["Enums"]["occurrence_status"];
+          occurred_at?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          internal_notes?: string | null;
+        };
+        Relationships: [];
+      };
       correspondence_notices: {
         Row: {
           id: string;
@@ -1689,6 +1743,14 @@ export interface Database {
       access_remote_open_origin: "app_resident" | "app_doorman" | "app_staff";
       access_remote_open_result: "ok" | "error";
       legal_document_type: LegalDocumentType;
+      occurrence_category:
+        | "elevator_stop"
+        | "power_outage"
+        | "accident"
+        | "complaint"
+        | "report"
+        | "other";
+      occurrence_status: "open" | "in_progress" | "closed";
     };
   };
 }

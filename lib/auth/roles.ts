@@ -28,6 +28,9 @@ export type RolePermissions = {
   canConsultVisitorAuthorizations: boolean;
   canBookReservationsForCondo: boolean;
   canManageCorrespondence: boolean;
+  canViewOccurrences: boolean;
+  canRegisterOccurrences: boolean;
+  canManageOccurrences: boolean;
   canManageWaterMeters: boolean;
   canViewWaterMeters: boolean;
   canConsultResidents: boolean;
@@ -66,6 +69,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
     canConsultResidents: false,
@@ -102,6 +108,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: true,
     canViewWaterMeters: true,
     canConsultResidents: false,
@@ -138,6 +147,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: true,
     canViewWaterMeters: true,
     canConsultResidents: false,
@@ -174,6 +186,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: true,
     canViewWaterMeters: true,
     canConsultResidents: false,
@@ -210,6 +225,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: false,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: false,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
     canConsultResidents: false,
@@ -246,6 +264,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: true,
     canManageCorrespondence: true,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: true,
     canViewWaterMeters: false,
     canConsultResidents: true,
@@ -282,6 +303,9 @@ export const ROLE_PERMISSIONS = {
     canConsultVisitorAuthorizations: true,
     canBookReservationsForCondo: false,
     canManageCorrespondence: false,
+    canViewOccurrences: true,
+    canRegisterOccurrences: true,
+    canManageOccurrences: true,
     canManageWaterMeters: false,
     canViewWaterMeters: false,
     canConsultResidents: true,

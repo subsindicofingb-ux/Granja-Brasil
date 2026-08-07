@@ -28,6 +28,7 @@ import {
   Droplets,
   DoorOpen,
   KeyRound,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ const iconMap = {
   Droplets,
   DoorOpen,
   KeyRound,
+  ClipboardList,
 } as const;
 
 interface MobileCondoNavProps {

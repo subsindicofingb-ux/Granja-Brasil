@@ -104,6 +104,21 @@ export const VEHICLE_STATUS = {
 
 export type VehicleStatus = (typeof VEHICLE_STATUS)[keyof typeof VEHICLE_STATUS];
 
+export const OCCURRENCE_CATEGORY = {
+  ELEVATOR_STOP: "elevator_stop",
+  POWER_OUTAGE: "power_outage",
+  ACCIDENT: "accident",
+  COMPLAINT: "complaint",
+  REPORT: "report",
+  OTHER: "other",
+} as const;
+
+export const OCCURRENCE_STATUS = {
+  OPEN: "open",
+  IN_PROGRESS: "in_progress",
+  CLOSED: "closed",
+} as const;
+
 export type RegistrationProfileType =
   (typeof REGISTRATION_PROFILE_TYPES)[keyof typeof REGISTRATION_PROFILE_TYPES];
 
@@ -123,7 +138,8 @@ export type NavIcon =
   | "Package"
   | "Droplets"
   | "DoorOpen"
-  | "KeyRound";
+  | "KeyRound"
+  | "ClipboardList";
 
 import type { NavVisibleContext } from "@/lib/nav-types";
 
@@ -199,6 +215,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "correspondence",
     icon: "Package",
     visible: ({ permissions }) => permissions.canManageCorrespondence,
+  },
+  {
+    label: "Ocorrências",
+    href: "occurrences",
+    icon: "ClipboardList",
+    visible: ({ permissions }) =>
+      permissions.canViewOccurrences || permissions.canRegisterOccurrences,
   },
   {
     label: "Hidrômetros",
