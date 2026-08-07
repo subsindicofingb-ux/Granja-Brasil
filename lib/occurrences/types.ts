@@ -26,6 +26,8 @@ export type OccurrenceRecord = {
   closed_by: string | null;
   internal_notes: string | null;
   response_text: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
 };
 
 export type OccurrenceWithDetails = OccurrenceRecord & {

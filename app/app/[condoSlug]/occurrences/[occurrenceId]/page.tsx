@@ -12,6 +12,7 @@ import {
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { getOccurrenceById } from "@/lib/services/occurrences";
 import { OccurrenceStatusForm } from "@/components/occurrences/occurrence-status-form";
+import { AnnouncementAttachmentLink } from "@/components/announcements/announcement-attachment-link";
 import { ErrorAlert, SuccessAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +132,15 @@ export default async function OccurrenceDetailPage({
             <span className="text-muted-foreground">Descrição</span>
             <p className="whitespace-pre-wrap font-medium">{occurrence.description}</p>
           </div>
+          {occurrence.attachment_url && (
+            <div className="space-y-1 border-t pt-3">
+              <span className="text-muted-foreground">Anexo</span>
+              <AnnouncementAttachmentLink
+                url={occurrence.attachment_url}
+                name={occurrence.attachment_name}
+              />
+            </div>
+          )}
           {occurrence.response_text && (
             <div className="space-y-1 border-t pt-3">
               <span className="text-muted-foreground">Resposta</span>

@@ -21,7 +21,9 @@ import {
 import {
   parseOccurrenceFormData,
   parseOccurrenceStatusFormData,
+  getOccurrenceAttachmentFromForm,
 } from "@/lib/validations/occurrence.schema";
+import { uploadCondoImage } from "@/lib/storage/upload-image";
 
 function revalidateOccurrencePaths(condoSlug: string, occurrenceId?: string) {
   revalidatePath(`/app/${condoSlug}/occurrences`);
@@ -79,6 +81,23 @@ export async function createOccurrenceAction(
     isGranjaDestination = true;
   }
 
+  const file = getOccurrenceAttachmentFromForm(formData);
+  let attachmentUrl: string | null = null;
+  let attachmentName: string | null = null;
+
+  if (file) {
+    const upload = await uploadCondoImage({
+      condominiumId,
+      folder: "occurrences",
+      file,
+    });
+    if (!upload.ok) {
+      return { error: upload.error };
+    }
+    attachmentUrl = upload.data;
+    attachmentName = file.name;
+  }
+
   const result = await createOccurrence({
     condominiumId,
     sourceCondominiumId,
@@ -89,6 +108,8 @@ export async function createOccurrenceAction(
     locationText: parsed.data.location_text,
     unitId: parsed.data.unit_id || null,
     occurredAt: occurredAt.toISOString(),
+    attachmentUrl,
+    attachmentName,
   });
 
   if (!result.ok) {

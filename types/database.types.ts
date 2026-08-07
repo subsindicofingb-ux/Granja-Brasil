@@ -981,6 +981,8 @@ export interface Database {
           closed_by: string | null;
           internal_notes: string | null;
           response_text: string | null;
+          attachment_url: string | null;
+          attachment_name: string | null;
         };
         Insert: {
           id?: string;
@@ -1000,6 +1002,8 @@ export interface Database {
           closed_by?: string | null;
           internal_notes?: string | null;
           response_text?: string | null;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
         };
         Update: {
           id?: string;
@@ -1019,6 +1023,8 @@ export interface Database {
           closed_by?: string | null;
           internal_notes?: string | null;
           response_text?: string | null;
+          attachment_url?: string | null;
+          attachment_name?: string | null;
         };
         Relationships: [];
       };

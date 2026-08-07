@@ -10,6 +10,10 @@ function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 }
 
+function logEmailFailure(context: string, error: string): void {
+  console.error(`[email:occurrence:${context}] ${error}`);
+}
+
 async function getProfileEmail(profileId: string): Promise<string | null> {
   try {
     const admin = createAdminClient();
@@ -42,6 +46,17 @@ async function getCondominiumMeta(
   }
 }
 
+async function emailsForProfileIds(profileIds: string[]): Promise<string[]> {
+  const emails: string[] = [];
+  for (const profileId of [...new Set(profileIds.filter(Boolean))]) {
+    const email = await getProfileEmail(profileId);
+    if (email) {
+      emails.push(email);
+    }
+  }
+  return [...new Set(emails)];
+}
+
 async function getManagerEmails(input: {
   condominiumId: string;
   roles: readonly MembershipRole[];
@@ -58,15 +73,39 @@ async function getManagerEmails(input: {
       return [];
     }
 
-    const emails: string[] = [];
-    for (const membership of memberships) {
-      const email = await getProfileEmail(membership.profile_id);
-      if (email) {
-        emails.push(email);
-      }
-    }
-    return [...new Set(emails)];
+    return emailsForProfileIds(memberships.map((row) => row.profile_id));
   } catch {
+    return [];
+  }
+}
+
+/** Super admin em qualquer condomínio + admin/super_admin da Granja. */
+async function getGranjaOccurrenceNotifyEmails(
+  granjaCondominiumId: string,
+): Promise<string[]> {
+  try {
+    const admin = createAdminClient();
+
+    const [{ data: granjaMemberships }, { data: superMemberships }] = await Promise.all([
+      admin
+        .from("memberships")
+        .select("profile_id")
+        .eq("condominium_id", granjaCondominiumId)
+        .in("role", ["admin", "super_admin"]),
+      admin.from("memberships").select("profile_id").eq("role", "super_admin"),
+    ]);
+
+    const profileIds = [
+      ...(granjaMemberships ?? []).map((row) => row.profile_id),
+      ...(superMemberships ?? []).map((row) => row.profile_id),
+    ];
+
+    return emailsForProfileIds(profileIds);
+  } catch (error) {
+    logEmailFailure(
+      "granja-recipients",
+      error instanceof Error ? error.message : "Falha ao buscar destinatários da Granja.",
+    );
     return [];
   }
 }
@@ -78,20 +117,24 @@ export async function notifyOccurrenceCreated(input: {
   condominiumName: string;
 }): Promise<boolean> {
   if (!isEmailConfigured()) {
+    logEmailFailure("created", "E-mail não configurado (RESEND_API_KEY).");
     return false;
   }
 
   const emails = input.isGranjaDestination
-    ? await getManagerEmails({
-        condominiumId: input.occurrence.condominium_id,
-        roles: ["admin"],
-      })
+    ? await getGranjaOccurrenceNotifyEmails(input.occurrence.condominium_id)
     : await getManagerEmails({
         condominiumId: input.occurrence.condominium_id,
         roles: ["syndic", "sub_syndic", "admin"],
       });
 
   if (emails.length === 0) {
+    logEmailFailure(
+      "created",
+      input.isGranjaDestination
+        ? "Nenhum e-mail de Super Admin/Admin da Granja encontrado."
+        : "Nenhum e-mail de síndico/admin do condomínio encontrado.",
+    );
     return false;
   }
 
@@ -110,6 +153,9 @@ export async function notifyOccurrenceCreated(input: {
     `Tipo: ${getOccurrenceCategoryLabel(input.occurrence.category)}`,
     `Registrado por: ${authorName}`,
     input.occurrence.location_text ? `Local: ${input.occurrence.location_text}` : null,
+    input.occurrence.attachment_url
+      ? `Anexo: ${input.occurrence.attachment_name ?? "arquivo"} (${input.occurrence.attachment_url})`
+      : null,
     ``,
     `Descrição:`,
     input.occurrence.description,
@@ -133,6 +179,10 @@ export async function notifyOccurrenceCreated(input: {
     tags: [{ name: "category", value: "occurrence" }],
   });
 
+  if (!result.ok) {
+    logEmailFailure("created", result.error);
+  }
+
   return result.ok;
 }
 
@@ -142,11 +192,13 @@ export async function notifyOccurrenceUpdatedToAuthor(input: {
   responderName: string;
 }): Promise<boolean> {
   if (!isEmailConfigured()) {
+    logEmailFailure("updated", "E-mail não configurado (RESEND_API_KEY).");
     return false;
   }
 
   const email = await getProfileEmail(input.occurrence.created_by);
   if (!email) {
+    logEmailFailure("updated", "E-mail do reclamante não encontrado.");
     return false;
   }
 
@@ -180,6 +232,10 @@ export async function notifyOccurrenceUpdatedToAuthor(input: {
     }),
     tags: [{ name: "category", value: "occurrence" }],
   });
+
+  if (!result.ok) {
+    logEmailFailure("updated", result.error);
+  }
 
   return result.ok;
 }

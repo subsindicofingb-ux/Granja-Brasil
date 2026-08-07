@@ -47,3 +47,8 @@ export function parseOccurrenceStatusFormData(formData: FormData) {
     internal_notes: formData.get("internal_notes") || undefined,
   });
 }
+
+export function getOccurrenceAttachmentFromForm(formData: FormData): File | null {
+  const file = formData.get("attachment");
+  return file instanceof File && file.size > 0 ? file : null;
+}

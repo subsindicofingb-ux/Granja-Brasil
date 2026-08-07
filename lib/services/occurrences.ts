@@ -26,7 +26,9 @@ const OCCURRENCE_SELECT = `
   closed_at,
   closed_by,
   internal_notes,
-  response_text
+  response_text,
+  attachment_url,
+  attachment_name
 `;
 
 type OccurrenceRow = {
@@ -47,6 +49,8 @@ type OccurrenceRow = {
   closed_by: string | null;
   internal_notes: string | null;
   response_text: string | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
 };
 
 async function getProfileMap(profileIds: string[]) {
@@ -207,6 +211,8 @@ export async function createOccurrence(input: {
   locationText?: string | null;
   unitId?: string | null;
   occurredAt: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
 }): Promise<ServiceResult<OccurrenceWithDetails>> {
   try {
     const supabase = await createClient();
@@ -223,6 +229,8 @@ export async function createOccurrence(input: {
         unit_id: input.unitId || null,
         occurred_at: input.occurredAt,
         status: OCCURRENCE_STATUS.OPEN,
+        attachment_url: input.attachmentUrl ?? null,
+        attachment_name: input.attachmentName ?? null,
       })
       .select(OCCURRENCE_SELECT)
       .single();

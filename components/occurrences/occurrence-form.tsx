@@ -29,7 +29,7 @@ export function OccurrenceForm({
   const [destination, setDestination] = useState<"building" | "granja">("building");
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" encType="multipart/form-data">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       <FormAlert error={state.error} success={state.success} />
 
@@ -92,6 +92,19 @@ export function OccurrenceForm({
           placeholder="Descreva o relato, reclamação ou ocorrência com detalhes relevantes."
           className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="attachment">Anexo (opcional)</Label>
+        <Input
+          id="attachment"
+          name="attachment"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+        />
+        <p className="text-xs text-muted-foreground">
+          Foto ou documento (JPG, PNG, WebP ou PDF, máx. 5 MB) para fortalecer a ocorrência.
+        </p>
       </div>
 
       <div className="space-y-2">
