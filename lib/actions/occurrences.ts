@@ -5,11 +5,15 @@ import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
 import type { AuthActionState } from "@/lib/auth/types";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
-import {
-  getOperationalCondominiumIds,
-  resolveDoormanOperationalPanel,
-} from "@/lib/condominiums/doorman-panel";
+import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
+import { ROLES } from "@/lib/constants";
 import type { OccurrenceCategory, OccurrenceStatus } from "@/lib/occurrences/types";
+import {
+  notifyOccurrenceCreated,
+  notifyOccurrenceUpdatedToAuthor,
+  resolveOccurrenceCondoSlug,
+  resolveOccurrenceCondominiumName,
+} from "@/lib/email/occurrence-notifications";
 import {
   createOccurrence,
   updateOccurrenceStatus,
@@ -24,30 +28,6 @@ function revalidateOccurrencePaths(condoSlug: string, occurrenceId?: string) {
   if (occurrenceId) {
     revalidatePath(`/app/${condoSlug}/occurrences/${occurrenceId}`);
   }
-}
-
-async function resolveOccurrenceCondominiumId(
-  condoSlug: string,
-  membershipCondominiumId: string,
-  targetCondominiumId?: string,
-): Promise<{ ok: true; condominiumId: string } | { ok: false; error: string }> {
-  if (isGeneralCondominium(condoSlug)) {
-    return { ok: false, error: "Selecione um condomínio específico para registrar." };
-  }
-
-  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
-  if (panelResult.ok && panelResult.data.mode === "block") {
-    const ids = getOperationalCondominiumIds(panelResult.data, membershipCondominiumId);
-    if (targetCondominiumId) {
-      if (!ids.includes(targetCondominiumId)) {
-        return { ok: false, error: "Condomínio fora do bloco operacional." };
-      }
-      return { ok: true, condominiumId: targetCondominiumId };
-    }
-    return { ok: true, condominiumId: membershipCondominiumId };
-  }
-
-  return { ok: true, condominiumId: membershipCondominiumId };
 }
 
 export async function createOccurrenceAction(
@@ -70,23 +50,38 @@ export async function createOccurrenceAction(
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
   }
 
-  const targetCondominiumId = String(formData.get("target_condominium_id") ?? "") || undefined;
-  const condoScope = await resolveOccurrenceCondominiumId(
-    condoSlug,
-    access.condominium.id,
-    targetCondominiumId,
-  );
-  if (!condoScope.ok) {
-    return { error: condoScope.error };
-  }
-
   const occurredAt = new Date(parsed.data.occurred_at);
   if (Number.isNaN(occurredAt.getTime())) {
     return { error: "Data/hora da ocorrência inválida." };
   }
 
+  const destination = parsed.data.destination;
+  const isGranjaContext = isGeneralCondominium(condoSlug);
+  let condominiumId = access.condominium.id;
+  let sourceCondominiumId: string | null = null;
+  let isGranjaDestination = false;
+
+  if (destination === "granja") {
+    if (isGranjaContext) {
+      return { error: "Você já está no contexto da Granja Brasil." };
+    }
+
+    const granjaId = await getGranjaCondominiumId();
+    if (!granjaId) {
+      return { error: "Condomínio Granja Brasil não encontrado." };
+    }
+
+    condominiumId = granjaId;
+    sourceCondominiumId = access.condominium.id;
+    isGranjaDestination = true;
+  } else if (isGranjaContext) {
+    // Registro feito na Granja por admin permanece na Granja.
+    isGranjaDestination = true;
+  }
+
   const result = await createOccurrence({
-    condominiumId: condoScope.condominiumId,
+    condominiumId,
+    sourceCondominiumId,
     createdBy: access.profile.id,
     category: parsed.data.category as OccurrenceCategory,
     title: parsed.data.title,
@@ -100,7 +95,28 @@ export async function createOccurrenceAction(
     return { error: result.error ?? "Não foi possível registrar a ocorrência." };
   }
 
+  const notifySlug =
+    (await resolveOccurrenceCondoSlug(result.data.condominium_id)) ?? condoSlug;
+  const condominiumName = await resolveOccurrenceCondominiumName(
+    result.data.condominium_id,
+  );
+
+  try {
+    await notifyOccurrenceCreated({
+      occurrence: result.data,
+      condoSlugForLink: isGranjaDestination ? notifySlug : condoSlug,
+      isGranjaDestination,
+      condominiumName,
+    });
+  } catch (error) {
+    console.error("[email:occurrence-created]", error);
+  }
+
   revalidateOccurrencePaths(condoSlug, result.data.id);
+  if (notifySlug !== condoSlug) {
+    revalidateOccurrencePaths(notifySlug, result.data.id);
+  }
+
   redirect(`/app/${condoSlug}/occurrences/${result.data.id}?registrado=1`);
 }
 
@@ -119,6 +135,15 @@ export async function updateOccurrenceStatusAction(
     { redirectTo: `/app/${condoSlug}/occurrences` },
   );
 
+  // Na Granja, só super admin e admin gerenciam.
+  if (
+    isGeneralCondominium(condoSlug) &&
+    access.role !== ROLES.SUPER_ADMIN &&
+    access.role !== ROLES.ADMIN
+  ) {
+    return { error: "Sem permissão para gerenciar ocorrências da Granja Brasil." };
+  }
+
   const parsed = parseOccurrenceStatusFormData(formData);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
@@ -128,6 +153,7 @@ export async function updateOccurrenceStatusAction(
     occurrenceId: parsed.data.occurrence_id,
     status: parsed.data.status as OccurrenceStatus,
     actorId: access.profile.id,
+    responseText: parsed.data.response_text,
     internalNotes: parsed.data.internal_notes,
   });
 
@@ -135,6 +161,21 @@ export async function updateOccurrenceStatusAction(
     return { error: result.error ?? "Não foi possível atualizar o status." };
   }
 
+  try {
+    const linkSlug =
+      (await resolveOccurrenceCondoSlug(
+        result.data.source_condominium_id ?? result.data.condominium_id,
+      )) ?? condoSlug;
+
+    await notifyOccurrenceUpdatedToAuthor({
+      occurrence: result.data,
+      condoSlugForLink: linkSlug,
+      responderName: access.profile.fullName || "Administração",
+    });
+  } catch (error) {
+    console.error("[email:occurrence-updated]", error);
+  }
+
   revalidateOccurrencePaths(condoSlug, result.data.id);
-  return { success: "Status da ocorrência atualizado." };
+  return { success: "Status da ocorrência atualizado. O reclamante foi notificado por e-mail." };
 }

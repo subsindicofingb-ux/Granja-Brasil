@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { OCCURRENCE_STATUS } from "@/lib/constants";
+import { OCCURRENCE_STATUS, ROLES } from "@/lib/constants";
+import type { Role } from "@/lib/constants";
 import type {
   OccurrenceCategory,
   OccurrenceStatus,
@@ -11,6 +12,7 @@ import { mapSupabaseError, serviceError, serviceOk, type ServiceResult } from "@
 const OCCURRENCE_SELECT = `
   id,
   condominium_id,
+  source_condominium_id,
   unit_id,
   category,
   title,
@@ -23,12 +25,14 @@ const OCCURRENCE_SELECT = `
   updated_at,
   closed_at,
   closed_by,
-  internal_notes
+  internal_notes,
+  response_text
 `;
 
 type OccurrenceRow = {
   id: string;
   condominium_id: string;
+  source_condominium_id: string | null;
   unit_id: string | null;
   category: OccurrenceCategory;
   title: string;
@@ -42,6 +46,7 @@ type OccurrenceRow = {
   closed_at: string | null;
   closed_by: string | null;
   internal_notes: string | null;
+  response_text: string | null;
 };
 
 async function getProfileMap(profileIds: string[]) {
@@ -105,24 +110,46 @@ async function hydrateOccurrences(
   }));
 }
 
+function isOccurrenceManagerRole(role: Role): boolean {
+  return (
+    role === ROLES.SUPER_ADMIN ||
+    role === ROLES.ADMIN ||
+    role === ROLES.SYNDIC ||
+    role === ROLES.SUB_SYNDIC ||
+    role === ROLES.DOORMAN ||
+    role === ROLES.STAFF
+  );
+}
+
 export async function listOccurrences(options: {
-  condominiumId?: string;
-  condominiumIds?: string[];
+  condominiumId: string;
+  profileId: string;
+  role: Role;
+  isGranjaContext: boolean;
   status?: OccurrenceStatus | "all";
-  useAdmin?: boolean;
 }): Promise<ServiceResult<OccurrenceWithDetails[]>> {
   try {
-    const supabase = options.useAdmin ? createAdminClient() : await createClient();
+    const supabase = await createClient();
+    const manager = isOccurrenceManagerRole(options.role);
 
     let query = supabase
       .from("occurrences")
       .select(OCCURRENCE_SELECT)
       .order("occurred_at", { ascending: false });
 
-    if (options.condominiumIds && options.condominiumIds.length > 0) {
-      query = query.in("condominium_id", options.condominiumIds);
-    } else if (options.condominiumId) {
+    if (options.isGranjaContext) {
+      // Granja: só super/admin enxergam o livro (RLS reforça); listamos do condo Granja.
       query = query.eq("condominium_id", options.condominiumId);
+    } else if (manager) {
+      // Prédio: gestores veem só as do próprio condomínio.
+      query = query.eq("condominium_id", options.condominiumId);
+    } else {
+      // Morador: só as próprias (do prédio ou enviadas à Granja a partir deste prédio).
+      query = query
+        .eq("created_by", options.profileId)
+        .or(
+          `condominium_id.eq.${options.condominiumId},source_condominium_id.eq.${options.condominiumId}`,
+        );
     }
 
     if (options.status && options.status !== "all") {
@@ -144,21 +171,16 @@ export async function listOccurrences(options: {
 
 export async function getOccurrenceById(
   occurrenceId: string,
-  options?: { condominiumIds?: string[]; useAdmin?: boolean },
 ): Promise<ServiceResult<OccurrenceWithDetails>> {
   try {
-    const supabase = options?.useAdmin ? createAdminClient() : await createClient();
+    const supabase = await createClient();
 
-    let query = supabase
+    const { data, error } = await supabase
       .from("occurrences")
       .select(OCCURRENCE_SELECT)
-      .eq("id", occurrenceId);
+      .eq("id", occurrenceId)
+      .maybeSingle();
 
-    if (options?.condominiumIds && options.condominiumIds.length > 0) {
-      query = query.in("condominium_id", options.condominiumIds);
-    }
-
-    const { data, error } = await query.maybeSingle();
     if (error) {
       return serviceError(mapSupabaseError(error));
     }
@@ -177,6 +199,7 @@ export async function getOccurrenceById(
 
 export async function createOccurrence(input: {
   condominiumId: string;
+  sourceCondominiumId?: string | null;
   createdBy: string;
   category: OccurrenceCategory;
   title: string;
@@ -191,6 +214,7 @@ export async function createOccurrence(input: {
       .from("occurrences")
       .insert({
         condominium_id: input.condominiumId,
+        source_condominium_id: input.sourceCondominiumId ?? null,
         created_by: input.createdBy,
         category: input.category,
         title: input.title,
@@ -220,6 +244,7 @@ export async function updateOccurrenceStatus(input: {
   occurrenceId: string;
   status: OccurrenceStatus;
   actorId: string;
+  responseText?: string | null;
   internalNotes?: string | null;
 }): Promise<ServiceResult<OccurrenceWithDetails>> {
   try {
@@ -231,6 +256,7 @@ export async function updateOccurrenceStatus(input: {
       .from("occurrences")
       .update({
         status: input.status,
+        response_text: input.responseText?.trim() || null,
         internal_notes: input.internalNotes?.trim() || null,
         closed_at: isClosed ? now : null,
         closed_by: isClosed ? input.actorId : null,
@@ -248,6 +274,34 @@ export async function updateOccurrenceStatus(input: {
   } catch (error) {
     return serviceError(
       error instanceof Error ? error.message : "Erro ao atualizar ocorrência.",
+    );
+  }
+}
+
+/** Usado só para e-mail (bypass de listagem). */
+export async function getOccurrenceByIdAdmin(
+  occurrenceId: string,
+): Promise<ServiceResult<OccurrenceWithDetails>> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("occurrences")
+      .select(OCCURRENCE_SELECT)
+      .eq("id", occurrenceId)
+      .maybeSingle();
+
+    if (error) {
+      return serviceError(mapSupabaseError(error));
+    }
+    if (!data) {
+      return serviceError("Ocorrência não encontrada.");
+    }
+
+    const [hydrated] = await hydrateOccurrences([data as OccurrenceRow]);
+    return serviceOk(hydrated);
+  } catch (error) {
+    return serviceError(
+      error instanceof Error ? error.message : "Erro ao carregar ocorrência.",
     );
   }
 }

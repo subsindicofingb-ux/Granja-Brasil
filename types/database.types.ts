@@ -966,6 +966,7 @@ export interface Database {
         Row: {
           id: string;
           condominium_id: string;
+          source_condominium_id: string | null;
           unit_id: string | null;
           category: Database["public"]["Enums"]["occurrence_category"];
           title: string;
@@ -979,10 +980,12 @@ export interface Database {
           closed_at: string | null;
           closed_by: string | null;
           internal_notes: string | null;
+          response_text: string | null;
         };
         Insert: {
           id?: string;
           condominium_id: string;
+          source_condominium_id?: string | null;
           unit_id?: string | null;
           category?: Database["public"]["Enums"]["occurrence_category"];
           title: string;
@@ -996,10 +999,12 @@ export interface Database {
           closed_at?: string | null;
           closed_by?: string | null;
           internal_notes?: string | null;
+          response_text?: string | null;
         };
         Update: {
           id?: string;
           condominium_id?: string;
+          source_condominium_id?: string | null;
           unit_id?: string | null;
           category?: Database["public"]["Enums"]["occurrence_category"];
           title?: string;
@@ -1013,6 +1018,7 @@ export interface Database {
           closed_at?: string | null;
           closed_by?: string | null;
           internal_notes?: string | null;
+          response_text?: string | null;
         };
         Relationships: [];
       };

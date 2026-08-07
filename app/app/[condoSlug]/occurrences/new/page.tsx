@@ -1,8 +1,9 @@
 import { requireCondoPermission } from "@/lib/auth/access";
 import {
-  getOperationalCondominiumIds,
-  resolveDoormanOperationalPanel,
-} from "@/lib/condominiums/doorman-panel";
+  formatCondominiumDisplayName,
+  isGeneralCondominium,
+} from "@/lib/condominiums/display";
+import { ROLES } from "@/lib/constants";
 import { formatUnitOptionLabel } from "@/lib/residents/labels";
 import { listUnitsByCondominium } from "@/lib/services/units";
 import { OccurrenceForm } from "@/components/occurrences/occurrence-form";
@@ -27,46 +28,40 @@ export default async function NewOccurrencePage({ params }: NewOccurrencePagePro
     { redirectTo: `/app/${condoSlug}/occurrences` },
   );
 
-  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
-  const operationalIds = panelResult.ok
-    ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
-    : [access.condominium.id];
+  const isGranjaContext = isGeneralCondominium(condoSlug);
+  if (
+    isGranjaContext &&
+    access.role !== ROLES.SUPER_ADMIN &&
+    access.role !== ROLES.ADMIN
+  ) {
+    return (
+      <ErrorAlert
+        message="Somente Super Admin e Administrador registram ocorrências na Granja Brasil."
+        title="Acesso restrito"
+      />
+    );
+  }
 
-  const unitsResult =
-    panelResult.ok && panelResult.data.mode === "block"
-      ? {
-          ok: true as const,
-          data: panelResult.data.panel.units,
-          condominiumNamesById: panelResult.data.panel.condominiumNamesById,
-        }
-      : await listUnitsByCondominium(access.condominium.id).then((result) =>
-          result.ok
-            ? {
-                ok: true as const,
-                data: result.data,
-                condominiumNamesById: {} as Record<string, string>,
-              }
-            : { ok: false as const, error: result.error },
-        );
-
+  const unitsResult = await listUnitsByCondominium(access.condominium.id);
   if (!unitsResult.ok) {
     return <ErrorAlert message={unitsResult.error} title="Erro ao carregar unidades" />;
   }
 
-  const units = unitsResult.data
-    .filter((unit) =>
-      operationalIds.length > 1 ? operationalIds.includes(unit.tower.condominium_id) : true,
-    )
-    .map((unit) => ({
-      id: unit.id,
-      label: formatUnitOptionLabel(unit, unitsResult.condominiumNamesById),
-    }));
+  const units = unitsResult.data.map((unit) => ({
+    id: unit.id,
+    label: formatUnitOptionLabel(unit),
+  }));
+
+  const buildingLabel = formatCondominiumDisplayName(
+    access.condominium.name,
+    access.condominium.slug,
+  );
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Nova ocorrência"
-        description="Registro oficial para relatos, reclamações e eventos da portaria."
+        description="Escolha o destino: seu prédio (síndico) ou Granja Brasil (administração geral)."
       />
       <Card>
         <CardHeader>
@@ -77,6 +72,8 @@ export default async function NewOccurrencePage({ params }: NewOccurrencePagePro
             condoSlug={condoSlug}
             units={units}
             defaultOccurredAt={toDatetimeLocalValue(new Date())}
+            showGranjaDestination={!isGranjaContext}
+            buildingLabel={buildingLabel}
           />
         </CardContent>
       </Card>

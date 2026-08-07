@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createOccurrenceAction } from "@/lib/actions/occurrences";
+import { BRAND_NAME } from "@/lib/brand";
 import { OCCURRENCE_CATEGORY_OPTIONS } from "@/lib/occurrences/labels";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
@@ -13,19 +14,50 @@ interface OccurrenceFormProps {
   condoSlug: string;
   units: Array<{ id: string; label: string }>;
   defaultOccurredAt: string;
+  showGranjaDestination: boolean;
+  buildingLabel: string;
 }
 
 export function OccurrenceForm({
   condoSlug,
   units,
   defaultOccurredAt,
+  showGranjaDestination,
+  buildingLabel,
 }: OccurrenceFormProps) {
   const [state, formAction, pending] = useActionState(createOccurrenceAction, {});
+  const [destination, setDestination] = useState<"building" | "granja">("building");
 
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="condo_slug" value={condoSlug} />
       <FormAlert error={state.error} success={state.success} />
+
+      {showGranjaDestination && (
+        <div className="space-y-2">
+          <Label htmlFor="destination">Local / destino</Label>
+          <select
+            id="destination"
+            name="destination"
+            required
+            value={destination}
+            onChange={(event) =>
+              setDestination(event.target.value === "granja" ? "granja" : "building")
+            }
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="building">{buildingLabel}</option>
+            <option value="granja">{BRAND_NAME}</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            {destination === "granja"
+              ? `A notificação irá para a administração da ${BRAND_NAME}, não para o síndico do prédio.`
+              : "A notificação irá para o síndico/administração deste condomínio."}
+          </p>
+        </div>
+      )}
+
+      {!showGranjaDestination && <input type="hidden" name="destination" value="building" />}
 
       <div className="space-y-2">
         <Label htmlFor="category">Tipo</Label>
@@ -63,7 +95,7 @@ export function OccurrenceForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="location_text">Local (opcional)</Label>
+        <Label htmlFor="location_text">Detalhe do local (opcional)</Label>
         <Input
           id="location_text"
           name="location_text"

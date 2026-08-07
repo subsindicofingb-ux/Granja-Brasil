@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
-import {
-  getOperationalCondominiumIds,
-  resolveDoormanOperationalPanel,
-} from "@/lib/condominiums/doorman-panel";
-import { OCCURRENCE_STATUS } from "@/lib/constants";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { OCCURRENCE_STATUS, ROLES } from "@/lib/constants";
 import type { OccurrenceStatus } from "@/lib/occurrences/types";
 import {
   getOccurrenceCategoryLabel,
@@ -51,18 +47,27 @@ export default async function OccurrencesPage({
     { redirectTo: `/app/${condoSlug}` },
   );
 
-  const selectedStatus = parseStatus(status);
-  const useAdmin = isEmployeeLimitedConsult(access.role);
-  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
-  const operationalIds = panelResult.ok
-    ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
-    : [access.condominium.id];
+  const isGranjaContext = isGeneralCondominium(condoSlug);
+  if (
+    isGranjaContext &&
+    access.role !== ROLES.SUPER_ADMIN &&
+    access.role !== ROLES.ADMIN
+  ) {
+    return (
+      <ErrorAlert
+        message="Somente Super Admin e Administrador visualizam ocorrências da Granja Brasil."
+        title="Acesso restrito"
+      />
+    );
+  }
 
+  const selectedStatus = parseStatus(status);
   const result = await listOccurrences({
     condominiumId: access.condominium.id,
-    condominiumIds: operationalIds.length > 1 ? operationalIds : undefined,
+    profileId: access.profile.id,
+    role: access.role,
+    isGranjaContext,
     status: selectedStatus,
-    useAdmin,
   });
 
   if (!result.ok) {
@@ -71,12 +76,19 @@ export default async function OccurrencesPage({
 
   const occurrences = result.data;
   const canRegister = access.permissions.canRegisterOccurrences;
+  const isResidentView = !access.permissions.canManageOccurrences && !isGranjaContext;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Ocorrências"
-        description="Livro de registros oficiais da portaria e relatos dos moradores."
+        description={
+          isGranjaContext
+            ? "Ocorrências direcionadas à administração da Granja Brasil."
+            : isResidentView
+              ? "Suas ocorrências registradas neste condomínio."
+              : "Ocorrências deste condomínio (privacidade por prédio)."
+        }
         action={
           canRegister ? (
             <Button asChild>
@@ -114,7 +126,11 @@ export default async function OccurrencesPage({
       {occurrences.length === 0 ? (
         <EmptyState
           title="Nenhuma ocorrência"
-          description="Registre relatos, reclamações ou eventos operacionais da portaria."
+          description={
+            isResidentView
+              ? "Você ainda não registrou nenhuma ocorrência."
+              : "Registre relatos, reclamações ou eventos operacionais."
+          }
           action={
             canRegister ? (
               <Button asChild>

@@ -3,6 +3,7 @@ import {
   canAccessCategoryNav,
   type PermissionCategoryId,
 } from "@/lib/auth/permission-matrix";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { NAV_ITEMS, ROLES, type NavItem } from "@/lib/constants";
 
 export type { NavVisibleContext } from "@/lib/nav-types";
@@ -119,6 +120,9 @@ function hasCategoryNavAccess(access: CondoAccess, category: PermissionCategoryI
   }
 
   if (category === "occurrences") {
+    if (isGeneralCondominium(access.condominium.slug)) {
+      return access.role === ROLES.SUPER_ADMIN || access.role === ROLES.ADMIN;
+    }
     return (
       canAccessCategoryNav(access, category, managePermission) ||
       access.permissions.canViewOccurrences ||

@@ -13,6 +13,7 @@ interface OccurrenceStatusFormProps {
   condoSlug: string;
   occurrenceId: string;
   currentStatus: OccurrenceStatus;
+  currentResponse: string | null;
   currentNotes: string | null;
 }
 
@@ -20,6 +21,7 @@ export function OccurrenceStatusForm({
   condoSlug,
   occurrenceId,
   currentStatus,
+  currentResponse,
   currentNotes,
 }: OccurrenceStatusFormProps) {
   const [state, formAction, pending] = useActionState(updateOccurrenceStatusAction, {});
@@ -48,6 +50,19 @@ export function OccurrenceStatusForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="response_text">Resposta ao reclamante</Label>
+        <textarea
+          id="response_text"
+          name="response_text"
+          rows={4}
+          maxLength={2000}
+          defaultValue={currentResponse ?? ""}
+          placeholder="Texto enviado ao morador por e-mail junto com a mudança de status"
+          className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="internal_notes">Observações internas (opcional)</Label>
         <textarea
           id="internal_notes"
@@ -55,13 +70,13 @@ export function OccurrenceStatusForm({
           rows={3}
           maxLength={2000}
           defaultValue={currentNotes ?? ""}
-          placeholder="Acompanhamento da portaria/administração"
+          placeholder="Somente para síndico/portaria/administração"
           className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         />
       </div>
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Salvando..." : "Atualizar status"}
+        {pending ? "Salvando..." : "Atualizar e notificar reclamante"}
       </Button>
     </form>
   );

@@ -1,11 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
-import {
-  getOperationalCondominiumIds,
-  resolveDoormanOperationalPanel,
-} from "@/lib/condominiums/doorman-panel";
+import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { BRAND_NAME } from "@/lib/brand";
+import { ROLES } from "@/lib/constants";
 import {
   getOccurrenceCategoryLabel,
   getOccurrenceStatusBadgeClass,
@@ -39,16 +37,21 @@ export default async function OccurrenceDetailPage({
     { redirectTo: `/app/${condoSlug}/occurrences` },
   );
 
-  const useAdmin = isEmployeeLimitedConsult(access.role);
-  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
-  const operationalIds = panelResult.ok
-    ? getOperationalCondominiumIds(panelResult.data, access.condominium.id)
-    : [access.condominium.id];
+  const isGranjaContext = isGeneralCondominium(condoSlug);
+  if (
+    isGranjaContext &&
+    access.role !== ROLES.SUPER_ADMIN &&
+    access.role !== ROLES.ADMIN
+  ) {
+    return (
+      <ErrorAlert
+        message="Somente Super Admin e Administrador visualizam ocorrências da Granja Brasil."
+        title="Acesso restrito"
+      />
+    );
+  }
 
-  const result = await getOccurrenceById(occurrenceId, {
-    useAdmin,
-    condominiumIds: operationalIds.length > 1 ? operationalIds : undefined,
-  });
+  const result = await getOccurrenceById(occurrenceId);
 
   if (!result.ok) {
     if (result.error.includes("não encontrada")) {
@@ -65,7 +68,15 @@ export default async function OccurrenceDetailPage({
   }
 
   const occurrence = result.data;
-  const canManage = access.permissions.canManageOccurrences;
+  const canManage =
+    access.permissions.canManageOccurrences &&
+    (!isGranjaContext ||
+      access.role === ROLES.SUPER_ADMIN ||
+      access.role === ROLES.ADMIN);
+  const isGranjaDestination = Boolean(
+    occurrence.source_condominium_id ||
+      (isGranjaContext && occurrence.condominium_id === access.condominium.id),
+  );
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -87,6 +98,12 @@ export default async function OccurrenceDetailPage({
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+            <span className="text-muted-foreground">Destino</span>
+            <span className="font-medium">
+              {isGranjaDestination ? BRAND_NAME : "Condomínio / prédio"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span className="text-muted-foreground">Quando</span>
             <span className="font-medium">{formatDateTime(occurrence.occurred_at)}</span>
           </div>
@@ -100,7 +117,7 @@ export default async function OccurrenceDetailPage({
           </div>
           {occurrence.location_text && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
-              <span className="text-muted-foreground">Local</span>
+              <span className="text-muted-foreground">Local (detalhe)</span>
               <span className="font-medium">{occurrence.location_text}</span>
             </div>
           )}
@@ -114,6 +131,12 @@ export default async function OccurrenceDetailPage({
             <span className="text-muted-foreground">Descrição</span>
             <p className="whitespace-pre-wrap font-medium">{occurrence.description}</p>
           </div>
+          {occurrence.response_text && (
+            <div className="space-y-1 border-t pt-3">
+              <span className="text-muted-foreground">Resposta</span>
+              <p className="whitespace-pre-wrap font-medium">{occurrence.response_text}</p>
+            </div>
+          )}
           {occurrence.closed_at && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between border-t pt-3">
               <span className="text-muted-foreground">Encerrada em</span>
@@ -144,6 +167,7 @@ export default async function OccurrenceDetailPage({
               condoSlug={condoSlug}
               occurrenceId={occurrence.id}
               currentStatus={occurrence.status}
+              currentResponse={occurrence.response_text}
               currentNotes={occurrence.internal_notes}
             />
           </CardContent>

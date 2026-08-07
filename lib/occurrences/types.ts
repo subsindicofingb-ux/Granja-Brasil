@@ -6,9 +6,12 @@ export type OccurrenceCategory =
 export type OccurrenceStatus =
   (typeof OCCURRENCE_STATUS)[keyof typeof OCCURRENCE_STATUS];
 
+export type OccurrenceDestination = "building" | "granja";
+
 export type OccurrenceRecord = {
   id: string;
   condominium_id: string;
+  source_condominium_id: string | null;
   unit_id: string | null;
   category: OccurrenceCategory;
   title: string;
@@ -22,6 +25,7 @@ export type OccurrenceRecord = {
   closed_at: string | null;
   closed_by: string | null;
   internal_notes: string | null;
+  response_text: string | null;
 };
 
 export type OccurrenceWithDetails = OccurrenceRecord & {
