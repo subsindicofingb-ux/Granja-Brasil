@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import type { CondominiumRecord } from "@/lib/services/condominiums-admin";
-import { UNIT_SORT_OPTIONS, type UnitSortValue } from "@/lib/units/sort";
+import { DEFAULT_UNIT_SORT, UNIT_SORT_OPTIONS, type UnitSortValue } from "@/lib/units/sort";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 interface UnitsListControlsProps {
   condoSlug: string;
   selectedSort: UnitSortValue;
+  defaultSort?: UnitSortValue;
   condominiums?: CondominiumRecord[];
   selectedCondominiumSlug?: string;
   showCondominiumSort?: boolean;
@@ -16,12 +17,13 @@ interface UnitsListControlsProps {
 export function UnitsListControls({
   condoSlug,
   selectedSort,
+  defaultSort = DEFAULT_UNIT_SORT,
   condominiums,
   selectedCondominiumSlug,
   showCondominiumSort = false,
 }: UnitsListControlsProps) {
   const basePath = `/app/${condoSlug}/units`;
-  const hasFilters = Boolean(selectedCondominiumSlug || selectedSort !== "number_asc");
+  const hasFilters = Boolean(selectedCondominiumSlug || selectedSort !== defaultSort);
   const sortOptions = showCondominiumSort
     ? UNIT_SORT_OPTIONS
     : UNIT_SORT_OPTIONS.filter((option) => option.value !== "condominium_asc");

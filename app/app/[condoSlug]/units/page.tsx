@@ -21,8 +21,16 @@ import {
   ResponsiveRecords,
 } from "@/components/shared/responsive-records";
 import { UnitsListControls } from "@/components/units/units-list-controls";
+import { UnitsRecordsList } from "@/components/units/units-records-list";
 import { Button } from "@/components/ui/button";
-import { parseUnitSort, sortUnits } from "@/lib/units/sort";
+import { groupSortedUnitsByLabel } from "@/lib/units/list-sections";
+import {
+  DEFAULT_UNIT_SORT,
+  MULTI_CONDO_UNIT_SORT,
+  parseUnitSort,
+  sortUnits,
+  type UnitSortValue,
+} from "@/lib/units/sort";
 
 interface UnitsPageProps {
   params: Promise<{ condoSlug: string }>;
@@ -69,10 +77,12 @@ async function UnitsContent({
   condoSlug,
   selectedCondominiumSlug,
   selectedSort,
+  defaultSort,
 }: {
   condoSlug: string;
   selectedCondominiumSlug?: string;
-  selectedSort: ReturnType<typeof parseUnitSort>;
+  selectedSort: UnitSortValue;
+  defaultSort: UnitSortValue;
 }) {
   const access = await requireCondoAccess(condoSlug);
   const isGeneralCondoPage = isGeneralCondominium(condoSlug);
@@ -120,6 +130,22 @@ async function UnitsContent({
       : null;
     const towers = towersResult?.ok ? towersResult.data : [];
 
+    const getCondominiumLabel = (unit: (typeof unitsResult.data)[number]) => {
+      const unitCondominium = condominiums.find(
+        (condominium) => condominium.id === unit.tower.condominium_id,
+      );
+      return unitCondominium
+        ? formatCondominiumDisplayName(unitCondominium.name, unitCondominium.slug)
+        : "—";
+    };
+    const getUnitCondoSlug = (unit: (typeof unitsResult.data)[number]) =>
+      condominiums.find((condominium) => condominium.id === unit.tower.condominium_id)?.slug ??
+      condoSlug;
+    const showGranjaSubtotals = !filteredCondominium && selectedSort === "condominium_asc";
+    const sections = showGranjaSubtotals
+      ? groupSortedUnitsByLabel(units, getCondominiumLabel)
+      : [];
+
     return (
       <div className="space-y-4">
         <UnitsListControls
@@ -127,6 +153,7 @@ async function UnitsContent({
           condominiums={condominiums}
           selectedCondominiumSlug={selectedCondominiumSlug}
           selectedSort={selectedSort}
+          defaultSort={defaultSort}
           showCondominiumSort
         />
 
@@ -174,67 +201,14 @@ async function UnitsContent({
             }
           />
         ) : (
-          <ResponsiveRecords
-            mobile={units.map((unit) => {
-              const unitCondominium = condominiums.find(
-                (condominium) => condominium.id === unit.tower.condominium_id,
-              );
-
-              return (
-                <MobileRecordCard key={unit.id}>
-                  <p className="min-w-0 text-base font-semibold leading-snug">{unit.number}</p>
-                  <MobileRecordRow label="Torre">{unit.tower.name}</MobileRecordRow>
-                  <MobileRecordRow label="Bloco">{unit.block ?? "—"}</MobileRecordRow>
-                  <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
-                    <Link
-                      href={`/app/${unitCondominium?.slug ?? condoSlug}/units/${unit.id}`}
-                    >
-                      {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
-                    </Link>
-                  </Button>
-                </MobileRecordCard>
-              );
-            })}
-            desktop={
-              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/40">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium">Número</th>
-                      <th className="px-4 py-3 text-left font-medium">Torre</th>
-                      <th className="px-4 py-3 text-left font-medium">Bloco</th>
-                      <th className="px-4 py-3 text-right font-medium">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {units.map((unit) => {
-                      const unitCondominium = condominiums.find(
-                        (condominium) => condominium.id === unit.tower.condominium_id,
-                      );
-
-                      return (
-                        <tr key={unit.id} className="border-b last:border-0">
-                          <td className="px-4 py-3 font-medium">{unit.number}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{unit.block ?? "—"}</td>
-                          <td className="px-4 py-3 text-right">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link
-                                href={`/app/${
-                                  unitCondominium?.slug ?? condoSlug
-                                }/units/${unit.id}`}
-                              >
-                                {canManageInCategory(access, "structure") ? "Editar" : "Detalhes"}
-                              </Link>
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            }
+          <UnitsRecordsList
+            units={units}
+            condoSlug={condoSlug}
+            canManageStructure={canManageInCategory(access, "structure")}
+            getUnitCondoSlug={getUnitCondoSlug}
+            getBlockLabel={(unit) => unit.block ?? "—"}
+            summaryMode={showGranjaSubtotals ? "granja" : "total"}
+            sections={sections}
           />
         )}
       </div>
@@ -273,6 +247,10 @@ async function UnitsContent({
         : sortUnits(filteredUnits, selectedSort, getCondominiumLabel);
     const canManageStructure = canManageInCategory(access, "structure");
 
+    const getUnitCondoSlug = (unit: (typeof panel.units)[number]) =>
+      panel.condominiums.find((condominium) => condominium.id === unit.tower.condominium_id)
+        ?.slug ?? condoSlug;
+
     return (
       <div className="space-y-4">
         <UnitsListControls
@@ -280,6 +258,7 @@ async function UnitsContent({
           condominiums={panel.condominiums}
           selectedCondominiumSlug={selectedCondominiumSlug}
           selectedSort={selectedSort}
+          defaultSort={defaultSort}
           showCondominiumSort
         />
 
@@ -315,69 +294,13 @@ async function UnitsContent({
             }
           />
         ) : (
-          <ResponsiveRecords
-            mobile={units.map((unit) => {
-              const unitCondominium = panel.condominiums.find(
-                (condominium) => condominium.id === unit.tower.condominium_id,
-              );
-
-              return (
-                <MobileRecordCard key={unit.id}>
-                  <p className="min-w-0 text-base font-semibold leading-snug">{unit.number}</p>
-                  <MobileRecordRow label="Torre">{unit.tower.name}</MobileRecordRow>
-                  <MobileRecordRow label="Bloco">{getCondominiumLabel(unit)}</MobileRecordRow>
-                  <Button className="mt-1 w-full min-h-11" variant="outline" asChild>
-                    <Link
-                      href={`/app/${unitCondominium?.slug ?? condoSlug}/units/${unit.id}`}
-                    >
-                      {canManageStructure ? "Editar" : "Detalhes"}
-                    </Link>
-                  </Button>
-                </MobileRecordCard>
-              );
-            })}
-            desktop={
-              <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/40">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium">Número</th>
-                      <th className="px-4 py-3 text-left font-medium">Torre</th>
-                      <th className="px-4 py-3 text-left font-medium">Bloco</th>
-                      <th className="px-4 py-3 text-right font-medium">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {units.map((unit) => {
-                      const unitCondominium = panel.condominiums.find(
-                        (condominium) => condominium.id === unit.tower.condominium_id,
-                      );
-
-                      return (
-                        <tr key={unit.id} className="border-b last:border-0">
-                          <td className="px-4 py-3 font-medium">{unit.number}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{unit.tower.name}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {getCondominiumLabel(unit)}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link
-                                href={`/app/${
-                                  unitCondominium?.slug ?? condoSlug
-                                }/units/${unit.id}`}
-                              >
-                                {canManageStructure ? "Editar" : "Detalhes"}
-                              </Link>
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            }
+          <UnitsRecordsList
+            units={units}
+            condoSlug={condoSlug}
+            canManageStructure={canManageStructure}
+            getUnitCondoSlug={getUnitCondoSlug}
+            getBlockLabel={getCondominiumLabel}
+            summaryMode="total"
           />
         )}
       </div>
@@ -469,7 +392,12 @@ export default async function UnitsPage({ params, searchParams }: UnitsPageProps
   const { condoSlug } = await params;
   const { condominium: selectedCondominiumSlug, sort } = await searchParams;
   const normalizedCondominiumSlug = selectedCondominiumSlug?.trim().toLowerCase() || undefined;
-  const selectedSort = parseUnitSort(sort?.trim().toLowerCase());
+  const panelResult = await resolveDoormanOperationalPanel(condoSlug);
+  const isMultiCondoUnitsView =
+    isGeneralCondominium(condoSlug) ||
+    (panelResult.ok && panelResult.data.mode === "block");
+  const defaultUnitSort = isMultiCondoUnitsView ? MULTI_CONDO_UNIT_SORT : DEFAULT_UNIT_SORT;
+  const selectedSort = parseUnitSort(sort?.trim().toLowerCase(), defaultUnitSort);
 
   if (normalizedCondominiumSlug) {
     if (isGeneralCondominium(condoSlug)) {
@@ -515,6 +443,7 @@ export default async function UnitsPage({ params, searchParams }: UnitsPageProps
           condoSlug={condoSlug}
           selectedCondominiumSlug={normalizedCondominiumSlug}
           selectedSort={selectedSort}
+          defaultSort={defaultUnitSort}
         />
       </Suspense>
     </div>

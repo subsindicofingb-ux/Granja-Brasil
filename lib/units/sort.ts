@@ -12,13 +12,18 @@ export const UNIT_SORT_OPTIONS = [
 export type UnitSortValue = (typeof UNIT_SORT_OPTIONS)[number]["value"];
 
 const DEFAULT_UNIT_SORT: UnitSortValue = "number_asc";
+export const MULTI_CONDO_UNIT_SORT: UnitSortValue = "condominium_asc";
+export { DEFAULT_UNIT_SORT };
 
-export function parseUnitSort(value?: string): UnitSortValue {
+export function parseUnitSort(
+  value?: string,
+  defaultSort: UnitSortValue = DEFAULT_UNIT_SORT,
+): UnitSortValue {
   if (value && UNIT_SORT_OPTIONS.some((option) => option.value === value)) {
     return value as UnitSortValue;
   }
 
-  return DEFAULT_UNIT_SORT;
+  return defaultSort;
 }
 
 export function sortUnits(
