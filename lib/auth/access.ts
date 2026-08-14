@@ -2,7 +2,11 @@ import { redirect } from "next/navigation";
 import type { Role } from "@/lib/constants";
 import { formatCondominiumDisplayName } from "@/lib/condominiums/display";
 import { getDoormanBlockForCondominium } from "@/lib/condominiums/doorman-blocks";
-import { groupAccessibleCondominiums, findMembershipForCondoSlug } from "@/lib/auth/membership-groups";
+import {
+  appendMissingDoormanBlockEntries,
+  groupAccessibleCondominiums,
+  findMembershipForCondoSlug,
+} from "@/lib/auth/membership-groups";
 import { setActiveCondoSlug } from "@/lib/auth/active-condo";
 import { ensureProfile, getAuthUser, requireSession, isSuperAdmin } from "@/lib/auth/session";
 import {
@@ -24,6 +28,7 @@ import { loadPermissionMatrix } from "@/lib/services/permission-matrix";
 import { ROLES } from "@/lib/constants";
 import { isProfileUnitResponsible } from "@/lib/services/notifications";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 type MembershipRow = {
@@ -84,6 +89,44 @@ export async function getUserMemberships(): Promise<MembershipWithCondo[]> {
   }
 }
 
+type CondominiumCatalogRow = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+async function loadCondominiumCatalogForSuperAdmin(): Promise<CondominiumCatalogRow[]> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("condominiums")
+      .select("id, name, slug")
+      .order("name");
+
+    if (!error && data) {
+      return data;
+    }
+  } catch {
+    // Service role indisponível — tenta leitura via sessão autenticada.
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("condominiums")
+      .select("id, name, slug")
+      .order("name");
+
+    if (!error && data) {
+      return data;
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
+}
+
 export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]> {
   const memberships = await getUserMemberships();
   const superAdmin = await isSuperAdmin();
@@ -92,36 +135,33 @@ export async function getAccessibleCondominiums(): Promise<MembershipWithCondo[]
     return groupAccessibleCondominiums(memberships);
   }
 
-  try {
-    const supabase = await createClient();
-    const { data: condominiums } = await supabase
-      .from("condominiums")
-      .select("id, name, slug")
-      .order("name");
-
-    const bySlug = new Map<string, MembershipWithCondo>();
-
-    for (const membership of memberships) {
-      bySlug.set(membership.condominium.slug, membership);
-    }
-
-    for (const condominium of condominiums ?? []) {
-      if (!bySlug.has(condominium.slug)) {
-        bySlug.set(condominium.slug, {
-          id: `super-admin-${condominium.id}`,
-          role: "super_admin",
-          condominium: {
-            ...condominium,
-            name: formatCondominiumDisplayName(condominium.name, condominium.slug),
-          },
-        });
-      }
-    }
-
-    return groupAccessibleCondominiums(Array.from(bySlug.values()));
-  } catch {
+  const condominiums = await loadCondominiumCatalogForSuperAdmin();
+  if (condominiums.length === 0) {
     return groupAccessibleCondominiums(memberships);
   }
+
+  const bySlug = new Map<string, MembershipWithCondo>();
+
+  for (const membership of memberships) {
+    bySlug.set(membership.condominium.slug, membership);
+  }
+
+  for (const condominium of condominiums) {
+    if (!bySlug.has(condominium.slug)) {
+      bySlug.set(condominium.slug, {
+        id: `super-admin-${condominium.id}`,
+        role: "super_admin",
+        condominium: {
+          ...condominium,
+          name: formatCondominiumDisplayName(condominium.name, condominium.slug),
+        },
+      });
+    }
+  }
+
+  const grouped = groupAccessibleCondominiums(Array.from(bySlug.values()));
+
+  return appendMissingDoormanBlockEntries(grouped, condominiums, "super_admin");
 }
 
 async function resolveEffectiveAccess(input: {

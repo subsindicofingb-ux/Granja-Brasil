@@ -26,7 +26,7 @@ export function CondoSwitcher({ memberships, activeSlug }: CondoSwitcherProps) {
           <span>Trocar condomínio</span>
           <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
         </summary>
-        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border bg-card p-1 shadow-lg">
+        <div className="absolute bottom-full left-0 z-20 mb-2 max-h-[min(24rem,calc(100vh-8rem))] w-56 overflow-y-auto overscroll-contain rounded-lg border bg-card p-1 shadow-lg">
           {memberships.map((membership) => (
             <Button
               key={membership.id}

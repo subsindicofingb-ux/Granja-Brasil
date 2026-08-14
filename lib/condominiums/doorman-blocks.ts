@@ -29,8 +29,8 @@ export const DOORMAN_BLOCKS: DoormanBlockDefinition[] = [
   {
     id: "bouganville-acacias-cerejeiras",
     label: "Bouganville, Acácias e Cerejeiras",
-    slugPatterns: ["bouganvil", "acacia", "cerejeira"],
-    namePatterns: ["bouganvil", "acácia", "acacia", "cerejeir"],
+    slugPatterns: ["bouganvil", "bougainville", "acacia", "cerejeira"],
+    namePatterns: ["bouganvil", "bougainville", "acácia", "acacia", "cerejeir"],
   },
 ];
 
