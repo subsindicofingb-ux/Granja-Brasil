@@ -8,6 +8,7 @@ import {
 import { canCreateInCategory, canManageInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { getUnitListFilterForAccess, unitFilterToQueryOptions } from "@/lib/auth/unit-scope";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { buildAnnouncementViewContext } from "@/lib/announcements/context-visibility";
 import { getDashboardData, getGeneralCondominiumOverviewMetrics } from "@/lib/services/dashboard";
 import { getGranjaChildCondominiumIds } from "@/lib/condominiums/granja-scope";
 import { countNotificationDashboardAlerts } from "@/lib/services/notifications";
@@ -105,9 +106,12 @@ async function DashboardContent({ condoSlug }: { condoSlug: string }) {
 
   const [result, generalOverviewResult] = await Promise.all([
     getDashboardData(access.condominium.id, scope, {
-      condominiumId: access.condominium.id,
-      profileId: access.profile.id,
-      isStaff: access.permissions.canManageAnnouncements,
+      ...buildAnnouncementViewContext({
+        condominiumId: access.condominium.id,
+        profileId: access.profile.id,
+        role: access.role,
+        canManageAnnouncements: access.permissions.canManageAnnouncements,
+      }),
     }),
     isGeneralCondoDashboard
       ? getGeneralCondominiumOverviewMetrics(

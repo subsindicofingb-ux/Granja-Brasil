@@ -247,6 +247,7 @@ async function validateTargetProfiles(
 }
 
 export type { AnnouncementViewContext } from "@/lib/announcements/context-visibility";
+export { buildAnnouncementViewContext } from "@/lib/announcements/context-visibility";
 
 export async function listAnnouncementsByCondominium(
   viewContext: AnnouncementViewContext,

@@ -1,10 +1,25 @@
 import type { AnnouncementRecord } from "@/lib/announcements/types";
+import { ROLES, type Role } from "@/lib/constants";
 
 export type AnnouncementViewContext = {
   condominiumId: string;
   profileId: string;
+  /** Síndico/admin — falso para portaria (não vê conversas privadas síndico↔morador). */
   isStaff: boolean;
 };
+
+export function buildAnnouncementViewContext(input: {
+  condominiumId: string;
+  profileId: string;
+  role: Role;
+  canManageAnnouncements: boolean;
+}): AnnouncementViewContext {
+  return {
+    condominiumId: input.condominiumId,
+    profileId: input.profileId,
+    isStaff: input.canManageAnnouncements && input.role !== ROLES.DOORMAN,
+  };
+}
 
 function announcementHasTargetProfiles(
   announcement: Pick<AnnouncementRecord, "target_profile_id">,
@@ -71,6 +86,10 @@ export function isAnnouncementVisibleInContext(
 
   if (announcementHasTargetProfiles(announcement, targetProfileIds)) {
     if (announcementTargetsProfile(announcement, targetProfileIds, context.profileId)) {
+      return true;
+    }
+
+    if (announcement.created_by === context.profileId) {
       return true;
     }
 

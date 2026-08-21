@@ -4,6 +4,7 @@ import { MessageSquarePlus, Plus } from "lucide-react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { ROLES } from "@/lib/constants";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
+import { buildAnnouncementViewContext } from "@/lib/announcements/context-visibility";
 import { listAnnouncementsByCondominium, getAnnouncementUnreadState } from "@/lib/services/announcements";
 import { listCondominiums } from "@/lib/services/condominiums-admin";
 import { listTowersByCondominium } from "@/lib/services/towers";
@@ -77,11 +78,12 @@ async function AnnouncementsContent({
     listTowersByCondominium(access.condominium.id),
     isGranja ? listCondominiums() : Promise.resolve(null),
     listAnnouncementsByCondominium(
-      {
+      buildAnnouncementViewContext({
         condominiumId: access.condominium.id,
         profileId: access.profile.id,
-        isStaff: access.permissions.canManageAnnouncements,
-      },
+        role: access.role,
+        canManageAnnouncements: access.permissions.canManageAnnouncements,
+      }),
       {
         towerId,
         targetCondominiumId,

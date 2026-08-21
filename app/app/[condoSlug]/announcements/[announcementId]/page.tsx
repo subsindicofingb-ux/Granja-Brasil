@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { ROLES } from "@/lib/constants";
-import { isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
+import { buildAnnouncementViewContext, isAnnouncementVisibleInContext } from "@/lib/announcements/context-visibility";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import {
@@ -83,11 +83,12 @@ export default async function AnnouncementDetailPage({
   const announcement = announcementResult.data;
 
   const granjaCondominiumId = await getGranjaCondominiumId();
-  const viewContext = {
+  const viewContext = buildAnnouncementViewContext({
     condominiumId: access.condominium.id,
     profileId: access.profile.id,
-    isStaff: access.permissions.canManageAnnouncements,
-  };
+    role: access.role,
+    canManageAnnouncements: access.permissions.canManageAnnouncements,
+  });
 
   if (
     !isAnnouncementVisibleInContext(
