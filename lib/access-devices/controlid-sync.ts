@@ -989,26 +989,197 @@ export async function updateControlIdUserName(input: {
   }
 }
 
+function controlIdRegistrationCandidates(registration: string): string[] {
+  const trimmed = registration.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const stripped = trimmed.replace(/^0+/, "") || "0";
+  const padded = stripped.padStart(8, "0");
+  return [...new Set([trimmed, stripped, padded])];
+}
+
+function normalizeControlIdRegistration(value: string | number | null | undefined): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+  return raw.replace(/^0+/, "") || "0";
+}
+
+async function loadControlIdUserByNormalizedRegistration(input: {
+  baseUrl: string;
+  session: string;
+  registration: string;
+}): Promise<{ id: number; registration: string; name: string } | null> {
+  const target = normalizeControlIdRegistration(input.registration);
+  if (!target) {
+    return null;
+  }
+
+  const data = await postControlIdJson<ControlIdLoadUsersResponse>(
+    input.baseUrl,
+    "/load_objects.fcgi",
+    input.session,
+    {
+      object: "users",
+      fields: ["id", "registration", "name"],
+    },
+  );
+
+  const user = (data.users ?? []).find(
+    (row) => normalizeControlIdRegistration(row.registration) === target,
+  );
+  if (!user?.id) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    registration: user.registration ?? input.registration,
+    name: user.name ?? "",
+  };
+}
+
+async function resolveControlIdUserIdsForRemoval(input: {
+  baseUrl: string;
+  session: string;
+  controlIdUserId?: number | null;
+  registration?: string | null;
+}): Promise<number[]> {
+  const ids = new Set<number>();
+  let foundOnDevice = false;
+  const storedId = toPositiveInt(input.controlIdUserId);
+  if (storedId) {
+    ids.add(storedId);
+  }
+
+  if (storedId) {
+    const byId = await loadControlIdUserById({
+      baseUrl: input.baseUrl,
+      session: input.session,
+      userId: storedId,
+    });
+    if (byId?.id) {
+      ids.add(byId.id);
+      foundOnDevice = true;
+    }
+  }
+
+  const registration = input.registration?.trim() ?? "";
+  if (registration) {
+    for (const candidate of controlIdRegistrationCandidates(registration)) {
+      const byRegistration = await loadControlIdUserByRegistration({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        registration: candidate,
+      });
+      if (byRegistration?.id) {
+        ids.add(byRegistration.id);
+        foundOnDevice = true;
+      }
+    }
+
+    if (!foundOnDevice) {
+      const scanned = await loadControlIdUserByNormalizedRegistration({
+        baseUrl: input.baseUrl,
+        session: input.session,
+        registration,
+      });
+      if (scanned?.id) {
+        ids.add(scanned.id);
+      }
+    }
+  }
+
+  return [...ids];
+}
+
+async function destroyControlIdObjectsWhere(input: {
+  baseUrl: string;
+  session: string;
+  object: string;
+  where: Record<string, Record<string, number>>;
+}): Promise<void> {
+  try {
+    await postControlIdJson<ControlIdChangesResponse>(
+      input.baseUrl,
+      "/destroy_objects.fcgi",
+      input.session,
+      {
+        object: input.object,
+        where: input.where,
+      },
+    );
+  } catch {
+    // Firmware nem sempre expõe o mesmo conjunto de objetos (cards/templates/user_groups).
+  }
+}
+
+async function destroyControlIdUserImage(input: {
+  baseUrl: string;
+  session: string;
+  userId: number;
+}): Promise<void> {
+  try {
+    await postControlIdJson(input.baseUrl, "/user_destroy_image.fcgi", input.session, {
+      user_id: input.userId,
+    });
+    return;
+  } catch {
+    // Alguns firmwares esperam user_id como string.
+  }
+
+  try {
+    await postControlIdJson(input.baseUrl, "/user_destroy_image.fcgi", input.session, {
+      user_id: String(input.userId),
+    });
+  } catch {
+    // Segue para remover o usuário mesmo se a foto já tiver sido apagada.
+  }
+}
+
 export async function destroyControlIdUser(input: {
   baseUrl: string;
   session: string;
   userId: number;
 }): Promise<void> {
-  const data = await postControlIdJson<ControlIdChangesResponse>(
-    input.baseUrl,
-    "/destroy_objects.fcgi",
-    input.session,
-    {
-      object: "users",
-      where: {
-        users: { id: input.userId },
-      },
-    },
-  );
+  await destroyControlIdUserImage(input);
 
-  if ((data.changes ?? 0) >= 1) {
-    return;
+  await destroyControlIdObjectsWhere({
+    ...input,
+    object: "user_groups",
+    where: { user_groups: { user_id: input.userId } },
+  });
+  await destroyControlIdObjectsWhere({
+    ...input,
+    object: "cards",
+    where: { cards: { user_id: input.userId } },
+  });
+  await destroyControlIdObjectsWhere({
+    ...input,
+    object: "templates",
+    where: { templates: { user_id: input.userId } },
+  });
+
+  try {
+    await postControlIdJson<ControlIdChangesResponse>(
+      input.baseUrl,
+      "/destroy_objects.fcgi",
+      input.session,
+      {
+        object: "users",
+        where: {
+          users: { id: input.userId },
+        },
+      },
+    );
+  } catch {
+    // Confere abaixo se o usuário saiu mesmo com HTTP de erro no firmware.
   }
+
+  await destroyControlIdUserImage(input);
 
   const stillExists = await loadControlIdUserById({
     baseUrl: input.baseUrl,
@@ -1300,37 +1471,37 @@ export async function removeResidentFromControlIdDevice(input: {
   });
 
   try {
-    let userId = input.controlIdUserId ?? null;
+    const userIds = await resolveControlIdUserIdsForRemoval({
+      baseUrl,
+      session,
+      controlIdUserId: input.controlIdUserId,
+      registration: input.registration,
+    });
 
-    if (userId) {
-      const byId = await loadControlIdUserById({
-        baseUrl,
-        session,
-        userId,
-      });
-      if (!byId) {
-        userId = null;
-      }
-    }
-
-    if (!userId && input.registration) {
-      const byRegistration = await loadControlIdUserByRegistration({
-        baseUrl,
-        session,
-        registration: input.registration,
-      });
-      userId = byRegistration?.id ?? null;
-    }
-
-    if (!userId) {
+    if (userIds.length === 0) {
       return;
     }
 
-    await destroyControlIdUser({
-      baseUrl,
-      session,
-      userId,
-    });
+    let lastError: Error | null = null;
+    let removed = 0;
+
+    for (const userId of userIds) {
+      try {
+        await destroyControlIdUser({
+          baseUrl,
+          session,
+          userId,
+        });
+        removed += 1;
+      } catch (error) {
+        lastError =
+          error instanceof Error ? error : new Error("Falha ao remover no ControlID.");
+      }
+    }
+
+    if (removed === 0 && lastError) {
+      throw lastError;
+    }
   } finally {
     await logoutControlIdSession(baseUrl, session);
   }
