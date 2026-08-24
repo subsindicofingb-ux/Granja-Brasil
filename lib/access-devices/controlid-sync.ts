@@ -1,6 +1,7 @@
 import { buildControlIdRegistration } from "@/lib/access-devices/registration";
 import { normalizeAccessDeviceHostUrl } from "@/lib/access-devices/controlid-client";
 import { normalizePhotoForControlId } from "@/lib/access-devices/photo-normalize";
+import { downloadStoredUpload } from "@/lib/storage/condo-uploads";
 
 export { normalizeAccessDeviceHostUrl };
 
@@ -1191,6 +1192,11 @@ export async function fetchResidentPhotoBytes(photoUrl: string): Promise<{
   bytes: Buffer;
   contentType: string;
 }> {
+  const storedUpload = await downloadStoredUpload(photoUrl);
+  if (storedUpload) {
+    return storedUpload;
+  }
+
   const response = await fetch(photoUrl, {
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     cache: "no-store",

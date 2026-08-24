@@ -5,6 +5,7 @@ import { isEmailConfigured, sendEmail } from "@/lib/email/send-email";
 import { getOccurrenceCategoryLabel, getOccurrenceStatusLabel } from "@/lib/occurrences/labels";
 import type { OccurrenceWithDetails } from "@/lib/occurrences/types";
 import type { MembershipRole } from "@/types/database.types";
+import { toAbsoluteProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 
 function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -154,7 +155,7 @@ export async function notifyOccurrenceCreated(input: {
     `Registrado por: ${authorName}`,
     input.occurrence.location_text ? `Local: ${input.occurrence.location_text}` : null,
     input.occurrence.attachment_url
-      ? `Anexo: ${input.occurrence.attachment_name ?? "arquivo"} (${input.occurrence.attachment_url})`
+      ? `Anexo: ${input.occurrence.attachment_name ?? "arquivo"} (${toAbsoluteProtectedUploadSrc(input.occurrence.attachment_url, getSiteUrl())})`
       : null,
     ``,
     `Descrição:`,

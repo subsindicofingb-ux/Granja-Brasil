@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateTime } from "@/lib/utils";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 
 interface RegistrationRequestListProps {
   condoSlug: string;
@@ -222,7 +223,7 @@ export function RegistrationRequestList({
               {request.photo_url ? (
                 <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted">
                   <Image
-                    src={request.photo_url}
+                    src={toProtectedUploadSrc(request.photo_url)}
                     alt={request.full_name}
                     fill
                     className="object-cover"

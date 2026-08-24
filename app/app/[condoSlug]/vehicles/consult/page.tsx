@@ -13,6 +13,7 @@ import { formatUnitWithTower } from "@/lib/residents/labels";
 import { searchVehiclesForConsult, listPendingVehiclesForConsult } from "@/lib/services/vehicles";
 import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
 import { VEHICLE_STATUS } from "@/lib/constants";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import { Badge } from "@/components/ui/badge";
 import { VehiclePlateSearch } from "@/components/vehicles/vehicle-plate-search";
 import { ErrorAlert } from "@/components/shared/feedback";
@@ -138,7 +139,7 @@ async function ConsultContent({
                   {vehicle.photo_url ? (
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
                       <Image
-                        src={vehicle.photo_url}
+                        src={toProtectedUploadSrc(vehicle.photo_url)}
                         alt={`${vehicle.brand} ${vehicle.model}`}
                         fill
                         className="object-cover"
@@ -202,7 +203,7 @@ async function ConsultContent({
                           {vehicle.photo_url ? (
                             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
                               <Image
-                                src={vehicle.photo_url}
+                                src={toProtectedUploadSrc(vehicle.photo_url)}
                                 alt={`${vehicle.brand} ${vehicle.model}`}
                                 fill
                                 className="object-cover"
@@ -290,7 +291,7 @@ async function ConsultContent({
                   {vehicle.photo_url ? (
                     <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
                       <Image
-                        src={vehicle.photo_url}
+                        src={toProtectedUploadSrc(vehicle.photo_url)}
                         alt={`${vehicle.brand} ${vehicle.model}`}
                         fill
                         className="object-cover"
@@ -360,7 +361,7 @@ async function ConsultContent({
                           {vehicle.photo_url ? (
                             <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted">
                               <Image
-                                src={vehicle.photo_url}
+                                src={toProtectedUploadSrc(vehicle.photo_url)}
                                 alt={`${vehicle.brand} ${vehicle.model}`}
                                 fill
                                 className="object-cover"

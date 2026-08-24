@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { isEmployeeLimitedConsult } from "@/lib/auth/employee-consult";
 import { ROLES } from "@/lib/constants";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import {
   getOperationalCondominiumIds,
@@ -229,7 +230,7 @@ export default async function VisitorDetailPage({ params }: VisitorDetailPagePro
                 <span className="text-muted-foreground">Foto</span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={authorization.photo_url}
+                  src={toProtectedUploadSrc(authorization.photo_url)}
                   alt={authorization.full_name}
                   className="h-28 w-28 rounded-md border object-cover"
                 />

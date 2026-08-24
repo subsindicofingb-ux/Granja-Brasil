@@ -8,6 +8,7 @@ import { listVehiclesByCondominium } from "@/lib/services/vehicles";
 import { formatUnitWithTower } from "@/lib/residents/labels";
 import { formatLicensePlate, getVehicleStatusBadgeClass, VEHICLE_STATUS_LABELS } from "@/lib/vehicles/labels";
 import { VEHICLE_STATUS } from "@/lib/constants";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
@@ -163,7 +164,7 @@ async function VehiclesContent({
               <MobileRecordRow label="Foto">
                 <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-muted">
                   <Image
-                    src={vehicle.photo_url}
+                    src={toProtectedUploadSrc(vehicle.photo_url)}
                     alt={`${vehicle.brand} ${vehicle.model}`}
                     fill
                     className="object-cover"
@@ -200,7 +201,7 @@ async function VehiclesContent({
                       {vehicle.photo_url ? (
                         <div className="relative h-10 w-10 overflow-hidden rounded-md border bg-muted">
                           <Image
-                            src={vehicle.photo_url}
+                            src={toProtectedUploadSrc(vehicle.photo_url)}
                             alt={`${vehicle.brand} ${vehicle.model}`}
                             fill
                             className="object-cover"

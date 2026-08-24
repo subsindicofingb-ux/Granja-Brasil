@@ -14,6 +14,7 @@ import {
   VEHICLE_STATUS_LABELS,
 } from "@/lib/vehicles/labels";
 import { VEHICLE_STATUS } from "@/lib/constants";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import { VehicleReviewActions } from "@/components/vehicles/vehicle-review-actions";
 import { VehicleDeleteButton } from "@/components/vehicles/vehicle-delete-button";
 import { Badge } from "@/components/ui/badge";
@@ -134,7 +135,7 @@ export default async function VehicleDetailPage({ params, searchParams }: Vehicl
               {vehicle.photo_url ? (
                 <div className="relative h-40 w-full overflow-hidden rounded-lg border bg-muted">
                   <Image
-                    src={vehicle.photo_url}
+                    src={toProtectedUploadSrc(vehicle.photo_url)}
                     alt={`${vehicle.brand} ${vehicle.model}`}
                     fill
                     className="object-cover"

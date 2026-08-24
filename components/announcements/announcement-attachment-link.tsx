@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 
 interface AnnouncementAttachmentLinkProps {
   url: string;
@@ -9,7 +10,7 @@ export function AnnouncementAttachmentLink({ url, name }: AnnouncementAttachment
   return (
     <p>
       <Link
-        href={url}
+        href={toProtectedUploadSrc(url)}
         target="_blank"
         rel="noopener noreferrer"
         className="text-sm text-primary underline-offset-4 hover:underline"

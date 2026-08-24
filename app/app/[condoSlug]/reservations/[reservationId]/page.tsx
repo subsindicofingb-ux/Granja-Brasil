@@ -4,6 +4,7 @@ import { requireCondoAccess } from "@/lib/auth/access";
 import { isGeneralCondominium } from "@/lib/condominiums/display";
 import { getGranjaCondominiumId } from "@/lib/condominiums/granja-shared-areas";
 import { getGranjaCondoSlug, ROLES } from "@/lib/constants";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import {
   requiresPaymentReceipt,
 } from "@/lib/reservations/area-rules";
@@ -230,7 +231,7 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Comprovante</span>
               <a
-                href={reservation.payment_receipt_url}
+                href={toProtectedUploadSrc(reservation.payment_receipt_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium text-primary hover:underline"

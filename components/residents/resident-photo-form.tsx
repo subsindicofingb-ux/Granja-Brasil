@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useActionState } from "react";
 import { updateResidentPhotoAction } from "@/lib/actions/residents";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 import { FormAlert } from "@/components/shared/feedback";
 import { PhotoField } from "@/components/shared/photo-field";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ export function ResidentPhotoPreview({ fullName, photoUrl }: ResidentPhotoPrevie
   return (
     <div className="relative h-28 w-28 overflow-hidden rounded-lg border bg-muted">
       <Image
-        src={photoUrl}
+        src={toProtectedUploadSrc(photoUrl)}
         alt={`Foto de ${fullName}`}
         fill
         className="object-cover"

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { Label } from "@/components/ui/label";
+import { toProtectedUploadSrc } from "@/lib/storage/condo-upload-path";
 
 interface PhotoFieldProps {
   label?: string;
@@ -24,7 +25,7 @@ export function PhotoField({
         <div className="flex items-start gap-4">
           <div className="relative h-24 w-24 overflow-hidden rounded-lg border bg-muted">
             <Image
-              src={currentPhotoUrl}
+              src={toProtectedUploadSrc(currentPhotoUrl)}
               alt={label}
               fill
               className="object-cover"
