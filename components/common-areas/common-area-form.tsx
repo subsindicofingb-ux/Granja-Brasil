@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import type { CommonAreaFormInput } from "@/lib/common-areas/types";
+import type { BookingMode, ClassSession, CommonAreaFormInput } from "@/lib/common-areas/types";
 import type { AllowedDay, MaintenanceBlock } from "@/lib/common-areas/types";
 import { createCommonAreaAction, updateCommonAreaAction } from "@/lib/actions/common-areas";
 import { DEFAULT_COMMON_AREA_FORM } from "@/lib/common-areas/defaults";
@@ -30,6 +30,8 @@ export function CommonAreaForm({ condoSlug, mode, defaultValues }: CommonAreaFor
   const [maintenanceBlocks, setMaintenanceBlocks] = useState<MaintenanceBlock[]>(
     defaults.maintenance_blocks,
   );
+  const [bookingMode, setBookingMode] = useState<BookingMode>(defaults.booking_mode);
+  const [classSessions, setClassSessions] = useState<ClassSession[]>(defaults.class_sessions);
 
   return (
     <form action={formAction} className="space-y-8">
@@ -46,6 +48,10 @@ export function CommonAreaForm({ condoSlug, mode, defaultValues }: CommonAreaFor
         setAllowedDays={setAllowedDays}
         maintenanceBlocks={maintenanceBlocks}
         setMaintenanceBlocks={setMaintenanceBlocks}
+        bookingMode={bookingMode}
+        setBookingMode={setBookingMode}
+        classSessions={classSessions}
+        setClassSessions={setClassSessions}
       />
 
       <div className="flex gap-2 pt-2">

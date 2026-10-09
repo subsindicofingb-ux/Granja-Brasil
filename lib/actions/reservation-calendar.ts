@@ -54,6 +54,7 @@ export async function getReservationCalendarAction(
         area: areaResult.data,
         reservations,
         month,
+        excludeReservationId,
       }),
     };
   } catch {

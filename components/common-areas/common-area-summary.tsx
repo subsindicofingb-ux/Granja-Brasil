@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import {
   formatAllowedDays,
+  formatClassSessions,
   formatDays,
   formatMinutes,
 } from "@/lib/common-areas/labels";
+import { formatAdvanceRule, isClassArea } from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +41,18 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
             Exige cobrança
           </Badge>
         )}
+        {isClassArea(area) && (
+          <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+            Aula · lista de presença
+          </Badge>
+        )}
       </div>
 
       <div className="space-y-3">
-        <Row label="Capacidade" value={`${area.capacity} pessoas`} />
+        <Row
+          label={isClassArea(area) ? "Vagas por aula" : "Capacidade"}
+          value={`${area.capacity} pessoas`}
+        />
         <Row label="Regras" value={area.description ?? "—"} />
       </div>
 
@@ -54,8 +64,17 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
         />
         <Row
           label="Modo de reserva"
-          value={isSlotBasedArea(area) ? "Por turno (quadra)" : "Dia inteiro (festa/salão)"}
+          value={
+            isClassArea(area)
+              ? "Aula (lista de presença)"
+              : isSlotBasedArea(area)
+                ? "Por turno (quadra)"
+                : "Dia inteiro (festa/salão)"
+          }
         />
+        {isClassArea(area) && (
+          <Row label="Horários" value={formatClassSessions(area.class_sessions)} />
+        )}
         {isSlotBasedArea(area) && (
           <>
             <Row
@@ -74,7 +93,7 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
         )}
         <Row
           label="Antecedência mínima"
-          value={formatDays(area.min_advance_days, "0 dias")}
+          value={formatAdvanceRule(area)}
         />
         <Row label="Antecedência máxima" value={formatDays(area.max_advance_days)} />
         <Row

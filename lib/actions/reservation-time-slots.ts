@@ -3,8 +3,10 @@
 import { requireCondoAccess } from "@/lib/auth/access";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { listBlockingReservationsForArea } from "@/lib/services/reservations";
+import { isClassArea } from "@/lib/reservations/class-booking";
 import {
   buildAvailableTimeSlots,
+  getClassDurationOptions,
   getDurationOptions,
   isSlotBasedArea,
   type AvailableTimeSlot,
@@ -22,6 +24,7 @@ export async function getReservationTimeSlotsAction(
   condoSlug: string,
   areaId: string,
   dateKey: string,
+  excludeReservationId?: string,
 ): Promise<ReservationTimeSlotsResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
     return { ok: false, error: "Data inválida." };
@@ -53,7 +56,9 @@ export async function getReservationTimeSlotsAction(
       return { ok: false, error: reservationsResult.error };
     }
 
-    const durationOptions = getDurationOptions(areaResult.data);
+    const durationOptions = isClassArea(areaResult.data)
+      ? getClassDurationOptions(areaResult.data, dateKey)
+      : getDurationOptions(areaResult.data);
     const slotsByDuration: Record<number, AvailableTimeSlot[]> = {};
 
     for (const duration of durationOptions) {
@@ -62,6 +67,7 @@ export async function getReservationTimeSlotsAction(
         dateKey,
         reservations: reservationsResult.data,
         durationMinutes: duration,
+        excludeReservationId,
       });
     }
 

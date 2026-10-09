@@ -1,9 +1,18 @@
 import type { AllowedDay, CommonAreaRecord } from "@/lib/common-areas/types";
 import type { ReservationRecord } from "@/lib/reservations/types";
 import {
+  countSlotOccupancy,
+  getClassSessions,
+  getMinAdvanceMs,
+  getSessionsForDay,
+  isClassArea,
+  isClassSlotStillBookable,
+} from "@/lib/reservations/class-booking";
+import {
   DEFAULT_CONDO_TIMEZONE,
   getAllowedDayInTimezone,
   getLocalDateKey,
+  localDateTimeToIso,
 } from "@/lib/reservations/timezone";
 
 export type CalendarDayStatus =
@@ -11,7 +20,8 @@ export type CalendarDayStatus =
   | "unavailable"
   | "confirmed"
   | "prereserva"
-  | "maintenance";
+  | "maintenance"
+  | "full";
 
 export type ReservationCalendarDay = {
   date: string;
@@ -83,7 +93,7 @@ function isWithinAdvanceWindow(
 ): boolean {
   const daysAhead = daysBetweenDateKeys(todayKey, dateKey);
 
-  if (daysAhead < area.min_advance_days) {
+  if (!isClassArea(area) && daysAhead < area.min_advance_days) {
     return false;
   }
 
@@ -94,11 +104,64 @@ function isWithinAdvanceWindow(
   return true;
 }
 
+function classDayAvailability(input: {
+  area: CommonAreaRecord;
+  dateKey: string;
+  reservations: ReservationRecord[];
+  now: Date;
+  excludeReservationId?: string;
+}): { selectable: boolean; full: boolean } {
+  const day = getAllowedDayInTimezone(parseDateKey(input.dateKey), DEFAULT_CONDO_TIMEZONE);
+  const sessions = getSessionsForDay(getClassSessions(input.area), day);
+  const minAdvanceMs = getMinAdvanceMs(input.area);
+  let hasBookableSession = false;
+  let allFull = sessions.length > 0;
+
+  for (const session of sessions) {
+    const startAt = new Date(localDateTimeToIso(input.dateKey, session.start));
+    const stillOpen = isClassSlotStillBookable({
+      startAt,
+      now: input.now,
+      minAdvanceMs,
+    });
+
+    if (!stillOpen) {
+      continue;
+    }
+
+    const occupied = countSlotOccupancy({
+      reservations: input.reservations,
+      startAt,
+      excludeReservationId: input.excludeReservationId,
+    });
+    const remaining = input.area.capacity - occupied;
+
+    if (remaining > 0) {
+      hasBookableSession = true;
+      allFull = false;
+    }
+  }
+
+  if (!hasBookableSession && allFull && sessions.length > 0) {
+    const anyOpen = sessions.some((session) =>
+      isClassSlotStillBookable({
+        startAt: new Date(localDateTimeToIso(input.dateKey, session.start)),
+        now: input.now,
+        minAdvanceMs,
+      }),
+    );
+    return { selectable: false, full: anyOpen };
+  }
+
+  return { selectable: hasBookableSession, full: false };
+}
+
 export function buildReservationCalendarDays(input: {
   area: CommonAreaRecord;
   reservations: ReservationRecord[];
   month: string;
   now?: Date;
+  excludeReservationId?: string;
 }): ReservationCalendarDay[] {
   const now = input.now ?? new Date();
   const todayKey = getLocalDateKey(now, DEFAULT_CONDO_TIMEZONE);
@@ -129,6 +192,34 @@ export function buildReservationCalendarDays(input: {
         label: "Manutenção",
         selectable: false,
       };
+    }
+
+    if (isClassArea(input.area)) {
+      if (!isAllowedBookingDay(input.area, dateKey, allowedDay)) {
+        return { date: dateKey, status: "unavailable", selectable: false };
+      }
+
+      if (!isWithinAdvanceWindow(input.area, dateKey, todayKey)) {
+        return { date: dateKey, status: "unavailable", selectable: false };
+      }
+
+      const classDay = classDayAvailability({
+        area: input.area,
+        dateKey,
+        reservations: input.reservations,
+        now,
+        excludeReservationId: input.excludeReservationId,
+      });
+
+      if (classDay.full) {
+        return { date: dateKey, status: "full", label: "Lotado", selectable: false };
+      }
+
+      if (!classDay.selectable) {
+        return { date: dateKey, status: "unavailable", selectable: false };
+      }
+
+      return { date: dateKey, status: "available", selectable: true };
     }
 
     const hasConfirmedReservation = approvedReservations.some((reservation) =>

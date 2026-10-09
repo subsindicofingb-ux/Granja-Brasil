@@ -57,8 +57,9 @@ export const residentReservationFormSchema = z.object({
 
 export function parseReservationFormData(formData: FormData) {
   const mode = String(formData.get("form_mode") ?? "staff");
+  const hasGuidedSchedule = Boolean(formData.get("reservation_date"));
 
-  if (mode === "resident") {
+  if (mode === "resident" || hasGuidedSchedule) {
     const parsed = residentReservationFormSchema.safeParse({
       common_area_id: formData.get("common_area_id"),
       unit_id: formData.get("unit_id"),

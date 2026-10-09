@@ -380,6 +380,7 @@ export async function cancelReservationAction(
     reservationId,
     access.condominium.id,
     bookingContext,
+    { enforceClassAdvance: !isStaff },
   );
 
   if (!result.ok) {

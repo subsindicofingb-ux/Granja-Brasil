@@ -176,6 +176,140 @@ values
     '2025-01-01 00:00:00+00'
   );
 
+insert into public.common_areas (
+  id,
+  condominium_id,
+  name,
+  capacity,
+  description,
+  is_active,
+  requires_approval,
+  requires_payment,
+  booking_mode,
+  class_sessions,
+  max_duration_minutes,
+  min_advance_minutes,
+  min_advance_days,
+  max_advance_days,
+  max_reservations_per_unit,
+  reservation_period_days,
+  buffer_minutes,
+  buffer_days,
+  operating_hours,
+  allowed_days,
+  maintenance_blocks,
+  rules,
+  created_at
+)
+values
+  (
+    'a0000000-0000-4000-8000-000000000044',
+    'a0000000-0000-4000-8000-000000000001',
+    'Mat Pilates',
+    13,
+    'Local: Academia Nova (antigo restaurante).
+Lista de presença com 13 vagas por aula.
+A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+    true,
+    false,
+    false,
+    'class',
+    '[{"day":"mon","start":"08:30","end":"09:30"},{"day":"wed","start":"09:30","end":"10:30"},{"day":"sat","start":"09:30","end":"10:30"}]'::jsonb,
+    60,
+    720,
+    0,
+    14,
+    null,
+    30,
+    0,
+    0,
+    '{"start":"08:30","end":"10:30"}'::jsonb,
+    '["mon","wed","sat"]'::jsonb,
+    '[]'::jsonb,
+    '{"slot_interval_minutes":60}'::jsonb,
+    '2025-01-01 00:00:00+00'
+  ),
+  (
+    'a0000000-0000-4000-8000-000000000045',
+    'a0000000-0000-4000-8000-000000000001',
+    'Yoga',
+    13,
+    'Local provisório: Academia Nova.
+Lista de presença com 13 vagas por aula.
+A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+    true,
+    false,
+    false,
+    'class',
+    '[{"day":"tue","start":"09:30","end":"10:30"},{"day":"thu","start":"09:30","end":"10:30"}]'::jsonb,
+    60,
+    720,
+    0,
+    14,
+    null,
+    30,
+    0,
+    0,
+    '{"start":"09:30","end":"10:30"}'::jsonb,
+    '["tue","thu"]'::jsonb,
+    '[]'::jsonb,
+    '{"slot_interval_minutes":60}'::jsonb,
+    '2025-01-01 00:00:00+00'
+  ),
+  (
+    'a0000000-0000-4000-8000-000000000046',
+    'a0000000-0000-4000-8000-000000000001',
+    'Zumba',
+    13,
+    'Local: Condomínio Pau Brasil.
+Lista de presença com 13 vagas por aula.
+A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+    true,
+    false,
+    false,
+    'class',
+    '[{"day":"mon","start":"17:00","end":"18:00"},{"day":"mon","start":"18:00","end":"19:00"},{"day":"thu","start":"17:00","end":"18:00"},{"day":"thu","start":"18:00","end":"19:00"}]'::jsonb,
+    60,
+    720,
+    0,
+    14,
+    null,
+    30,
+    0,
+    0,
+    '{"start":"17:00","end":"19:00"}'::jsonb,
+    '["mon","thu"]'::jsonb,
+    '[]'::jsonb,
+    '{"slot_interval_minutes":60}'::jsonb,
+    '2025-01-01 00:00:00+00'
+  ),
+  (
+    'a0000000-0000-4000-8000-000000000047',
+    'a0000000-0000-4000-8000-000000000001',
+    'Hidroginástica',
+    13,
+    'Lista de presença com 13 vagas por aula.
+A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+    true,
+    false,
+    false,
+    'class',
+    '[{"day":"tue","start":"08:00","end":"09:00"},{"day":"tue","start":"09:00","end":"10:00"},{"day":"wed","start":"08:00","end":"09:00"},{"day":"wed","start":"09:00","end":"10:00"},{"day":"thu","start":"08:00","end":"09:00"},{"day":"thu","start":"09:00","end":"10:00"},{"day":"fri","start":"08:00","end":"09:00"},{"day":"fri","start":"09:00","end":"10:00"}]'::jsonb,
+    60,
+    720,
+    0,
+    14,
+    null,
+    30,
+    0,
+    0,
+    '{"start":"08:00","end":"10:00"}'::jsonb,
+    '["tue","wed","thu","fri"]'::jsonb,
+    '[]'::jsonb,
+    '{"slot_interval_minutes":60}'::jsonb,
+    '2025-01-01 00:00:00+00'
+  );
+
 insert into public.reservations (
   id, common_area_id, unit_id, requested_by, start_at, end_at, status, notes, created_at
 )

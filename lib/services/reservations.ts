@@ -30,6 +30,11 @@ import {
   requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
+import {
+  getMinAdvanceMs,
+  isClassArea,
+  isClassSlotStillBookable,
+} from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 
 type ReservationRow = ReservationRecord;
@@ -43,6 +48,8 @@ type ReservationDetailRow = ReservationRow & {
     condominium_id: string;
     max_duration_minutes: number | null;
     description: string | null;
+    booking_mode?: "exclusive" | "class" | null;
+    capacity?: number;
     operating_hours: { start: string; end: string } | string;
   };
   units: {
@@ -91,6 +98,8 @@ const RESERVATION_DETAIL_SELECT = `
     condominium_id,
     description,
     max_duration_minutes,
+    booking_mode,
+    capacity,
     operating_hours
   ),
   units!inner (
@@ -153,6 +162,8 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       condominium_id: row.common_areas.condominium_id,
       description: row.common_areas.description,
       max_duration_minutes: row.common_areas.max_duration_minutes ?? null,
+      booking_mode: row.common_areas.booking_mode === "class" ? "class" : "exclusive",
+      capacity: row.common_areas.capacity ?? undefined,
       operating_hours: parseAreaOperatingHours(row.common_areas.operating_hours),
     },
     unit: {
@@ -419,6 +430,29 @@ export async function listBlockingReservationsForArea(
   }
 
   return runQuery(await createClient());
+}
+
+export async function listClassAttendance(input: {
+  commonAreaId: string;
+  startAt: string;
+}): Promise<ServiceResult<ReservationWithDetails[]>> {
+  const supabase = getSupabaseServiceRoleKey()
+    ? createAdminClient()
+    : await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .eq("common_area_id", input.commonAreaId)
+    .eq("start_at", input.startAt)
+    .in("status", ["pending", "approved", "awaiting_receipt"])
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
 }
 
 export async function getReservationById(
@@ -949,7 +983,29 @@ export async function cancelReservation(
   reservationId: string,
   condominiumId: string,
   bookingContext?: CondominiumContext,
+  options?: { enforceClassAdvance?: boolean },
 ): Promise<ServiceResult<ReservationWithDetails>> {
+  if (options?.enforceClassAdvance && bookingContext) {
+    const current = await getReservationByIdForContext(reservationId, bookingContext);
+    if (current.ok && isClassArea(current.data.common_area)) {
+      const areaResult = await getBookableCommonAreaById(
+        current.data.common_area_id,
+        bookingContext,
+      );
+      if (areaResult.ok) {
+        const stillOpen = isClassSlotStillBookable({
+          startAt: new Date(current.data.start_at),
+          minAdvanceMs: getMinAdvanceMs(areaResult.data),
+        });
+        if (!stillOpen) {
+          return serviceError(
+            "Não é possível cancelar com menos de 12 horas de antecedência da aula.",
+          );
+        }
+      }
+    }
+  }
+
   return updateReservationStatus({
     reservationId,
     condominiumId,

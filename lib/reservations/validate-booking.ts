@@ -9,6 +9,14 @@ import {
   addDaysToDateKey,
   dateKeyTouchesRange,
 } from "@/lib/reservations/calendar-availability";
+import {
+  countSlotOccupancy,
+  findMatchingClassSession,
+  getMinAdvanceMs,
+  isClassArea,
+  isClassSlotStillBookable,
+  unitAlreadyBookedSlot,
+} from "@/lib/reservations/class-booking";
 import { getSlotIntervalMinutes, isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { formatMinutes } from "@/lib/common-areas/labels";
 import {
@@ -111,24 +119,29 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
   const closeMinutes = parseTimeToMinutes(area.operating_hours.end);
   const startMinutes = parseTimeToMinutes(startTime);
   const endMinutes = parseTimeToMinutes(endTime);
+  const durationMinutes = endMinutes - startMinutes;
+  const classBooking = isClassArea(area);
 
-  if (startMinutes < openMinutes || endMinutes > closeMinutes) {
+  if (classBooking) {
+    const session = findMatchingClassSession({ area, startAt, endAt, timeZone });
+    if (!session) {
+      return { valid: false, error: "Horário inválido. Escolha uma aula da programação." };
+    }
+  } else if (startMinutes < openMinutes || endMinutes > closeMinutes) {
     return {
       valid: false,
       error: `Horário fora do funcionamento (${area.operating_hours.start}–${area.operating_hours.end}).`,
     };
   }
 
-  const durationMinutes = endMinutes - startMinutes;
-
-  if (area.max_duration_minutes != null && durationMinutes > area.max_duration_minutes) {
+  if (!classBooking && area.max_duration_minutes != null && durationMinutes > area.max_duration_minutes) {
     return {
       valid: false,
       error: `Tempo máximo por reserva: ${formatMinutes(area.max_duration_minutes)}.`,
     };
   }
 
-  if (isSlotBasedArea(area)) {
+  if (!classBooking && isSlotBasedArea(area)) {
     const slotInterval = getSlotIntervalMinutes(area);
     if (durationMinutes % slotInterval !== 0) {
       return {
@@ -138,14 +151,28 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
     }
   }
 
-  const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
-  if (daysUntilStart < area.min_advance_days) {
+  if (classBooking) {
+    if (
+      !isClassSlotStillBookable({
+        startAt,
+        now,
+        minAdvanceMs: getMinAdvanceMs(area),
+      })
+    ) {
+      const hours = Math.max(1, Math.round(area.min_advance_minutes / 60));
+      return {
+        valid: false,
+        error: `A vaga deve ser confirmada com até ${hours} hora(s) de antecedência da aula.`,
+      };
+    }
+  } else if (daysBetweenDateKeys(todayKey, startDateKey) < area.min_advance_days) {
     return {
       valid: false,
       error: `Antecedência mínima: ${area.min_advance_days} dia(s).`,
     };
   }
 
+  const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
   if (area.max_advance_days != null) {
     if (daysUntilStart > area.max_advance_days) {
       return {
@@ -169,6 +196,34 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
   const blocking = existingReservations.filter((reservation) =>
     isBlockingReservation(reservation, excludeReservationId),
   );
+
+  if (classBooking) {
+    if (
+      unitAlreadyBookedSlot({
+        reservations: existingReservations,
+        unitId: input.unitId,
+        startAt,
+        excludeReservationId,
+      })
+    ) {
+      return { valid: false, error: "Esta unidade já possui reserva nesta aula." };
+    }
+
+    const occupied = countSlotOccupancy({
+      reservations: existingReservations,
+      startAt,
+      excludeReservationId,
+    });
+
+    if (occupied >= area.capacity) {
+      return {
+        valid: false,
+        error: `Turma lotada (${area.capacity} vagas).`,
+      };
+    }
+
+    return { valid: true };
+  }
 
   for (const reservation of blocking) {
     const existingStart = new Date(reservation.start_at);

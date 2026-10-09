@@ -12,6 +12,8 @@ interface ReservationTimeSlotPickerProps {
   dateKey: string;
   startTime: string;
   durationMinutes: number;
+  excludeReservationId?: string;
+  hideDuration?: boolean;
   onStartTimeChange: (value: string) => void;
   onDurationChange: (value: number) => void;
 }
@@ -22,6 +24,8 @@ export function ReservationTimeSlotPicker({
   dateKey,
   startTime,
   durationMinutes,
+  excludeReservationId,
+  hideDuration,
   onStartTimeChange,
   onDurationChange,
 }: ReservationTimeSlotPickerProps) {
@@ -45,7 +49,12 @@ export function ReservationTimeSlotPicker({
       setLoading(true);
       setError(null);
 
-      const result = await getReservationTimeSlotsAction(condoSlug, areaId, dateKey);
+      const result = await getReservationTimeSlotsAction(
+        condoSlug,
+        areaId,
+        dateKey,
+        excludeReservationId,
+      );
 
       if (cancelled) {
         return;
@@ -79,7 +88,7 @@ export function ReservationTimeSlotPicker({
     return () => {
       cancelled = true;
     };
-  }, [areaId, condoSlug, dateKey, durationMinutes, onDurationChange]);
+  }, [areaId, condoSlug, dateKey, durationMinutes, excludeReservationId, onDurationChange]);
 
   const availableSlots = useMemo(
     () => slotsByDuration[durationMinutes] ?? [],
@@ -119,7 +128,7 @@ export function ReservationTimeSlotPicker({
 
   return (
     <div className="space-y-4">
-      {durationOptions.length > 1 && (
+      {!hideDuration && durationOptions.length > 1 && (
         <div className="space-y-2">
           <Label>Duração da reserva</Label>
           <div className="flex flex-wrap gap-2">
@@ -143,7 +152,7 @@ export function ReservationTimeSlotPicker({
       )}
 
       <div className="space-y-2">
-        <Label>Horário de início</Label>
+        <Label>{hideDuration ? "Horário da aula" : "Horário de início"}</Label>
         {availableSlots.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Nenhum turno livre com {formatMinutes(durationMinutes)} nesta data.

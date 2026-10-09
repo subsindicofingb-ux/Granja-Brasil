@@ -146,6 +146,8 @@ async function ReservationsContent({
           condoSlug={condoSlug}
           areaName={selectedArea?.name ?? "Espaço"}
           reservations={reservations}
+          isClassArea={selectedArea?.booking_mode === "class"}
+          capacity={selectedArea?.capacity}
         />
       </div>
     );

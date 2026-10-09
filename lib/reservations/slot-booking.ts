@@ -2,13 +2,27 @@ import type { CommonAreaRecord } from "@/lib/common-areas/types";
 import type { ReservationRecord } from "@/lib/reservations/types";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/reservations/types";
 import {
+  countSlotOccupancy,
+  getClassSessions,
+  getMinAdvanceMs,
+  getSessionsForDay,
+  isClassArea,
+  isClassSlotStillBookable,
+  sessionDurationMinutes,
+} from "@/lib/reservations/class-booking";
+import {
   DEFAULT_CONDO_TIMEZONE,
+  getAllowedDayInTimezone,
   getLocalDateKey,
   localDateTimeToIso,
   parseTimeToMinutes,
 } from "@/lib/reservations/timezone";
 
-export function isSlotBasedArea(area: { max_duration_minutes: number | null }): boolean {
+export function isSlotBasedArea(area: {
+  max_duration_minutes: number | null;
+  booking_mode?: string | null;
+}): boolean {
+  if (isClassArea(area)) return true;
   return area.max_duration_minutes != null && area.max_duration_minutes > 0;
 }
 
@@ -65,6 +79,8 @@ export type AvailableTimeSlot = {
   endTime: string;
   durationMinutes: number;
   label: string;
+  spotsRemaining?: number;
+  spotsTotal?: number;
 };
 
 function formatSlotLabel(startTime: string, durationMinutes: number): string {
@@ -83,15 +99,92 @@ function formatSlotLabel(startTime: string, durationMinutes: number): string {
   return `${startTime} – ${endTime} (${hoursLabel})`;
 }
 
+function buildClassTimeSlots(input: {
+  area: CommonAreaRecord;
+  dateKey: string;
+  reservations: ReservationRecord[];
+  durationMinutes: number;
+  now: Date;
+  excludeReservationId?: string;
+}): AvailableTimeSlot[] {
+  const { area, dateKey, reservations, durationMinutes, now } = input;
+  const timeZone = DEFAULT_CONDO_TIMEZONE;
+  const day = getAllowedDayInTimezone(new Date(`${dateKey}T12:00:00`), timeZone);
+  const minAdvanceMs = getMinAdvanceMs(area);
+  const slots: AvailableTimeSlot[] = [];
+
+  for (const session of getSessionsForDay(getClassSessions(area), day)) {
+    const duration = sessionDurationMinutes(session);
+    if (duration !== durationMinutes) {
+      continue;
+    }
+
+    const startAt = new Date(localDateTimeToIso(dateKey, session.start, timeZone));
+
+    if (
+      !isClassSlotStillBookable({
+        startAt,
+        now,
+        minAdvanceMs,
+      })
+    ) {
+      continue;
+    }
+
+    const occupied = countSlotOccupancy({
+      reservations,
+      startAt,
+      excludeReservationId: input.excludeReservationId,
+    });
+    const remaining = Math.max(0, area.capacity - occupied);
+
+    if (remaining <= 0) {
+      continue;
+    }
+
+    slots.push({
+      startTime: session.start,
+      endTime: session.end,
+      durationMinutes: duration,
+      label: `${session.start} – ${session.end} (${remaining}/${area.capacity} vagas)`,
+      spotsRemaining: remaining,
+      spotsTotal: area.capacity,
+    });
+  }
+
+  return slots;
+}
+
+export function getClassDurationOptions(area: CommonAreaRecord, dateKey: string): number[] {
+  const day = getAllowedDayInTimezone(new Date(`${dateKey}T12:00:00`), DEFAULT_CONDO_TIMEZONE);
+  const durations = [
+    ...new Set(getSessionsForDay(getClassSessions(area), day).map(sessionDurationMinutes)),
+  ].filter((duration) => duration > 0);
+
+  return durations.sort((left, right) => left - right);
+}
+
 export function buildAvailableTimeSlots(input: {
   area: CommonAreaRecord;
   dateKey: string;
   reservations: ReservationRecord[];
   durationMinutes: number;
   now?: Date;
+  excludeReservationId?: string;
 }): AvailableTimeSlot[] {
   const { area, dateKey, reservations, durationMinutes } = input;
   const now = input.now ?? new Date();
+
+  if (isClassArea(area)) {
+    return buildClassTimeSlots({
+      area,
+      dateKey,
+      reservations,
+      durationMinutes,
+      now,
+      excludeReservationId: input.excludeReservationId,
+    });
+  }
   const timeZone = DEFAULT_CONDO_TIMEZONE;
   const slot = getSlotIntervalMinutes(area);
   const openMinutes = parseTimeToMinutes(area.operating_hours.start);

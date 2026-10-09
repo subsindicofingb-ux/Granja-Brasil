@@ -32,3 +32,12 @@ export function formatDays(days: number | null, fallback = "Sem limite"): string
   if (days == null) return fallback;
   return days === 1 ? "1 dia" : `${days} dias`;
 }
+
+export function formatClassSessions(
+  sessions: Array<{ day: AllowedDay; start: string; end: string }>,
+): string {
+  if (sessions.length === 0) return "Nenhuma aula cadastrada";
+  return sessions
+    .map((session) => `${ALLOWED_DAY_LABELS[session.day]} ${session.start}–${session.end}`)
+    .join(" · ");
+}

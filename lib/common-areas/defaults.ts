@@ -1,4 +1,5 @@
 import type { AllowedDay, CommonAreaFormInput, OperatingHours } from "@/lib/common-areas/types";
+import { CLASS_MIN_ADVANCE_HOURS_DEFAULT } from "@/lib/reservations/class-booking";
 
 export const DEFAULT_OPERATING_HOURS: OperatingHours = {
   start: "08:00",
@@ -22,10 +23,13 @@ export const DEFAULT_COMMON_AREA_FORM: CommonAreaFormInput = {
   is_active: true,
   requires_approval: false,
   requires_payment: false,
+  booking_mode: "exclusive",
+  class_sessions: [],
   max_advance_days: 90,
   max_reservations_per_unit: 2,
   reservation_period_days: 30,
   min_advance_days: 1,
+  min_advance_hours: CLASS_MIN_ADVANCE_HOURS_DEFAULT,
   buffer_days: 0,
   buffer_minutes: 0,
   max_duration_minutes: null,

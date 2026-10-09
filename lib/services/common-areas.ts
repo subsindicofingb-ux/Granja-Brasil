@@ -6,6 +6,8 @@ import type { Database } from "@/types/database.types";
 import { ALLOWED_DAYS } from "@/lib/common-areas/types";
 import type {
   AllowedDay,
+  BookingMode,
+  ClassSession,
   CommonAreaRecord,
   MaintenanceBlock,
   OperatingHours,
@@ -31,6 +33,8 @@ type CommonAreaRow = {
   is_active: boolean;
   requires_approval: boolean;
   requires_payment?: boolean;
+  booking_mode?: "exclusive" | "class" | null;
+  class_sessions?: unknown;
   max_duration_minutes: number | null;
   min_advance_minutes: number;
   min_advance_days?: number | null;
@@ -93,6 +97,39 @@ function parseSlotIntervalMinutes(rules: Record<string, unknown> | null): number
   return null;
 }
 
+function parseBookingMode(value: unknown): BookingMode {
+  return value === "class" ? "class" : "exclusive";
+}
+
+function parseClassSessions(value: unknown): ClassSession[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (
+      typeof item !== "object" ||
+      item === null ||
+      !("day" in item) ||
+      !("start" in item) ||
+      !("end" in item)
+    ) {
+      return [];
+    }
+
+    const day = String((item as ClassSession).day);
+    if (!ALLOWED_DAYS.includes(day as AllowedDay)) {
+      return [];
+    }
+
+    return [
+      {
+        day: day as AllowedDay,
+        start: String((item as ClassSession).start),
+        end: String((item as ClassSession).end),
+      },
+    ];
+  });
+}
+
 function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
   const rules = row.rules ?? {};
 
@@ -105,7 +142,10 @@ function mapCommonArea(row: CommonAreaRow): CommonAreaRecord {
     is_active: row.is_active,
     requires_approval: row.requires_approval,
     requires_payment: row.requires_payment ?? false,
+    booking_mode: parseBookingMode(row.booking_mode),
+    class_sessions: parseClassSessions(row.class_sessions),
     min_advance_days: resolveMinAdvanceDays(row.min_advance_days, row.min_advance_minutes),
+    min_advance_minutes: row.min_advance_minutes ?? 0,
     max_advance_days: row.max_advance_days,
     max_reservations_per_unit: row.max_reservations_per_unit,
     reservation_period_days: row.reservation_period_days,
@@ -131,7 +171,10 @@ const COMMON_AREA_SELECT = `
   is_active,
   requires_approval,
   requires_payment,
+  booking_mode,
+  class_sessions,
   min_advance_days,
+  min_advance_minutes,
   max_advance_days,
   max_reservations_per_unit,
   reservation_period_days,
@@ -307,8 +350,10 @@ function toDbPayload(input: CommonAreaWriteInput) {
     is_active: input.is_active,
     requires_approval: input.requires_approval,
     requires_payment: input.requires_payment,
+    booking_mode: input.booking_mode,
+    class_sessions: input.class_sessions as Json,
     max_duration_minutes: input.max_duration_minutes,
-    min_advance_minutes: 0,
+    min_advance_minutes: input.min_advance_minutes,
     min_advance_days: input.min_advance_days,
     max_advance_days: input.max_advance_days,
     max_reservations_per_unit: input.max_reservations_per_unit,

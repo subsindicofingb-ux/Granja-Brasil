@@ -10,9 +10,29 @@ interface AreaAgendaProps {
   condoSlug: string;
   areaName: string;
   reservations: ReservationWithDetails[];
+  isClassArea?: boolean;
+  capacity?: number;
 }
 
-export function AreaAgenda({ condoSlug, areaName, reservations }: AreaAgendaProps) {
+function groupByStartAt(reservations: ReservationWithDetails[]) {
+  const grouped = new Map<string, ReservationWithDetails[]>();
+
+  for (const reservation of reservations) {
+    const list = grouped.get(reservation.start_at) ?? [];
+    list.push(reservation);
+    grouped.set(reservation.start_at, list);
+  }
+
+  return grouped;
+}
+
+export function AreaAgenda({
+  condoSlug,
+  areaName,
+  reservations,
+  isClassArea,
+  capacity,
+}: AreaAgendaProps) {
   const grouped = groupReservationsByLocalDate(reservations);
   const sortedDates = [...grouped.keys()].sort();
 
@@ -35,9 +55,42 @@ export function AreaAgenda({ condoSlug, areaName, reservations }: AreaAgendaProp
             <header className="border-b bg-muted/40 px-4 py-3">
               <h3 className="font-medium">{displayDate}</h3>
               <p className="text-xs text-muted-foreground">
-                {dayReservations.length} reserva(s)
+                {isClassArea
+                  ? `${dayReservations.length} inscrição(ões) na lista de presença`
+                  : `${dayReservations.length} reserva(s)`}
               </p>
             </header>
+            {isClassArea ? (
+              <ul className="divide-y">
+                {[...groupByStartAt(dayReservations).entries()]
+                  .sort(([left], [right]) => left.localeCompare(right))
+                  .map(([startAt, attendees]) => (
+                    <li key={startAt} className="space-y-2 px-4 py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="font-medium">{formatDateTime(startAt)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attendees.length}/{capacity ?? "—"} vagas
+                        </p>
+                      </div>
+                      <ul className="space-y-1 text-sm text-muted-foreground">
+                        {attendees.map((reservation) => (
+                          <li key={reservation.id} className="flex items-center justify-between gap-2">
+                            <span>{formatUnitWithTower(reservation.unit)}</span>
+                            <span className="flex items-center gap-2">
+                              <ReservationStatusBadge status={reservation.status} />
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/app/${condoSlug}/reservations/${reservation.id}`}>
+                                  Ver
+                                </Link>
+                              </Button>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
             <ul className="divide-y">
               {dayReservations.map((reservation) => (
                 <li
@@ -66,6 +119,7 @@ export function AreaAgenda({ condoSlug, areaName, reservations }: AreaAgendaProp
                 </li>
               ))}
             </ul>
+            )}
           </section>
         );
       })}

@@ -23,6 +23,8 @@ export type ReservationAreaOption = {
     end: string;
   };
   usesSlotBooking: boolean;
+  isClassArea: boolean;
+  minAdvanceHours: number;
   maxDurationMinutes: number | null;
   slotIntervalMinutes: number | null;
   rules: string | null;
@@ -86,8 +88,13 @@ export function ReservationForm({
   const singleUnit = units.length === 1 ? units[0] : null;
   const isResident = mode === "resident";
   const requiresGuestCountForResident =
-    isResident && selectedArea != null && !selectedArea.usesSlotBooking;
-  const isEventReservation = selectedArea != null && !selectedArea.usesSlotBooking;
+    isResident && selectedArea != null && !selectedArea.usesSlotBooking && !selectedArea.isClassArea;
+  const isEventReservation =
+    selectedArea != null && !selectedArea.usesSlotBooking && !selectedArea.isClassArea;
+  const isClassReservation = selectedArea?.isClassArea === true;
+  const showSlotPicker = Boolean(
+    selectedArea && (isResident ? selectedArea.usesSlotBooking : selectedArea.isClassArea),
+  );
   const isReschedule = Boolean(reschedule);
 
   if (areas.length === 0) {
@@ -150,6 +157,7 @@ export function ReservationForm({
             {areas.map((area) => (
               <option key={area.id} value={area.id}>
                 {area.name}
+                {area.isClassArea ? ` (aula · ${area.capacity} vagas)` : ""}
                 {area.requiresPaymentReceipt ? " (comprovante obrigatório)" : ""}
                 {area.requiresApproval && !area.requiresPaymentReceipt
                   ? " (exige aprovação)"
@@ -256,11 +264,18 @@ export function ReservationForm({
         </p>
       )}
 
-      {isResident ? (
+      {isClassReservation && selectedArea && (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Lista de presença com {selectedArea.capacity} vagas por aula. Confirme sua participação
+          com até {selectedArea.minAdvanceHours || 12} horas de antecedência do horário da aula.
+        </p>
+      )}
+
+      {isResident || showSlotPicker ? (
         <>
           <input type="hidden" name="reservation_date" value={reservationDate} />
 
-          {selectedArea?.usesSlotBooking ? (
+          {showSlotPicker || selectedArea?.usesSlotBooking ? (
             <>
               <ReservationTimeSlotPicker
                 condoSlug={condoSlug}
@@ -268,6 +283,8 @@ export function ReservationForm({
                 dateKey={reservationDate}
                 startTime={startTime}
                 durationMinutes={durationMinutes}
+                excludeReservationId={reschedule?.reservationId}
+                hideDuration={isClassReservation}
                 onStartTimeChange={setStartTime}
                 onDurationChange={setDurationMinutes}
               />
@@ -380,7 +397,9 @@ export function ReservationForm({
             ? "Salvando..."
             : isReschedule
               ? "Confirmar reagendamento"
-              : "Solicitar reserva"}
+              : isClassReservation
+                ? "Confirmar presença"
+                : "Solicitar reserva"}
         </Button>
         <Button variant="outline" asChild>
           <Link

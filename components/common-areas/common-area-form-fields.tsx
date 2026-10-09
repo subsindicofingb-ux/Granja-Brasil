@@ -1,6 +1,12 @@
 "use client";
 
-import type { AllowedDay, CommonAreaFormInput, MaintenanceBlock } from "@/lib/common-areas/types";
+import type {
+  AllowedDay,
+  BookingMode,
+  ClassSession,
+  CommonAreaFormInput,
+  MaintenanceBlock,
+} from "@/lib/common-areas/types";
 import { ALLOWED_DAY_OPTIONS } from "@/lib/common-areas/labels";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -150,12 +156,91 @@ export function MaintenanceBlocksField({ value, onChange }: MaintenanceBlocksFie
   );
 }
 
+interface ClassSessionsFieldProps {
+  value: ClassSession[];
+  onChange: (sessions: ClassSession[]) => void;
+}
+
+export function ClassSessionsField({ value, onChange }: ClassSessionsFieldProps) {
+  function updateSession(index: number, patch: Partial<ClassSession>) {
+    onChange(value.map((session, i) => (i === index ? { ...session, ...patch } : session)));
+  }
+
+  function addSession() {
+    onChange([...value, { day: "mon", start: "08:00", end: "09:00" }]);
+  }
+
+  function removeSession(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="space-y-3">
+      {value.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum horário de aula cadastrado.</p>
+      ) : (
+        value.map((session, index) => (
+          <div key={index} className="grid gap-3 rounded-lg border p-4 sm:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor={`session-day-${index}`}>Dia</Label>
+              <select
+                id={`session-day-${index}`}
+                value={session.day}
+                onChange={(event) =>
+                  updateSession(index, { day: event.target.value as AllowedDay })
+                }
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+              >
+                {ALLOWED_DAY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`session-start-${index}`}>Início</Label>
+              <Input
+                id={`session-start-${index}`}
+                type="time"
+                value={session.start}
+                onChange={(event) => updateSession(index, { start: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`session-end-${index}`}>Fim</Label>
+              <Input
+                id={`session-end-${index}`}
+                type="time"
+                value={session.end}
+                onChange={(event) => updateSession(index, { end: event.target.value })}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button type="button" variant="ghost" size="sm" onClick={() => removeSession(index)}>
+                Remover
+              </Button>
+            </div>
+          </div>
+        ))
+      )}
+      <Button type="button" variant="outline" size="sm" onClick={addSession}>
+        Adicionar horário
+      </Button>
+    </div>
+  );
+}
+
 interface CommonAreaFormFieldsProps {
   defaults: CommonAreaFormInput;
   allowedDays: AllowedDay[];
   setAllowedDays: (days: AllowedDay[]) => void;
   maintenanceBlocks: MaintenanceBlock[];
   setMaintenanceBlocks: (blocks: MaintenanceBlock[]) => void;
+  bookingMode: BookingMode;
+  setBookingMode: (mode: BookingMode) => void;
+  classSessions: ClassSession[];
+  setClassSessions: (sessions: ClassSession[]) => void;
 }
 
 export function CommonAreaFormFields({
@@ -164,7 +249,13 @@ export function CommonAreaFormFields({
   setAllowedDays,
   maintenanceBlocks,
   setMaintenanceBlocks,
+  bookingMode,
+  setBookingMode,
+  classSessions,
+  setClassSessions,
 }: CommonAreaFormFieldsProps) {
+  const isClass = bookingMode === "class";
+
   return (
     <>
       <input type="hidden" name="allowed_days_json" value={JSON.stringify(allowedDays)} readOnly />
@@ -172,6 +263,13 @@ export function CommonAreaFormFields({
         type="hidden"
         name="maintenance_blocks_json"
         value={JSON.stringify(maintenanceBlocks)}
+        readOnly
+      />
+      <input type="hidden" name="booking_mode" value={bookingMode} readOnly />
+      <input
+        type="hidden"
+        name="class_sessions_json"
+        value={JSON.stringify(classSessions)}
         readOnly
       />
 
@@ -193,7 +291,7 @@ export function CommonAreaFormFields({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="capacity">Capacidade (pessoas)</Label>
+          <Label htmlFor="capacity">{isClass ? "Vagas por aula" : "Capacidade (pessoas)"}</Label>
           <Input
             id="capacity"
             name="capacity"
@@ -204,6 +302,94 @@ export function CommonAreaFormFields({
           />
         </div>
       </section>
+
+      <section className="space-y-4">
+        <h3 className="text-sm font-semibold">Tipo de reserva</h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label
+            className={cn(
+              "flex cursor-pointer flex-col gap-1 rounded-md border px-3 py-2 text-sm",
+              !isClass ? "border-primary bg-primary/5" : "border-input",
+            )}
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <input
+                type="radio"
+                name="booking_mode_choice"
+                checked={!isClass}
+                onChange={() => setBookingMode("exclusive")}
+                className="rounded border-input"
+              />
+              Espaço exclusivo
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Salão, churrasqueira ou quadra: uma reserva ocupa o horário.
+            </span>
+          </label>
+          <label
+            className={cn(
+              "flex cursor-pointer flex-col gap-1 rounded-md border px-3 py-2 text-sm",
+              isClass ? "border-primary bg-primary/5" : "border-input",
+            )}
+          >
+            <span className="flex items-center gap-2 font-medium">
+              <input
+                type="radio"
+                name="booking_mode_choice"
+                checked={isClass}
+                onChange={() => setBookingMode("class")}
+                className="rounded border-input"
+              />
+              Aula / lista de presença
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Várias pessoas na mesma aula, até o limite de vagas.
+            </span>
+          </label>
+        </div>
+      </section>
+
+      {isClass ? (
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold">Horários das aulas</h3>
+          <ClassSessionsField value={classSessions} onChange={setClassSessions} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="min_advance_hours">Antecedência mínima (horas)</Label>
+              <Input
+                id="min_advance_hours"
+                name="min_advance_hours"
+                type="number"
+                min={0}
+                defaultValue={
+                  defaults.min_advance_hours > 0 ? defaults.min_advance_hours : 12
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                A vaga precisa ser confirmada com essa antecedência do horário da aula. Use 12
+                para fechar a lista 12 horas antes.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="max_advance_days">Antecedência máxima (dias)</Label>
+              <Input
+                id="max_advance_days"
+                name="max_advance_days"
+                type="number"
+                min={1}
+                placeholder="Ex: 14"
+                defaultValue={defaults.max_advance_days ?? ""}
+              />
+            </div>
+          </div>
+          <input type="hidden" name="min_advance_days" value="0" />
+          <input type="hidden" name="reservation_period_days" value={defaults.reservation_period_days} />
+          <input type="hidden" name="buffer_days" value="0" />
+          <input type="hidden" name="buffer_minutes" value="0" />
+          <input type="hidden" name="operating_hours_start" value={defaults.operating_hours.start} />
+          <input type="hidden" name="operating_hours_end" value={defaults.operating_hours.end} />
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Status</h3>
@@ -217,28 +403,33 @@ export function CommonAreaFormFields({
           />
           Espaço ativo (disponível para reservas futuras)
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="requires_approval"
-            value="true"
-            defaultChecked={defaults.requires_approval}
-            className="rounded border-input"
-          />
-          Exige aprovação do síndico/administrador
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="requires_payment"
-            value="true"
-            defaultChecked={defaults.requires_payment}
-            className="rounded border-input"
-          />
-          Exige cobrança (recibo antes da aprovação)
-        </label>
+        {!isClass && (
+          <>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="requires_approval"
+                value="true"
+                defaultChecked={defaults.requires_approval}
+                className="rounded border-input"
+              />
+              Exige aprovação do síndico/administrador
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="requires_payment"
+                value="true"
+                defaultChecked={defaults.requires_payment}
+                className="rounded border-input"
+              />
+              Exige cobrança (recibo antes da aprovação)
+            </label>
+          </>
+        )}
       </section>
 
+      {!isClass ? (
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Regras de reserva</h3>
         <p className="text-xs text-muted-foreground">
@@ -349,7 +540,10 @@ export function CommonAreaFormFields({
           </div>
         </div>
       </section>
+      ) : null}
 
+      {!isClass ? (
+      <>
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Horário de funcionamento</h3>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -380,6 +574,8 @@ export function CommonAreaFormFields({
         <h3 className="text-sm font-semibold">Dias permitidos</h3>
         <AllowedDaysField value={allowedDays} onChange={setAllowedDays} />
       </section>
+      </>
+      ) : null}
 
       <section className="space-y-4">
         <h3 className="text-sm font-semibold">Bloqueios / manutenção</h3>

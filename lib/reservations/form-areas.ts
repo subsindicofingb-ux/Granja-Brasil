@@ -4,6 +4,7 @@ import {
   requiresPaymentReceipt,
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
+import { isClassArea } from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import type { ReservationAreaOption } from "@/components/reservations/reservation-form";
 
@@ -26,6 +27,10 @@ export async function buildReservationAreaOptions(
     capacity: area.capacity,
     operatingHours: area.operating_hours,
     usesSlotBooking: isSlotBasedArea(area),
+    isClassArea: isClassArea(area),
+    minAdvanceHours: isClassArea(area)
+      ? Math.max(0, Math.round(area.min_advance_minutes / 60))
+      : 0,
     maxDurationMinutes: area.max_duration_minutes,
     slotIntervalMinutes: area.slot_interval_minutes,
     rules: area.description,

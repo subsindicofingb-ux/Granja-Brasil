@@ -343,6 +343,8 @@ export interface Database {
           is_active: boolean;
           requires_approval: boolean;
           requires_payment: boolean;
+          booking_mode: "exclusive" | "class";
+          class_sessions: Json;
           max_duration_minutes: number | null;
           min_advance_minutes: number;
           min_advance_days: number;
@@ -367,6 +369,8 @@ export interface Database {
           is_active?: boolean;
           requires_approval?: boolean;
           requires_payment?: boolean;
+          booking_mode?: "exclusive" | "class";
+          class_sessions?: Json;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
           min_advance_days?: number;
@@ -391,6 +395,8 @@ export interface Database {
           is_active?: boolean;
           requires_approval?: boolean;
           requires_payment?: boolean;
+          booking_mode?: "exclusive" | "class";
+          class_sessions?: Json;
           max_duration_minutes?: number | null;
           min_advance_minutes?: number;
           min_advance_days?: number;
@@ -433,6 +439,7 @@ export interface Database {
           handover_signed_at: string | null;
           handover_signed_by: string | null;
           handover_collected_by: string | null;
+          allows_overlap: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -452,6 +459,7 @@ export interface Database {
           handover_signed_at?: string | null;
           handover_signed_by?: string | null;
           handover_collected_by?: string | null;
+          allows_overlap?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -471,6 +479,7 @@ export interface Database {
           handover_signed_at?: string | null;
           handover_signed_by?: string | null;
           handover_collected_by?: string | null;
+          allows_overlap?: boolean;
           created_at?: string;
           updated_at?: string;
         };

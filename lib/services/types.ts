@@ -12,6 +12,9 @@ export function serviceOk<T>(data: T): { ok: true; data: T } {
 
 export function mapSupabaseError(error: { message: string; code?: string }): string {
   if (error.code === "23505") {
+    if (error.message.includes("reservations_unit_class_slot_key")) {
+      return "Esta unidade já possui reserva nesta aula.";
+    }
     return "Registro duplicado. Verifique nome/número já cadastrado.";
   }
   if (error.code === "23503") {

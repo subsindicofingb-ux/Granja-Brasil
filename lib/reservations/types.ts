@@ -29,6 +29,8 @@ export type ReservationWithDetails = ReservationRecord & {
     condominium_id: string;
     description: string | null;
     max_duration_minutes: number | null;
+    booking_mode?: "exclusive" | "class";
+    capacity?: number;
     operating_hours: {
       start: string;
       end: string;

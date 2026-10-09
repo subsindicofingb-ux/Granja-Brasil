@@ -4,7 +4,8 @@ import { Suspense } from "react";
 import { requireCondoAccess } from "@/lib/auth/access";
 import { canCreateInCategory, canViewInCategory } from "@/lib/auth/permission-matrix";
 import { listReservableCommonAreasForContext } from "@/lib/services/common-areas";
-import { formatAllowedDays } from "@/lib/common-areas/labels";
+import { formatAllowedDays, formatClassSessions } from "@/lib/common-areas/labels";
+import { isClassArea } from "@/lib/reservations/class-booking";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { EmptyState, PageHeader } from "@/components/shared/page-shell";
 import { AreaStatusFilter } from "@/components/common-areas/area-status-filter";
@@ -115,17 +116,32 @@ async function AreasContent({
                     {area.is_active ? "Ativo" : "Inativo"}
                   </Badge>
                 </div>
-                <CardDescription>Capacidade: {area.capacity} pessoas</CardDescription>
+                <CardDescription>
+                  {isClassArea(area)
+                    ? `${area.capacity} vagas por aula`
+                    : `Capacidade: ${area.capacity} pessoas`}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="line-clamp-2 text-sm text-muted-foreground">
                   {area.description ?? "Sem regras."}
                 </p>
                 <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>{area.operating_hours.start}–{area.operating_hours.end}</span>
-                  <span>·</span>
-                  <span>{formatAllowedDays(area.allowed_days)}</span>
+                  {isClassArea(area) ? (
+                    <span className="line-clamp-2">{formatClassSessions(area.class_sessions)}</span>
+                  ) : (
+                    <>
+                      <span>{area.operating_hours.start}–{area.operating_hours.end}</span>
+                      <span>·</span>
+                      <span>{formatAllowedDays(area.allowed_days)}</span>
+                    </>
+                  )}
                 </div>
+                {isClassArea(area) && (
+                  <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                    Lista de presença
+                  </Badge>
+                )}
                 {area.requires_approval && (
                   <Badge className="border-amber-200 bg-amber-50 text-amber-700">
                     Exige aprovação

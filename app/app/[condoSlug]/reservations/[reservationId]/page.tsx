@@ -12,6 +12,7 @@ import {
   canShowReservationHandoverCollection,
   RESERVATION_HANDOVER_ACCEPTANCE_TEXT,
 } from "@/lib/reservations/handover";
+import { isClassArea } from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import {
   canCancelReservation,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/reservations/validate-booking";
 import {
   getReservationByIdForContext,
+  listClassAttendance,
   profileOwnsReservationForReceipt,
 } from "@/lib/services/reservations";
 import { listResidentsByCondominium } from "@/lib/services/residents";
@@ -32,6 +34,7 @@ import { ReservationReceiptUpload } from "@/components/reservations/reservation-
 import { ReservationStatusBadge } from "@/components/reservations/reservation-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getLocalTimeString } from "@/lib/reservations/timezone";
 import { formatDateTime } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -132,7 +135,17 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
     canCancelReservation(reservation.status) &&
     (isStaff || canBookForCondo || ownsReservation);
 
-  const isEventReservation = !isSlotBasedArea(reservation.common_area);
+  const isEventReservation =
+    !isSlotBasedArea(reservation.common_area) && !isClassArea(reservation.common_area);
+  const classReservation = isClassArea(reservation.common_area);
+  const attendanceResult = classReservation
+    ? await listClassAttendance({
+        commonAreaId: reservation.common_area_id,
+        startAt: reservation.start_at,
+      })
+    : null;
+  const attendance = attendanceResult?.ok ? attendanceResult.data : [];
+  const classCapacity = reservation.common_area.capacity ?? 13;
 
   const canCollectHandover = canShowReservationHandoverCollection(
     reservation.status,
@@ -197,10 +210,19 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span className="text-muted-foreground">Horário</span>
             <span className="font-medium">
-              {reservation.common_area.operating_hours.start} –{" "}
-              {reservation.common_area.operating_hours.end}
+              {classReservation || isSlotBasedArea(reservation.common_area)
+                ? `${getLocalTimeString(new Date(reservation.start_at))} – ${getLocalTimeString(new Date(reservation.end_at))}`
+                : `${reservation.common_area.operating_hours.start} – ${reservation.common_area.operating_hours.end}`}
             </span>
           </div>
+          {classReservation && (
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Vagas da aula</span>
+              <span className="font-medium">
+                {attendance.length}/{classCapacity} confirmadas
+              </span>
+            </div>
+          )}
           {reservation.guest_count != null && (
             <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
               <span className="text-muted-foreground">Convidados</span>
@@ -260,6 +282,30 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
           )}
         </CardContent>
       </Card>
+
+      {classReservation && (isStaff || canBookForCondo) && attendance.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Lista de presença</CardTitle>
+            <CardDescription>
+              {attendance.length} de {classCapacity} vagas confirmadas nesta aula.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y text-sm">
+              {attendance.map((attendee) => (
+                <li key={attendee.id} className="flex items-center justify-between gap-2 py-2">
+                  <span>
+                    {formatUnitWithTower(attendee.unit)}
+                    {attendee.requester ? ` · ${attendee.requester.full_name}` : ""}
+                  </span>
+                  <ReservationStatusBadge status={attendee.status} />
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {isEventReservation && reservation.handover_signed_at && reservation.handover_signature_data && (
         <Card>
