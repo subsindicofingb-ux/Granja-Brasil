@@ -75,7 +75,12 @@ export function AreaAgenda({
                       <ul className="space-y-1 text-sm text-muted-foreground">
                         {attendees.map((reservation) => (
                           <li key={reservation.id} className="flex items-center justify-between gap-2">
-                            <span>{formatUnitWithTower(reservation.unit)}</span>
+                            <span>
+                              {reservation.attendee_name ?? "Sem nome"}
+                              <span className="block text-xs">
+                                {formatUnitWithTower(reservation.unit)}
+                              </span>
+                            </span>
                             <span className="flex items-center gap-2">
                               <ReservationStatusBadge status={reservation.status} />
                               <Button variant="ghost" size="sm" asChild>

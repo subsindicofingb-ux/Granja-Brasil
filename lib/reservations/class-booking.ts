@@ -1,5 +1,5 @@
 import type { AllowedDay, ClassSession, CommonAreaRecord } from "@/lib/common-areas/types";
-import type { ReservationRecord } from "@/lib/reservations/types";
+import type { ReservationRecord, ReservationWithDetails } from "@/lib/reservations/types";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/reservations/types";
 import {
   DEFAULT_CONDO_TIMEZONE,
@@ -96,13 +96,21 @@ export function countSlotOccupancy(input: {
   }).length;
 }
 
-export function unitAlreadyBookedSlot(input: {
+export function normalizeAttendeeName(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  return trimmed === "" ? null : trimmed;
+}
+
+export function attendeeAlreadyBookedSlot(input: {
   reservations: ReservationRecord[];
   unitId: string;
   startAt: Date;
+  attendeeName: string;
   excludeReservationId?: string;
 }): boolean {
   const startMs = input.startAt.getTime();
+  const name = input.attendeeName.trim().toLowerCase();
 
   return input.reservations.some((reservation) => {
     if (input.excludeReservationId && reservation.id === input.excludeReservationId) {
@@ -114,7 +122,10 @@ export function unitAlreadyBookedSlot(input: {
     if (reservation.unit_id !== input.unitId) {
       return false;
     }
-    return new Date(reservation.start_at).getTime() === startMs;
+    if (new Date(reservation.start_at).getTime() !== startMs) {
+      return false;
+    }
+    return (reservation.attendee_name ?? "").trim().toLowerCase() === name;
   });
 }
 
@@ -148,4 +159,68 @@ export function deriveClassMaxDurationMinutes(sessions: ClassSession[]): number 
 
 export function classSessionStartIso(dateKey: string, session: ClassSession): string {
   return localDateTimeToIso(dateKey, session.start);
+}
+
+export type ClassAttendanceRoll = {
+  areaId: string;
+  areaName: string;
+  capacity: number;
+  dateKey: string;
+  startTime: string;
+  endTime: string;
+  startAt: string;
+  endAt: string;
+  attendees: ReservationWithDetails[];
+};
+
+export function buildClassAttendanceRolls(input: {
+  areas: CommonAreaRecord[];
+  reservations: ReservationWithDetails[];
+  dateKey: string;
+}): ClassAttendanceRoll[] {
+  const rolls: ClassAttendanceRoll[] = [];
+  const blocking = input.reservations.filter((reservation) =>
+    BLOCKING_RESERVATION_STATUSES.includes(reservation.status),
+  );
+
+  for (const area of input.areas.filter(isClassArea)) {
+    const day = getAllowedDayInTimezone(
+      new Date(`${input.dateKey}T12:00:00`),
+      DEFAULT_CONDO_TIMEZONE,
+    );
+    const sessions = getSessionsForDay(getClassSessions(area), day);
+
+    for (const session of sessions) {
+      const startAt = localDateTimeToIso(input.dateKey, session.start);
+      const endAt = localDateTimeToIso(input.dateKey, session.end);
+      const startMs = new Date(startAt).getTime();
+      const attendees = blocking
+        .filter(
+          (reservation) =>
+            reservation.common_area_id === area.id &&
+            new Date(reservation.start_at).getTime() === startMs,
+        )
+        .sort((left, right) =>
+          (left.attendee_name ?? "").localeCompare(right.attendee_name ?? "", "pt-BR"),
+        );
+
+      rolls.push({
+        areaId: area.id,
+        areaName: area.name,
+        capacity: area.capacity,
+        dateKey: input.dateKey,
+        startTime: session.start,
+        endTime: session.end,
+        startAt,
+        endAt,
+        attendees,
+      });
+    }
+  }
+
+  return rolls.sort((left, right) => {
+    const byTime = left.startTime.localeCompare(right.startTime);
+    if (byTime !== 0) return byTime;
+    return left.areaName.localeCompare(right.areaName, "pt-BR");
+  });
 }

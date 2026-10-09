@@ -34,6 +34,7 @@ import {
   getMinAdvanceMs,
   isClassArea,
   isClassSlotStillBookable,
+  normalizeAttendeeName,
 } from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 
@@ -77,6 +78,9 @@ const RESERVATION_SELECT = `
   end_at,
   status,
   notes,
+  attendee_name,
+  attended_at,
+  attended_by,
   guest_count,
   payment_receipt_url,
   payment_receipt_submitted_at,
@@ -139,6 +143,9 @@ function mapReservation(row: ReservationRow): ReservationRecord {
     end_at: row.end_at,
     status: row.status,
     notes: row.notes,
+    attendee_name: row.attendee_name ?? null,
+    attended_at: row.attended_at ?? null,
+    attended_by: row.attended_by ?? null,
     guest_count: row.guest_count ?? null,
     payment_receipt_url: row.payment_receipt_url ?? null,
     payment_receipt_submitted_at: row.payment_receipt_submitted_at ?? null,
@@ -170,7 +177,11 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
       id: row.units.id,
       number: row.units.number,
       block: row.units.block,
-      tower: row.units.towers,
+      tower: {
+        id: row.units.towers.id,
+        name: row.units.towers.name,
+        condominium_id: row.units.towers.condominium_id,
+      },
     },
     requester: row.profiles
       ? { id: row.profiles.id, full_name: row.profiles.full_name }
@@ -455,6 +466,108 @@ export async function listClassAttendance(input: {
   return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
 }
 
+export async function listClassReservationsForDate(input: {
+  areaIds: string[];
+  from: string;
+  to: string;
+}): Promise<ServiceResult<ReservationWithDetails[]>> {
+  if (input.areaIds.length === 0) {
+    return serviceOk([]);
+  }
+
+  const supabase = getSupabaseServiceRoleKey()
+    ? createAdminClient()
+    : await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(RESERVATION_DETAIL_SELECT)
+    .in("common_area_id", input.areaIds)
+    .gte("start_at", input.from)
+    .lt("start_at", input.to)
+    .in("status", ["pending", "approved", "awaiting_receipt"])
+    .order("start_at", { ascending: true });
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(((data as ReservationDetailRow[] | null) ?? []).map(mapReservationDetail));
+}
+
+export async function setClassAttendance(input: {
+  reservationId: string;
+  bookingContext: CondominiumContext;
+  attended: boolean;
+  markedBy: string;
+}): Promise<ServiceResult<ReservationWithDetails>> {
+  const current = await getReservationByIdForContext(input.reservationId, input.bookingContext);
+
+  if (!current.ok) {
+    if (!getSupabaseServiceRoleKey()) {
+      return serviceError(current.error);
+    }
+
+    const adminLookup = createAdminClient();
+    const { data: fallback, error: fallbackError } = await adminLookup
+      .from("reservations")
+      .select(RESERVATION_DETAIL_SELECT)
+      .eq("id", input.reservationId)
+      .maybeSingle();
+
+    if (fallbackError) {
+      return serviceError(mapSupabaseError(fallbackError));
+    }
+
+    if (!fallback) {
+      return serviceError("Reserva não encontrada neste condomínio.");
+    }
+
+    return setClassAttendanceForRow(
+      mapReservationDetail(fallback as ReservationDetailRow),
+      input.attended,
+      input.markedBy,
+    );
+  }
+
+  if (!isClassArea(current.data.common_area)) {
+    return serviceError("Somente aulas possuem lista de presença.");
+  }
+
+  return setClassAttendanceForRow(current.data, input.attended, input.markedBy);
+}
+
+async function setClassAttendanceForRow(
+  reservation: ReservationWithDetails,
+  attended: boolean,
+  markedBy: string,
+): Promise<ServiceResult<ReservationWithDetails>> {
+  if (!isClassArea(reservation.common_area)) {
+    return serviceError("Somente aulas possuem lista de presença.");
+  }
+
+  if (!getSupabaseServiceRoleKey()) {
+    return serviceError("Não foi possível atualizar a lista de presença.");
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("reservations")
+    .update({
+      attended_at: attended ? new Date().toISOString() : null,
+      attended_by: attended ? markedBy : null,
+    })
+    .eq("id", reservation.id)
+    .select(RESERVATION_DETAIL_SELECT)
+    .single();
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(mapReservationDetail(data as ReservationDetailRow));
+}
+
 export async function getReservationById(
   reservationId: string,
   condominiumId: string,
@@ -574,6 +687,7 @@ export async function createReservation(input: {
   startAt: string;
   endAt: string;
   notes: string | null;
+  attendeeName?: string | null;
   guestCount?: number | null;
   enforceGuestCount?: boolean;
   requestedBy: string | null;
@@ -617,6 +731,14 @@ export async function createReservation(input: {
     );
   }
 
+  const attendeeName = isClassArea(area)
+    ? normalizeAttendeeName(input.attendeeName)
+    : null;
+
+  if (isClassArea(area) && !attendeeName) {
+    return serviceError("Informe o nome de quem vai à aula.");
+  }
+
   const startAt = new Date(input.startAt);
   const endAt = new Date(input.endAt);
 
@@ -632,6 +754,7 @@ export async function createReservation(input: {
     startAt,
     endAt,
     existingReservations: blockingResult.data,
+    attendeeName,
     excludeReservationId: input.excludeReservationId,
   });
 
@@ -653,6 +776,7 @@ export async function createReservation(input: {
       start_at: input.startAt,
       end_at: input.endAt,
       notes: input.notes,
+      attendee_name: attendeeName,
       guest_count: guestCountRequired ? input.guestCount : null,
       status,
     })
@@ -680,6 +804,7 @@ export async function rescheduleReservation(input: {
   startAt: string;
   endAt: string;
   notes: string | null;
+  attendeeName?: string | null;
   guestCount?: number | null;
   enforceGuestCount?: boolean;
 }): Promise<ServiceResult<ReservationWithDetails>> {
@@ -730,6 +855,14 @@ export async function rescheduleReservation(input: {
     guestCount = input.guestCount;
   }
 
+  const attendeeName = isClassArea(area)
+    ? normalizeAttendeeName(input.attendeeName ?? current.data.attendee_name)
+    : null;
+
+  if (isClassArea(area) && !attendeeName) {
+    return serviceError("Informe o nome de quem vai à aula.");
+  }
+
   const startAt = new Date(input.startAt);
   const endAt = new Date(input.endAt);
 
@@ -745,6 +878,7 @@ export async function rescheduleReservation(input: {
     startAt,
     endAt,
     existingReservations: blockingResult.data,
+    attendeeName,
     excludeReservationId: input.reservationId,
   });
 
@@ -768,6 +902,7 @@ export async function rescheduleReservation(input: {
       start_at: input.startAt,
       end_at: input.endAt,
       notes: input.notes,
+      attendee_name: attendeeName,
       guest_count: guestCount,
     })
     .eq("id", input.reservationId)

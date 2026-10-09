@@ -21,7 +21,9 @@ export function DashboardReservationItem({
       <div>
         <p className="font-medium">{reservation.common_area.name}</p>
         <p className="text-sm text-muted-foreground">
-          {formatUnitWithTower(reservation.unit)}
+          {reservation.attendee_name
+            ? `${reservation.attendee_name} · ${formatUnitWithTower(reservation.unit)}`
+            : formatUnitWithTower(reservation.unit)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {formatDateTime(reservation.start_at)} — {formatDateTime(reservation.end_at)}

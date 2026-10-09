@@ -59,6 +59,7 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
         endAtLocal: string;
         guestCount: number | null;
         notes: string | null;
+        attendeeName: string | null;
         previousStatus: string;
       }
     | undefined;
@@ -116,6 +117,7 @@ export default async function NewReservationPage({ params, searchParams }: NewRe
       endAtLocal: toDatetimeLocalValue(current.data.end_at),
       guestCount: current.data.guest_count,
       notes: current.data.notes,
+      attendeeName: current.data.attendee_name,
       previousStatus: current.data.status,
     };
   }

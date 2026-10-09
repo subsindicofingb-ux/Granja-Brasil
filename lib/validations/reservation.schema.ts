@@ -11,6 +11,16 @@ const optionalPartyDescription = z
   })
   .refine((value) => value === null || value.length <= 2000, "Relato muito longo.");
 
+const optionalAttendeeName = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (value == null) return null;
+    const trimmed = String(value).trim().replace(/\s+/g, " ");
+    return trimmed === "" ? null : trimmed;
+  })
+  .refine((value) => value === null || value.length >= 2, "Informe o nome completo.")
+  .refine((value) => value === null || value.length <= 120, "Nome muito longo.");
+
 const optionalGuestCount = z
   .union([z.string(), z.number(), z.null(), z.undefined()])
   .transform((value) => {
@@ -37,6 +47,7 @@ export const staffReservationFormSchema = z.object({
       message: "Data/hora de fim inválida.",
     }),
   notes: optionalPartyDescription,
+  attendee_name: optionalAttendeeName,
   guest_count: optionalGuestCount,
 });
 
@@ -52,6 +63,7 @@ export const residentReservationFormSchema = z.object({
     .optional(),
   reservation_duration_minutes: z.coerce.number().int().positive().optional(),
   notes: optionalPartyDescription,
+  attendee_name: optionalAttendeeName,
   guest_count: optionalGuestCount,
 });
 
@@ -67,6 +79,7 @@ export function parseReservationFormData(formData: FormData) {
       reservation_start_time: formData.get("reservation_start_time") ?? undefined,
       reservation_duration_minutes: formData.get("reservation_duration_minutes") ?? undefined,
       notes: formData.get("notes") ?? "",
+      attendee_name: formData.get("attendee_name") ?? "",
       guest_count: formData.get("guest_count"),
     });
 
@@ -83,6 +96,7 @@ export function parseReservationFormData(formData: FormData) {
         reservation_start_time: parsed.data.reservation_start_time,
         reservation_duration_minutes: parsed.data.reservation_duration_minutes,
         notes: parsed.data.notes,
+        attendee_name: parsed.data.attendee_name,
         guest_count: parsed.data.guest_count,
       },
     };
@@ -94,6 +108,7 @@ export function parseReservationFormData(formData: FormData) {
     start_at: formData.get("start_at"),
     end_at: formData.get("end_at"),
     notes: formData.get("notes") ?? "",
+    attendee_name: formData.get("attendee_name") ?? "",
     guest_count: formData.get("guest_count"),
   });
 }
@@ -119,5 +134,5 @@ export const reservationListFiltersSchema = z.object({
     RESERVATION_STATUS.CANCELLED,
     "all",
   ]).optional(),
-  view: z.enum(["list", "agenda"]).optional(),
+  view: z.enum(["list", "agenda", "presenca"]).optional(),
 });

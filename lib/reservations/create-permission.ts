@@ -23,3 +23,14 @@ export function canCreateReservations(input: {
     input.permissions.canManageReservations
   );
 }
+
+export function canViewClassAttendance(input: {
+  role: Role;
+  permissions: Pick<RolePermissions, "canManageReservations" | "canApproveReservations">;
+}): boolean {
+  if (input.role === ROLES.RESIDENT) {
+    return false;
+  }
+
+  return input.permissions.canManageReservations || input.permissions.canApproveReservations;
+}

@@ -39,6 +39,7 @@ export type ReservationRescheduleDefaults = {
   endAtLocal: string;
   guestCount: number | null;
   notes: string | null;
+  attendeeName: string | null;
   previousStatus: string;
 };
 
@@ -327,6 +328,24 @@ export function ReservationForm({
               defaultValue={reschedule?.endAtLocal}
             />
           </div>
+        </div>
+      )}
+
+      {isClassReservation && (
+        <div className="space-y-2">
+          <Label htmlFor="attendee_name">Nome da reserva</Label>
+          <Input
+            id="attendee_name"
+            name="attendee_name"
+            required
+            minLength={2}
+            maxLength={120}
+            defaultValue={reschedule?.attendeeName ?? ""}
+            placeholder="Nome de quem vai à aula"
+          />
+          <p className="text-xs text-muted-foreground">
+            A mesma unidade pode confirmar mais de uma vaga. Faça uma reserva para cada pessoa.
+          </p>
         </div>
       )}
 

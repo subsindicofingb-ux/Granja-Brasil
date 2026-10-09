@@ -133,6 +133,16 @@ export function StaffDashboard({
     });
   }
 
+  if (permissions.canManageReservations || permissions.canApproveReservations) {
+    actionTiles.push({
+      title: "Presença das aulas",
+      description: "Conferir lista de presentes",
+      href: `${base}/reservations?view=presenca`,
+      icon: ClipboardList,
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+    });
+  }
+
   if (permissions.canApproveReservations && pendingReservations > 0) {
     actionTiles.push({
       title: "Aprovar reservas",

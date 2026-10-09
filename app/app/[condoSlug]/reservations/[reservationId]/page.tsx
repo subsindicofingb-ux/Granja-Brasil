@@ -12,6 +12,7 @@ import {
   canShowReservationHandoverCollection,
   RESERVATION_HANDOVER_ACCEPTANCE_TEXT,
 } from "@/lib/reservations/handover";
+import { canViewClassAttendance } from "@/lib/reservations/create-permission";
 import { isClassArea } from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import {
@@ -34,7 +35,8 @@ import { ReservationReceiptUpload } from "@/components/reservations/reservation-
 import { ReservationStatusBadge } from "@/components/reservations/reservation-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getLocalTimeString } from "@/lib/reservations/timezone";
+import { ClassAttendanceToggle } from "@/components/reservations/class-attendance-toggle";
+import { getLocalDateKey, getLocalTimeString } from "@/lib/reservations/timezone";
 import { formatDateTime } from "@/lib/utils";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -138,6 +140,10 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
   const isEventReservation =
     !isSlotBasedArea(reservation.common_area) && !isClassArea(reservation.common_area);
   const classReservation = isClassArea(reservation.common_area);
+  const canCheckAttendance = canViewClassAttendance(access);
+  const classDateKey = classReservation
+    ? getLocalDateKey(new Date(reservation.start_at))
+    : null;
   const attendanceResult = classReservation
     ? await listClassAttendance({
         commonAreaId: reservation.common_area_id,
@@ -203,6 +209,12 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
             <span className="text-muted-foreground">Unidade</span>
             <span className="font-medium">{formatUnitWithTower(reservation.unit)}</span>
           </div>
+          {classReservation && (
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
+              <span className="text-muted-foreground">Nome da reserva</span>
+              <span className="font-medium">{reservation.attendee_name ?? "—"}</span>
+            </div>
+          )}
           <div className="flex flex-col gap-1 sm:flex-row sm:justify-between">
             <span className="text-muted-foreground">Data</span>
             <span className="font-medium">{formatDateTime(reservation.start_at).split(",")[0]}</span>
@@ -283,26 +295,52 @@ export default async function ReservationDetailPage({ params }: ReservationDetai
         </CardContent>
       </Card>
 
-      {classReservation && (isStaff || canBookForCondo) && attendance.length > 0 && (
+      {classReservation && canCheckAttendance && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Lista de presença</CardTitle>
             <CardDescription>
               {attendance.length} de {classCapacity} vagas confirmadas nesta aula.
+              {classDateKey ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/app/${condoSlug}/reservations?view=presenca&area=${reservation.common_area_id}&date=${classDateKey}`}
+                    className="text-primary hover:underline"
+                  >
+                    Ver todas as aulas do dia
+                  </Link>
+                </>
+              ) : null}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y text-sm">
-              {attendance.map((attendee) => (
-                <li key={attendee.id} className="flex items-center justify-between gap-2 py-2">
-                  <span>
-                    {formatUnitWithTower(attendee.unit)}
-                    {attendee.requester ? ` · ${attendee.requester.full_name}` : ""}
-                  </span>
-                  <ReservationStatusBadge status={attendee.status} />
-                </li>
-              ))}
-            </ul>
+            {attendance.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhuma reserva confirmada nesta aula.
+              </p>
+            ) : (
+              <ul className="divide-y text-sm">
+                {attendance.map((attendee) => (
+                  <li
+                    key={attendee.id}
+                    className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">{attendee.attendee_name ?? "Sem nome"}</p>
+                      <p className="text-muted-foreground">
+                        {formatUnitWithTower(attendee.unit)}
+                      </p>
+                    </div>
+                    <ClassAttendanceToggle
+                      condoSlug={condoSlug}
+                      reservationId={attendee.id}
+                      attended={Boolean(attendee.attended_at)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
       )}

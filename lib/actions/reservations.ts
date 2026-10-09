@@ -15,11 +15,15 @@ import {
   profileOwnsReservationForReceipt,
   rejectReservation,
   rescheduleReservation,
+  setClassAttendance,
   submitReservationReceipt,
 } from "@/lib/services/reservations";
 import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { canCollectReservationHandover } from "@/lib/reservations/handover";
-import { canCreateReservations } from "@/lib/reservations/create-permission";
+import {
+  canCreateReservations,
+  canViewClassAttendance,
+} from "@/lib/reservations/create-permission";
 import { localDateTimeToIso, parseTimeToMinutes } from "@/lib/reservations/timezone";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { canCancelReservation } from "@/lib/reservations/validate-booking";
@@ -107,12 +111,14 @@ export async function createReservationAction(
   let unitId: string;
   let commonAreaId: string;
   let notes: string | null;
+  let attendeeName: string | null;
   let guestCount: number | null | undefined;
 
   if ("reservation_date" in parsed.data) {
     unitId = parsed.data.unit_id;
     commonAreaId = parsed.data.common_area_id;
     notes = parsed.data.notes;
+    attendeeName = parsed.data.attendee_name;
     guestCount = parsed.data.guest_count;
 
     const areaResult = await getBookableCommonAreaById(commonAreaId, bookingContext);
@@ -150,6 +156,7 @@ export async function createReservationAction(
     startAt = parsed.data.start_at;
     endAt = parsed.data.end_at;
     notes = parsed.data.notes;
+    attendeeName = parsed.data.attendee_name;
     guestCount = parsed.data.guest_count;
   }
 
@@ -202,6 +209,7 @@ export async function createReservationAction(
       startAt,
       endAt,
       notes,
+      attendeeName,
       guestCount,
       enforceGuestCount: isResidentForm,
     });
@@ -221,6 +229,7 @@ export async function createReservationAction(
     startAt,
     endAt,
     notes,
+    attendeeName,
     guestCount,
     enforceGuestCount: isResidentForm,
     requestedBy: access.profile.id,
@@ -504,4 +513,35 @@ export async function collectReservationHandoverAction(
 
   revalidateReservationPaths(condoSlug, parsed.data.reservation_id);
   return { success: "Aceite do morador registrado com sucesso." };
+}
+
+export async function setClassAttendanceAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const reservationId = String(formData.get("reservation_id") ?? "");
+  const attended = String(formData.get("attended") ?? "") === "true";
+
+  const access = await requireCondoAccess(condoSlug);
+
+  if (!canViewClassAttendance(access)) {
+    return { error: "Sem permissão para conferir a lista de presença." };
+  }
+
+  const result = await setClassAttendance({
+    reservationId,
+    bookingContext: toBookingContext(access.condominium),
+    attended,
+    markedBy: access.profile.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateReservationPaths(condoSlug, reservationId);
+  return {
+    success: attended ? "Presença confirmada." : "Presença desmarcada.",
+  };
 }

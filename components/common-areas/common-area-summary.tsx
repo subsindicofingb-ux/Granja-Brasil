@@ -99,9 +99,11 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
         <Row
           label="Limite por unidade"
           value={
-            area.max_reservations_per_unit
-              ? `${area.max_reservations_per_unit} / ${area.reservation_period_days} dias`
-              : "Sem limite"
+            isClassArea(area)
+              ? "Várias reservas, uma por nome"
+              : area.max_reservations_per_unit
+                ? `${area.max_reservations_per_unit} / ${area.reservation_period_days} dias`
+                : "Sem limite"
           }
         />
         <Row

@@ -10,12 +10,13 @@ import {
   dateKeyTouchesRange,
 } from "@/lib/reservations/calendar-availability";
 import {
+  attendeeAlreadyBookedSlot,
   countSlotOccupancy,
   findMatchingClassSession,
   getMinAdvanceMs,
   isClassArea,
   isClassSlotStillBookable,
-  unitAlreadyBookedSlot,
+  normalizeAttendeeName,
 } from "@/lib/reservations/class-booking";
 import { getSlotIntervalMinutes, isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { formatMinutes } from "@/lib/common-areas/labels";
@@ -198,15 +199,24 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
   );
 
   if (classBooking) {
+    const attendeeName = normalizeAttendeeName(input.attendeeName);
+    if (!attendeeName) {
+      return { valid: false, error: "Informe o nome de quem vai à aula." };
+    }
+
     if (
-      unitAlreadyBookedSlot({
+      attendeeAlreadyBookedSlot({
         reservations: existingReservations,
         unitId: input.unitId,
         startAt,
+        attendeeName,
         excludeReservationId,
       })
     ) {
-      return { valid: false, error: "Esta unidade já possui reserva nesta aula." };
+      return {
+        valid: false,
+        error: "Este nome já está na lista desta aula para a unidade.",
+      };
     }
 
     const occupied = countSlotOccupancy({

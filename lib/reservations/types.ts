@@ -9,6 +9,9 @@ export type ReservationRecord = {
   end_at: string;
   status: ReservationStatus;
   notes: string | null;
+  attendee_name: string | null;
+  attended_at: string | null;
+  attended_by: string | null;
   guest_count: number | null;
   payment_receipt_url: string | null;
   payment_receipt_submitted_at: string | null;
@@ -43,6 +46,7 @@ export type ReservationWithDetails = ReservationRecord & {
     tower: {
       id: string;
       name: string;
+      condominium_id?: string;
     };
   };
   requester: {
@@ -63,6 +67,7 @@ export type BookingValidationInput = {
   startAt: Date;
   endAt: Date;
   existingReservations: ReservationRecord[];
+  attendeeName?: string | null;
   now?: Date;
   excludeReservationId?: string;
 };

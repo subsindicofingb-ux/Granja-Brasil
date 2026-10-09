@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CalendarDays,
   Car,
+  ClipboardList,
   Droplets,
   Megaphone,
   MessageSquarePlus,
@@ -66,6 +67,13 @@ export function DoormanDashboard({
       href: `${base}/reservations/new`,
       icon: CalendarDays,
       accent: "border-sky-200 bg-sky-50 text-sky-900 hover:border-sky-300 hover:bg-sky-100/80",
+    });
+    quickActions.push({
+      title: "Presença das aulas",
+      description: "Conferir lista de presentes",
+      href: `${base}/reservations?view=presenca`,
+      icon: ClipboardList,
+      accent: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
     });
   }
 
