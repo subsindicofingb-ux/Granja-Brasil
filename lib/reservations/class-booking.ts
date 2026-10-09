@@ -10,7 +10,8 @@ import {
 } from "@/lib/reservations/timezone";
 
 export const CLASS_SPOTS_DEFAULT = 13;
-export const CLASS_MIN_ADVANCE_HOURS_DEFAULT = 12;
+export const CLASS_OPEN_HOURS_DEFAULT = 12;
+export const CLASS_MIN_ADVANCE_HOURS_DEFAULT = CLASS_OPEN_HOURS_DEFAULT;
 
 export function isClassArea(area: {
   booking_mode?: string | null;
@@ -24,13 +25,25 @@ export function getMinAdvanceMs(area: Pick<CommonAreaRecord, "min_advance_days" 
   );
 }
 
+export function getClassOpenWindowMs(
+  area: Pick<CommonAreaRecord, "min_advance_days" | "min_advance_minutes">,
+): number {
+  const stored = getMinAdvanceMs(area);
+  if (stored > 0) return stored;
+  return CLASS_OPEN_HOURS_DEFAULT * 60 * 60_000;
+}
+
+export function formatAdvanceHours(ms: number): string {
+  const hours = ms / (60 * 60_000);
+  if (Number.isInteger(hours)) {
+    return hours === 1 ? "1 hora" : `${hours} horas`;
+  }
+  return `${Math.round(ms / 60_000)} min`;
+}
+
 export function formatAdvanceRule(area: Pick<CommonAreaRecord, "min_advance_days" | "min_advance_minutes">): string {
   if (area.min_advance_minutes > 0 && area.min_advance_days === 0) {
-    const hours = area.min_advance_minutes / 60;
-    if (Number.isInteger(hours)) {
-      return hours === 1 ? "1 hora" : `${hours} horas`;
-    }
-    return `${area.min_advance_minutes} min`;
+    return formatAdvanceHours(area.min_advance_minutes * 60_000);
   }
 
   if (area.min_advance_days <= 0 && area.min_advance_minutes <= 0) {
@@ -42,6 +55,12 @@ export function formatAdvanceRule(area: Pick<CommonAreaRecord, "min_advance_days
   }
 
   return `${area.min_advance_days} dias`;
+}
+
+export function formatClassBookingWindow(
+  area: Pick<CommonAreaRecord, "min_advance_days" | "min_advance_minutes">,
+): string {
+  return `Abre ${formatAdvanceHours(getClassOpenWindowMs(area))} antes; confirmação até o início da aula`;
 }
 
 export function getClassSessions(area: Pick<CommonAreaRecord, "class_sessions">): ClassSession[] {
@@ -132,10 +151,20 @@ export function attendeeAlreadyBookedSlot(input: {
 export function isClassSlotStillBookable(input: {
   startAt: Date;
   now?: Date;
-  minAdvanceMs: number;
+  minAdvanceMs?: number;
 }): boolean {
   const now = input.now ?? new Date();
-  return input.startAt.getTime() - now.getTime() >= input.minAdvanceMs;
+  return input.startAt.getTime() > now.getTime();
+}
+
+export function isClassSlotInBookingWindow(input: {
+  startAt: Date;
+  now?: Date;
+  openWindowMs: number;
+}): boolean {
+  const now = input.now ?? new Date();
+  const msUntilStart = input.startAt.getTime() - now.getTime();
+  return msUntilStart > 0 && msUntilStart <= input.openWindowMs;
 }
 
 export function deriveClassOperatingHours(sessions: ClassSession[]): { start: string; end: string } {

@@ -6,7 +6,7 @@ import { getBookableCommonAreaById } from "@/lib/services/common-areas";
 import { toCommonAreaFormInput } from "@/lib/common-areas/mappers";
 import { ErrorAlert } from "@/components/shared/feedback";
 import { PageHeader } from "@/components/shared/page-shell";
-import { CommonAreaForm } from "@/components/common-areas/common-area-form";
+import { CommonAreaEditor } from "@/components/common-areas/common-area-form";
 import { CommonAreaSummary } from "@/components/common-areas/common-area-summary";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,9 +60,8 @@ export default async function AreaDetailPage({ params }: AreaDetailPageProps) {
         </CardHeader>
         <CardContent>
           {canEdit ? (
-            <CommonAreaForm
+            <CommonAreaEditor
               condoSlug={condoSlug}
-              mode="edit"
               defaultValues={{
                 ...toCommonAreaFormInput(area),
                 areaId: area.id,

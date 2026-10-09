@@ -6,6 +6,7 @@ import type { BookingMode, ClassSession, CommonAreaFormInput } from "@/lib/commo
 import type { AllowedDay, MaintenanceBlock } from "@/lib/common-areas/types";
 import { createCommonAreaAction, updateCommonAreaAction } from "@/lib/actions/common-areas";
 import { DEFAULT_COMMON_AREA_FORM } from "@/lib/common-areas/defaults";
+import { CommonAreaDeleteButton } from "@/components/common-areas/common-area-delete-button";
 import { CommonAreaFormFields } from "@/components/common-areas/common-area-form-fields";
 import { FormAlert } from "@/components/shared/feedback";
 import { Button } from "@/components/ui/button";
@@ -63,5 +64,24 @@ export function CommonAreaForm({ condoSlug, mode, defaultValues }: CommonAreaFor
         </Button>
       </div>
     </form>
+  );
+}
+
+export function CommonAreaEditor({
+  condoSlug,
+  defaultValues,
+}: {
+  condoSlug: string;
+  defaultValues: CommonAreaFormInput & { areaId: string };
+}) {
+  return (
+    <div className="space-y-8">
+      <CommonAreaForm condoSlug={condoSlug} mode="edit" defaultValues={defaultValues} />
+      <CommonAreaDeleteButton
+        condoSlug={condoSlug}
+        areaId={defaultValues.areaId}
+        areaName={defaultValues.name}
+      />
+    </div>
   );
 }

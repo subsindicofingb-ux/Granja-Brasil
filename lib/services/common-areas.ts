@@ -410,3 +410,29 @@ export async function updateCommonArea(input: {
 
   return serviceOk(mapCommonArea(data as CommonAreaRow));
 }
+
+export async function deleteCommonArea(input: {
+  areaId: string;
+  condominiumId: string;
+}): Promise<ServiceResult<void>> {
+  const existing = await getCommonAreaById(input.areaId, input.condominiumId);
+  if (!existing.ok) {
+    return serviceError(existing.error);
+  }
+
+  const supabase = getSupabaseServiceRoleKey()
+    ? createAdminClient()
+    : await createClient();
+
+  const { error } = await supabase
+    .from("common_areas")
+    .delete()
+    .eq("id", input.areaId)
+    .eq("condominium_id", input.condominiumId);
+
+  if (error) {
+    return serviceError(mapSupabaseError(error));
+  }
+
+  return serviceOk(undefined);
+}

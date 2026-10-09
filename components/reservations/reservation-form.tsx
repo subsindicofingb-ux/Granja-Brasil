@@ -267,8 +267,9 @@ export function ReservationForm({
 
       {isClassReservation && selectedArea && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          Lista de presença com {selectedArea.capacity} vagas por aula. Confirme sua participação
-          com até {selectedArea.minAdvanceHours || 12} horas de antecedência do horário da aula.
+          Lista de presença com {selectedArea.capacity} vagas por aula. As reservas abrem{" "}
+          {selectedArea.minAdvanceHours || 12} horas antes e, com vaga, podem ser feitas até o
+          início da aula.
         </p>
       )}
 

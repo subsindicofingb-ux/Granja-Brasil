@@ -209,7 +209,7 @@ values
     13,
     'Local: Academia Nova (antigo restaurante).
 Lista de presença com 13 vagas por aula.
-A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+As reservas abrem 12 horas antes da aula. Com vaga, a confirmação pode ser feita até o início. Após o término, a lista é limpa para a próxima turma.',
     true,
     false,
     false,
@@ -218,7 +218,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     60,
     720,
     0,
-    14,
+    null,
     null,
     30,
     0,
@@ -236,7 +236,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     13,
     'Local provisório: Academia Nova.
 Lista de presença com 13 vagas por aula.
-A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+As reservas abrem 12 horas antes da aula. Com vaga, a confirmação pode ser feita até o início. Após o término, a lista é limpa para a próxima turma.',
     true,
     false,
     false,
@@ -245,7 +245,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     60,
     720,
     0,
-    14,
+    null,
     null,
     30,
     0,
@@ -263,7 +263,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     13,
     'Local: Condomínio Pau Brasil.
 Lista de presença com 13 vagas por aula.
-A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+As reservas abrem 12 horas antes da aula. Com vaga, a confirmação pode ser feita até o início. Após o término, a lista é limpa para a próxima turma.',
     true,
     false,
     false,
@@ -272,7 +272,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     60,
     720,
     0,
-    14,
+    null,
     null,
     30,
     0,
@@ -289,7 +289,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     'Hidroginástica',
     13,
     'Lista de presença com 13 vagas por aula.
-A participação deve ser confirmada por reserva com até 12 horas de antecedência do horário da aula.',
+As reservas abrem 12 horas antes da aula. Com vaga, a confirmação pode ser feita até o início. Após o término, a lista é limpa para a próxima turma.',
     true,
     false,
     false,
@@ -298,7 +298,7 @@ A participação deve ser confirmada por reserva com até 12 horas de antecedên
     60,
     720,
     0,
-    14,
+    null,
     null,
     30,
     0,

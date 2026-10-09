@@ -1747,6 +1747,7 @@ export interface Database {
         Returns: string;
       };
       granja_condominium_id: { Args: Record<string, never>; Returns: string | null };
+      purge_ended_class_reservations: { Args: Record<string, never>; Returns: number };
     };
     Enums: {
       membership_role: MembershipRole;

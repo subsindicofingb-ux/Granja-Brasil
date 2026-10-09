@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ALLOWED_DAYS, BOOKING_MODES } from "@/lib/common-areas/types";
 import {
+  CLASS_OPEN_HOURS_DEFAULT,
   deriveClassAllowedDays,
   deriveClassMaxDurationMinutes,
   deriveClassOperatingHours,
@@ -82,7 +83,7 @@ export const commonAreaFormSchema = z
     booking_mode: z.enum(BOOKING_MODES),
     class_sessions: z.array(classSessionSchema).default([]),
     min_advance_hours: z.coerce
-      .number({ invalid_type_error: "Antecedência mínima inválida." })
+      .number({ invalid_type_error: "Abertura das reservas inválida." })
       .int()
       .min(0, "Não pode ser negativa."),
     min_advance_days: z.coerce
@@ -246,8 +247,10 @@ export function toCommonAreaPayload(
     class_sessions: classSessions,
     max_duration_minutes: maxDurationMinutes,
     min_advance_days: isClass ? 0 : data.min_advance_days,
-    min_advance_minutes: isClass ? data.min_advance_hours * 60 : 0,
-    max_advance_days: data.max_advance_days,
+    min_advance_minutes: isClass
+      ? Math.max(1, data.min_advance_hours || CLASS_OPEN_HOURS_DEFAULT) * 60
+      : 0,
+    max_advance_days: isClass ? null : data.max_advance_days,
     max_reservations_per_unit: isClass ? null : data.max_reservations_per_unit,
     reservation_period_days: data.reservation_period_days,
     buffer_days: isClass ? 0 : data.buffer_days,

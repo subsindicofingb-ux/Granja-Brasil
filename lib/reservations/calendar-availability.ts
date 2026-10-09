@@ -2,11 +2,11 @@ import type { AllowedDay, CommonAreaRecord } from "@/lib/common-areas/types";
 import type { ReservationRecord } from "@/lib/reservations/types";
 import {
   countSlotOccupancy,
+  getClassOpenWindowMs,
   getClassSessions,
-  getMinAdvanceMs,
   getSessionsForDay,
   isClassArea,
-  isClassSlotStillBookable,
+  isClassSlotInBookingWindow,
 } from "@/lib/reservations/class-booking";
 import {
   DEFAULT_CONDO_TIMEZONE,
@@ -97,7 +97,7 @@ function isWithinAdvanceWindow(
     return false;
   }
 
-  if (area.max_advance_days != null && daysAhead > area.max_advance_days) {
+  if (!isClassArea(area) && area.max_advance_days != null && daysAhead > area.max_advance_days) {
     return false;
   }
 
@@ -113,16 +113,16 @@ function classDayAvailability(input: {
 }): { selectable: boolean; full: boolean } {
   const day = getAllowedDayInTimezone(parseDateKey(input.dateKey), DEFAULT_CONDO_TIMEZONE);
   const sessions = getSessionsForDay(getClassSessions(input.area), day);
-  const minAdvanceMs = getMinAdvanceMs(input.area);
+  const openWindowMs = getClassOpenWindowMs(input.area);
   let hasBookableSession = false;
   let allFull = sessions.length > 0;
 
   for (const session of sessions) {
     const startAt = new Date(localDateTimeToIso(input.dateKey, session.start));
-    const stillOpen = isClassSlotStillBookable({
+    const stillOpen = isClassSlotInBookingWindow({
       startAt,
       now: input.now,
-      minAdvanceMs,
+      openWindowMs,
     });
 
     if (!stillOpen) {
@@ -144,10 +144,10 @@ function classDayAvailability(input: {
 
   if (!hasBookableSession && allFull && sessions.length > 0) {
     const anyOpen = sessions.some((session) =>
-      isClassSlotStillBookable({
+      isClassSlotInBookingWindow({
         startAt: new Date(localDateTimeToIso(input.dateKey, session.start)),
         now: input.now,
-        minAdvanceMs,
+        openWindowMs,
       }),
     );
     return { selectable: false, full: anyOpen };

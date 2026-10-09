@@ -354,35 +354,25 @@ export function CommonAreaFormFields({
           <h3 className="text-sm font-semibold">Horários das aulas</h3>
           <ClassSessionsField value={classSessions} onChange={setClassSessions} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="min_advance_hours">Antecedência mínima (horas)</Label>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="min_advance_hours">Abertura das reservas (horas)</Label>
               <Input
                 id="min_advance_hours"
                 name="min_advance_hours"
                 type="number"
-                min={0}
+                min={1}
                 defaultValue={
                   defaults.min_advance_hours > 0 ? defaults.min_advance_hours : 12
                 }
               />
               <p className="text-xs text-muted-foreground">
-                A vaga precisa ser confirmada com essa antecedência do horário da aula. Use 12
-                para fechar a lista 12 horas antes.
+                As reservas abrem neste prazo antes da aula. Com vaga, a confirmação pode ser
+                feita até o início. Use 12 para abrir 12 horas antes e evitar reservas contínuas.
               </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="max_advance_days">Antecedência máxima (dias)</Label>
-              <Input
-                id="max_advance_days"
-                name="max_advance_days"
-                type="number"
-                min={1}
-                placeholder="Ex: 14"
-                defaultValue={defaults.max_advance_days ?? ""}
-              />
             </div>
           </div>
           <input type="hidden" name="min_advance_days" value="0" />
+          <input type="hidden" name="max_advance_days" value="" />
           <input type="hidden" name="reservation_period_days" value={defaults.reservation_period_days} />
           <input type="hidden" name="buffer_days" value="0" />
           <input type="hidden" name="buffer_minutes" value="0" />

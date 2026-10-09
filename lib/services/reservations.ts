@@ -31,7 +31,6 @@ import {
   requiresGuestCount,
 } from "@/lib/reservations/area-rules";
 import {
-  getMinAdvanceMs,
   isClassArea,
   isClassSlotStillBookable,
   normalizeAttendeeName,
@@ -189,6 +188,26 @@ function mapReservationDetail(row: ReservationDetailRow): ReservationWithDetails
   };
 }
 
+let lastClassHistoryPurgeAt = 0;
+const CLASS_HISTORY_PURGE_INTERVAL_MS = 15_000;
+
+export async function purgeEndedClassReservations(): Promise<void> {
+  const now = Date.now();
+  if (now - lastClassHistoryPurgeAt < CLASS_HISTORY_PURGE_INTERVAL_MS) {
+    return;
+  }
+  lastClassHistoryPurgeAt = now;
+
+  const supabase = getSupabaseServiceRoleKey()
+    ? createAdminClient()
+    : await createClient();
+
+  const { error } = await supabase.rpc("purge_ended_class_reservations");
+  if (error) {
+    lastClassHistoryPurgeAt = 0;
+  }
+}
+
 export type ReservationListOptions = {
   commonAreaId?: string;
   unitId?: string;
@@ -203,6 +222,7 @@ export async function listReservationsByCondominium(
   condominiumId: string,
   options?: ReservationListOptions,
 ): Promise<ServiceResult<ReservationWithDetails[]>> {
+  await purgeEndedClassReservations();
   const supabase = await createClient();
 
   let query = supabase
@@ -302,6 +322,7 @@ export async function listUpcomingReservationsByCondominium(
   limit = 5,
   options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<ReservationWithDetails[]>> {
+  await purgeEndedClassReservations();
   const supabase = await createClient();
   const now = new Date().toISOString();
 
@@ -334,6 +355,7 @@ export async function listRecentReservationsByCondominium(
   limit = 5,
   options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<ReservationWithDetails[]>> {
+  await purgeEndedClassReservations();
   const supabase = await createClient();
 
   let query = supabase
@@ -362,6 +384,7 @@ export async function countReservationsByStatusForCondominium(
   condominiumId: string,
   options?: Pick<ReservationListOptions, "unitId" | "unitIds">,
 ): Promise<ServiceResult<Record<ReservationStatus, number>>> {
+  await purgeEndedClassReservations();
   const supabase = await createClient();
   const statuses: ReservationStatus[] = [
     "awaiting_receipt",
@@ -420,6 +443,7 @@ export async function listReservationsForArea(
 export async function listBlockingReservationsForArea(
   commonAreaId: string,
 ): Promise<ServiceResult<ReservationRecord[]>> {
+  await purgeEndedClassReservations();
   async function runQuery(
     supabase: SupabaseClient<Database>,
   ): Promise<ServiceResult<ReservationRecord[]>> {
@@ -447,6 +471,7 @@ export async function listClassAttendance(input: {
   commonAreaId: string;
   startAt: string;
 }): Promise<ServiceResult<ReservationWithDetails[]>> {
+  await purgeEndedClassReservations();
   const supabase = getSupabaseServiceRoleKey()
     ? createAdminClient()
     : await createClient();
@@ -471,6 +496,7 @@ export async function listClassReservationsForDate(input: {
   from: string;
   to: string;
 }): Promise<ServiceResult<ReservationWithDetails[]>> {
+  await purgeEndedClassReservations();
   if (input.areaIds.length === 0) {
     return serviceOk([]);
   }
@@ -694,6 +720,7 @@ export async function createReservation(input: {
   bookingContext?: CondominiumContext;
   excludeReservationId?: string;
 }): Promise<ServiceResult<ReservationWithDetails>> {
+  await purgeEndedClassReservations();
   const areaResult = input.bookingContext
     ? await getBookableCommonAreaById(input.commonAreaId, input.bookingContext)
     : await getCommonAreaById(input.commonAreaId, input.condominiumId);
@@ -1130,12 +1157,9 @@ export async function cancelReservation(
       if (areaResult.ok) {
         const stillOpen = isClassSlotStillBookable({
           startAt: new Date(current.data.start_at),
-          minAdvanceMs: getMinAdvanceMs(areaResult.data),
         });
         if (!stillOpen) {
-          return serviceError(
-            "Não é possível cancelar com menos de 12 horas de antecedência da aula.",
-          );
+          return serviceError("Não é possível cancelar depois que a aula começou.");
         }
       }
     }

@@ -21,6 +21,7 @@ export {
   getCommonAreaById,
   createCommonArea,
   updateCommonArea,
+  deleteCommonArea,
   type CommonAreaListOptions,
 } from "./common-areas";
 export {

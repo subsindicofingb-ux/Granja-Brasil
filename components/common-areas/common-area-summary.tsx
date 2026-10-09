@@ -6,7 +6,11 @@ import {
   formatDays,
   formatMinutes,
 } from "@/lib/common-areas/labels";
-import { formatAdvanceRule, isClassArea } from "@/lib/reservations/class-booking";
+import {
+  formatAdvanceRule,
+  formatClassBookingWindow,
+  isClassArea,
+} from "@/lib/reservations/class-booking";
 import { isSlotBasedArea } from "@/lib/reservations/slot-booking";
 import { formatDateTime } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -91,11 +95,17 @@ export function CommonAreaSummary({ area }: CommonAreaSummaryProps) {
             />
           </>
         )}
-        <Row
-          label="Antecedência mínima"
-          value={formatAdvanceRule(area)}
-        />
-        <Row label="Antecedência máxima" value={formatDays(area.max_advance_days)} />
+        {isClassArea(area) ? (
+          <Row label="Janela de reserva" value={formatClassBookingWindow(area)} />
+        ) : (
+          <>
+            <Row
+              label="Antecedência mínima"
+              value={formatAdvanceRule(area)}
+            />
+            <Row label="Antecedência máxima" value={formatDays(area.max_advance_days)} />
+          </>
+        )}
         <Row
           label="Limite por unidade"
           value={

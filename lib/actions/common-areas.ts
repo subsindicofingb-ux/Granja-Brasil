@@ -3,9 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCondoPermission } from "@/lib/auth/access";
-import { canCreateInCategory } from "@/lib/auth/permission-matrix";
+import { canCreateInCategory, canDeleteInCategory } from "@/lib/auth/permission-matrix";
 import type { AuthActionState } from "@/lib/auth/types";
-import { createCommonArea, updateCommonArea } from "@/lib/services/common-areas";
+import {
+  createCommonArea,
+  deleteCommonArea,
+  updateCommonArea,
+} from "@/lib/services/common-areas";
 import {
   parseCommonAreaFormData,
   toCommonAreaPayload,
@@ -78,4 +82,31 @@ export async function updateCommonAreaAction(
   revalidateAreaPaths(condoSlug);
   revalidatePath(`/app/${condoSlug}/areas/${areaId}`);
   return { success: "Espaço comum atualizado com sucesso." };
+}
+
+export async function deleteCommonAreaAction(
+  _prev: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const condoSlug = String(formData.get("condo_slug") ?? "");
+  const areaId = String(formData.get("area_id") ?? "");
+
+  const access = await requireCondoPermission(
+    condoSlug,
+    (ctx) => canDeleteInCategory(ctx, "areas"),
+    { redirectTo: `/app/${condoSlug}/areas/${areaId}` },
+  );
+
+  const result = await deleteCommonArea({
+    areaId,
+    condominiumId: access.condominium.id,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidateAreaPaths(condoSlug);
+  revalidatePath(`/app/${condoSlug}/reservations`);
+  redirect(`/app/${condoSlug}/areas`);
 }

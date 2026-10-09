@@ -3,11 +3,11 @@ import type { ReservationRecord } from "@/lib/reservations/types";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/reservations/types";
 import {
   countSlotOccupancy,
+  getClassOpenWindowMs,
   getClassSessions,
-  getMinAdvanceMs,
   getSessionsForDay,
   isClassArea,
-  isClassSlotStillBookable,
+  isClassSlotInBookingWindow,
   sessionDurationMinutes,
 } from "@/lib/reservations/class-booking";
 import {
@@ -110,7 +110,7 @@ function buildClassTimeSlots(input: {
   const { area, dateKey, reservations, durationMinutes, now } = input;
   const timeZone = DEFAULT_CONDO_TIMEZONE;
   const day = getAllowedDayInTimezone(new Date(`${dateKey}T12:00:00`), timeZone);
-  const minAdvanceMs = getMinAdvanceMs(area);
+  const openWindowMs = getClassOpenWindowMs(area);
   const slots: AvailableTimeSlot[] = [];
 
   for (const session of getSessionsForDay(getClassSessions(area), day)) {
@@ -122,10 +122,10 @@ function buildClassTimeSlots(input: {
     const startAt = new Date(localDateTimeToIso(dateKey, session.start, timeZone));
 
     if (
-      !isClassSlotStillBookable({
+      !isClassSlotInBookingWindow({
         startAt,
         now,
-        minAdvanceMs,
+        openWindowMs,
       })
     ) {
       continue;

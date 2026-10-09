@@ -13,9 +13,10 @@ import {
   attendeeAlreadyBookedSlot,
   countSlotOccupancy,
   findMatchingClassSession,
-  getMinAdvanceMs,
+  formatAdvanceHours,
+  getClassOpenWindowMs,
   isClassArea,
-  isClassSlotStillBookable,
+  isClassSlotInBookingWindow,
   normalizeAttendeeName,
 } from "@/lib/reservations/class-booking";
 import { getSlotIntervalMinutes, isSlotBasedArea } from "@/lib/reservations/slot-booking";
@@ -153,17 +154,24 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
   }
 
   if (classBooking) {
-    if (
-      !isClassSlotStillBookable({
-        startAt,
-        now,
-        minAdvanceMs: getMinAdvanceMs(area),
-      })
-    ) {
-      const hours = Math.max(1, Math.round(area.min_advance_minutes / 60));
+    if (startAt.getTime() <= now.getTime()) {
       return {
         valid: false,
-        error: `A vaga deve ser confirmada com até ${hours} hora(s) de antecedência da aula.`,
+        error: "Não é possível reservar após o início da aula.",
+      };
+    }
+
+    const openWindowMs = getClassOpenWindowMs(area);
+    if (
+      !isClassSlotInBookingWindow({
+        startAt,
+        now,
+        openWindowMs,
+      })
+    ) {
+      return {
+        valid: false,
+        error: `As reservas desta aula abrem ${formatAdvanceHours(openWindowMs)} antes do início.`,
       };
     }
   } else if (daysBetweenDateKeys(todayKey, startDateKey) < area.min_advance_days) {
@@ -173,8 +181,8 @@ export function validateBooking(input: BookingValidationInput): BookingValidatio
     };
   }
 
-  const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
-  if (area.max_advance_days != null) {
+  if (!classBooking && area.max_advance_days != null) {
+    const daysUntilStart = daysBetweenDateKeys(todayKey, startDateKey);
     if (daysUntilStart > area.max_advance_days) {
       return {
         valid: false,
